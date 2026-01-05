@@ -27,64 +27,53 @@ class SinusoidalPositionEmbeddings(nn.Module):
     
 class AttentionBlock(nn.Module):
     """
-    Blocco di Attenzione simile a quello usato in DDPM++ / NCSN++ (Yang Song).
-    Struttura: GroupNorm -> MultiHead Self-Attention -> Residual.
-    Usa 'Pre-Norm' architecture.
+    1D Attention Block for Financial Time Series.
+    Structure: GroupNorm -> MultiHead Self-Attention -> Residual.
+    Adapted from DDPM++ / CSDI logic for 1D sequences.
     """
     def __init__(self, channels, num_heads=4, num_groups=8):
         super().__init__()
         self.num_heads = num_heads
         self.norm = nn.GroupNorm(num_groups, channels)
         
-        # Proiezione Q, K, V
-        # Song usa spesso conv 1x1 (NIN - Network in Network) per le proiezioni
-        self.qkv = nn.Conv2d(channels, channels * 3, kernel_size=1, bias=False)
-        
-        # Proiezione di output
-        self.proj_out = nn.Conv2d(channels, channels, kernel_size=1)
+        # FIX: Changed to nn.Conv1d for 1D projections
+        self.qkv = nn.Conv1d(channels, channels * 3, kernel_size=1, bias=False)
+        self.proj_out = nn.Conv1d(channels, channels, kernel_size=1)
 
     def forward(self, x):
-        # x shape: (B, C, H, W)
-        b, c, h, w = x.shape
+        # x shape: (B, C, L) where L = 252 or 256
+        b, c, l = x.shape
         
-        # 1. Normalizzazione (Pre-Norm)
+        # 1. Pre-Normalization
         h_ = self.norm(x)
         
-        # 2. Calcolo Q, K, V
-        # (B, 3*C, H, W)
+        # 2. Compute Q, K, V
+        # Result shape: (B, 3*C, L)
         qkv = self.qkv(h_)
         q, k, v = qkv.chunk(3, dim=1)
         
-        # 3. Reshape per Multi-Head Attention
-        # Da (B, C, H, W) a (B, Heads, H*W, C/Heads)
+        # 3. Reshape for Multi-Head Attention
+        # From (B, C, L) to (B, Heads, Head_Dim, L)
         head_dim = c // self.num_heads
-        
-        q = q.view(b, self.num_heads, head_dim, h*w) # (B, Heads, D, N)
-        k = k.view(b, self.num_heads, head_dim, h*w)
-        v = v.view(b, self.num_heads, head_dim, h*w)
+        q = q.view(b, self.num_heads, head_dim, l) 
+        k = k.view(b, self.num_heads, head_dim, l)
+        v = v.view(b, self.num_heads, head_dim, l)
         
         # 4. Scaled Dot-Product Attention
-        # (B, Heads, N, N) dove N = H*W
-        # Trasponiamo Q e K per fare il prodotto scalare
-        # q: (B, H, D, N) -> permute -> (B, H, N, D) per compatibilità logica standard, 
-        # ma qui facciamo einsum o matmul diretto.
-        # Song implementation: torch.einsum('bhdn,bhdm->bhnm', q, k)
-        
+        # Compute compatibility: (B, Heads, L, L)
+        # We use einsum to multiply Head_Dim across the sequence length L
         attn_weights = torch.einsum('bhdn,bhdm->bhnm', q, k) * (head_dim ** -0.5)
-        attn_weights = F.softmax(attn_weights, dim=-1)
+        attn_weights = torch.softmax(attn_weights, dim=-1)
         
         # 5. Aggregate Values
-        # (B, Heads, N, N) * (B, Heads, D, N) -> Attenzione alle dimensioni!
-        # v è (B, H, D, N)
+        # (B, Heads, L, L) @ (B, Heads, Head_Dim, L) -> (B, Heads, Head_Dim, L)
         h_attn = torch.einsum('bhnm,bhdm->bhdn', attn_weights, v)
         
-        # 6. Reshape back to Spatial
-        h_attn = h_attn.contiguous().view(b, c, h, w)
+        # 6. Reshape back to (B, C, L)
+        h_attn = h_attn.contiguous().view(b, c, l)
         
-        # 7. Output Projection & Residual
-        h_attn = self.proj_out(h_attn)
-        
-        return x + h_attn
+        # 7. Output Projection & Residual Connection
+        return x + self.proj_out(h_attn)
 
 # ==========================================
 # 2. RESNET BLOCK (Stile DDPM++/Song con FiLM)
@@ -95,69 +84,60 @@ class ResBlock(nn.Module):
         super().__init__()
         self.out_channels = out_channels if out_channels else in_channels
         
-        # Block 1
+        # Block 1: Changed to Conv1d
         self.norm1 = nn.GroupNorm(num_groups, in_channels)
-        self.conv1 = nn.Conv2d(in_channels, self.out_channels, kernel_size=3, padding=1)
+        self.conv1 = nn.Conv1d(in_channels, self.out_channels, kernel_size=3, padding=1)
         
-        # FiLM (Feature-wise Linear Modulation) Projection
-        # Song usa spesso scale & shift derivati dal time embedding
+        # FiLM Projection
         self.time_proj = nn.Sequential(
             nn.SiLU(),
-            nn.Linear(time_embed_dim, self.out_channels * 2) # *2 per scale e shift
+            nn.Linear(time_embed_dim, self.out_channels * 2)
         )
         
-        # Block 2
+        # Block 2: Changed to Conv1d
         self.norm2 = nn.GroupNorm(num_groups, self.out_channels)
-        self.conv2 = nn.Conv2d(self.out_channels, self.out_channels, kernel_size=3, padding=1)
+        self.conv2 = nn.Conv1d(self.out_channels, self.out_channels, kernel_size=3, padding=1)
         
         self.act = nn.SiLU()
         self.dropout = nn.Dropout(dropout)
         
-        # Shortcut (Skip connection)
+        # Shortcut: Changed to Conv1d
         if in_channels != self.out_channels:
-            self.shortcut = nn.Conv2d(in_channels, self.out_channels, kernel_size=1)
+            self.shortcut = nn.Conv1d(in_channels, self.out_channels, kernel_size=1)
         else:
             self.shortcut = nn.Identity()
 
-        # Attenzione opzionale integrata nel blocco (stile DDPM originale) o esterna
         self.use_attention = use_attention
+        # Ensure AttentionBlock in your components.py is also adapted for 1D/Sequence data
         if self.use_attention:
             self.attention = AttentionBlock(self.out_channels, num_groups=num_groups)
 
     def forward(self, x, t_emb):
         """
-        x: (B, C, H, W) input image/feature
-        t_emb: (B, time_embed_dim) time embedding
+        x: (B, C, L) input time series features
+        t_emb: (B, time_embed_dim) time level embedding
         """
         h = x
         
-        # --- Part 1 ---
         h = self.norm1(h)
         h = self.act(h)
         h = self.conv1(h)
         
-        # --- Time Injection (FiLM) ---
-        # Proiettiamo t_emb
+        # Time Injection (FiLM)
         t_vec = self.time_proj(t_emb) # (B, 2*out_channels)
-        # Reshape per broadcasting (B, 2*C, 1, 1)
-        t_vec = t_vec[:, :, None, None]
+        # FIX: Changed broadcasting to match 1D length L (B, 2*C, 1)
+        t_vec = t_vec[:, :, None]
         scale, shift = t_vec.chunk(2, dim=1)
         
-        # --- Part 2 ---
         h = self.norm2(h)
-        # Applico FiLM: Normalize -> Scale -> Shift -> Act
+        # Apply FiLM for 1D
         h = h * (1 + scale) + shift 
         h = self.act(h)
         h = self.dropout(h)
         h = self.conv2(h)
         
-        # --- Combine ---
-        h = h + self.shortcut(x)
-        
-        if self.use_attention:
-            h = self.attention(h)
-            
-        return h
+        # Combine
+        return h + self.shortcut(x)
     
 
 

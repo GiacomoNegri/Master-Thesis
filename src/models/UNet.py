@@ -5,13 +5,13 @@ import torch.nn.functional as F
 
 class UNet(nn.Module):
     def __init__(self, 
-                 in_channels=4, 
-                 model_channels=32, 
-                 out_channels=4, 
-                 channel_mults=(1, 2, 4, 8),
+                 in_channels=5, 
+                 model_channels=64, 
+                 out_channels=5, 
+                 channel_mults=(1, 2, 4),
                  attn_resolutions=(16,), # Risoluzioni dove applicare Attenzione
                  num_res_blocks=2,
-                 dropout=0.0,
+                 dropout=0.1,
                  num_attributes=40):
         super().__init__()
         
@@ -34,7 +34,7 @@ class UNet(nn.Module):
         )
         
         # 2. Input Convolution
-        self.input_conv = nn.Conv2d(in_channels, model_channels, kernel_size=3, padding=1)
+        self.input_conv = nn.Conv1d(in_channels, model_channels, kernel_size=3, padding=1)
         
         # 3. Downsampling (Encoder)
         self.down_blocks = nn.ModuleList()
@@ -69,7 +69,7 @@ class UNet(nn.Module):
                 
             # Downsample (eccetto ultimo livello)
             if level != len(channel_mults) - 1:
-                self.down_blocks.append(nn.Conv2d(current_channels, current_channels, 3, stride=2, padding=1))
+                self.down_blocks.append(nn.Conv1d(current_channels, current_channels, 3, stride=2, padding=1))
                 self.skips_config.append(current_channels)
                 ds *= 2
 
@@ -113,7 +113,7 @@ class UNet(nn.Module):
         # 6. Final Output
         self.out_norm = nn.GroupNorm(8, current_channels)
         self.out_act = nn.SiLU()
-        self.out_conv = nn.Conv2d(current_channels, out_channels, kernel_size=3, padding=1)
+        self.out_conv = nn.Conv1d(current_channels, out_channels, kernel_size=3, padding=1)
 
     def forward(self, x, t, labels = None):
         # Time Embedding
@@ -156,8 +156,8 @@ class UNet(nn.Module):
                 skip = skips.pop()
                 
                 # Check dimension mismatch (può capitare con input non potenze di 2)
-                if x.shape[-2:] != skip.shape[-2:]:
-                    x = F.interpolate(x, size=skip.shape[-2:], mode='bilinear', align_corners=False)
+                if x.shape[-1:] != skip.shape[-1:]:
+                    x = F.interpolate(x, size=skip.shape[-1:], mode='linear', align_corners=False)
                 
                 x = torch.cat([x, skip], dim=1)
                 x = layer(x, cond_emb)

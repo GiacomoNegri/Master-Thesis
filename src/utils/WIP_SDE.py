@@ -128,7 +128,7 @@ class SDE(abc.ABC):
                 drift, diffusion = sde_fn(x, t)
                 score = score_fn(x, t, labels)
                 # Assume diffusion is (B,)
-                diff_sq = diffusion[:, None, None, None] ** 2
+                diff_sq = diffusion[:, None, None] ** 2
                 factor = 0.5 if self.probability_flow else 1.0
                 drift = drift - diff_sq * score * factor
                 diffusion_rev = 0.0 if self.probability_flow else diffusion
@@ -139,7 +139,7 @@ class SDE(abc.ABC):
                 f, G = discretize_fn(x, t)
                 score = score_fn(x, t, labels)
                 factor = 0.5 if self.probability_flow else 1.0
-                G_sq = G[:, None, None, None] ** 2
+                G_sq = G[:, None, None] ** 2
                 rev_f = f - G_sq * score * factor
                 rev_G = torch.zeros_like(G) if self.probability_flow else G
                 
@@ -267,7 +267,7 @@ class VPSDE(BetaScheduleSDE):
             g(t)^2  = β(t)
         """
         beta_t = self.beta(t)  # (B,)
-        drift = -0.5 * beta_t[:, None, None, None] * x
+        drift = -0.5 * beta_t[:, None, None] * x
         diffusion = torch.sqrt(self.g_squared(t))  # (B,)
         return drift, diffusion
 
@@ -282,7 +282,7 @@ class VPSDE(BetaScheduleSDE):
         """
         alpha_t = self.mean_coeff(t)            # (B,)
         std = torch.sqrt(self.var(t))          # (B,)
-        mean = alpha_t[:, None, None, None] * x0
+        mean = alpha_t[:, None, None] * x0
         return mean, std
 
     def prior_sampling(self, shape, dtype = torch.float32):
@@ -343,7 +343,7 @@ class SubVPSDE(BetaScheduleSDE):
             g(t)^2  = β(t)[1 - exp(-2∫_0^t β(s) ds)]
         """
         beta_t = self.beta(t)  # (B,)
-        drift = -0.5 * beta_t[:, None, None, None] * x
+        drift = -0.5 * beta_t[:, None, None] * x
         diffusion = torch.sqrt(self.g_squared(t))  # (B,)
         return drift, diffusion
 
@@ -358,7 +358,7 @@ class SubVPSDE(BetaScheduleSDE):
         """
         alpha_t = self.mean_coeff(t)            # (B,)
         std = torch.sqrt(self.var(t))          # (B,)
-        mean = alpha_t[:, None, None, None] * x0
+        mean = alpha_t[:, None, None] * x0
         return mean, std
 
     def prior_sampling(self, shape, dtype = torch.float32):

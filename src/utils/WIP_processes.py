@@ -69,7 +69,7 @@ class Diffusion_Processes:
         # Broadcast std to match z0
 
         # Construct z_t
-        z_t = mean + std[:, None, None, None] * eps
+        z_t = mean + std[:, None, None] * eps
 
         return z_t, t, eps
 

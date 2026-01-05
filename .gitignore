@@ -20,3 +20,7 @@ git rm -r --cached notebooks/weights_visualization/
 git rm -r --cached images/
 
 .virtual_documents/
+
+configs/
+datasets/
+checkpoints/

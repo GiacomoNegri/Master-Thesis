@@ -37,7 +37,7 @@ class LDMLightningModule(pl.LightningModule):
         self.n_timesteps = hparams['n_timesteps'] # N for IS calculation
         self.cfg = cfg 
         self.eps = float(cfg['eps'])
-        self.ema_model = hparams['ema']
+        # self.ema_model = hparams['ema']
 
         self.cfg_mask_prob = cfg.get('cfg_mask_prob', 0.1)
 
@@ -59,7 +59,7 @@ class LDMLightningModule(pl.LightningModule):
         #     if batch.min() < -1.1 or batch.max() > 1.1:
         #         print("  WARNING: Input data seems out of range [-1, 1]!")
 
-
+        print("Batch shape:", batch)
         # 1. Encode Data (x_0) and Apply VAE Scale Factor & # Masking for conditional generation
         if self.cfg['conditional'] == True:
             x_start_latents, labels = batch # Assumes Dataloader yields pixel tensor
@@ -67,22 +67,23 @@ class LDMLightningModule(pl.LightningModule):
             mask = torch.bernoulli(torch.full((batch_size, 1), 1- self.cfg_mask_prob, device=self.device))
             cond_labels = labels * mask
         else:
-            x_start_latents, _ = batch
+            x_start_latents = batch[0]
             batch_size = x_start_latents.shape[0]
             cond_labels = None
         
+        print("x_start_latents shape:", x_start_latents.shape)
         #print(f"1. [INPUT] Pixels Shape: {x_start_latents.shape}")
 
-        with torch.no_grad():
+        # with torch.no_grad():
 
-            x_start_latents = self.encode_latents(x_start_latents) * self.vae_scale_factor
+        #     x_start_latents = self.encode_latents(x_start_latents) * self.vae_scale_factor
 
         #print(f"1. [INPUT] Pixels Shape after encoding: {x_start_latents.shape}")
 
 
-        if self.global_step % 100 == 0:
-            var_lat = x_start_latents.var()
-            mean_lat = x_start_latents.mean()
+        # if self.global_step % 100 == 0:
+        #     var_lat = x_start_latents.var()
+        #     mean_lat = x_start_latents.mean()
             #print(f"  Latents (scaled): Mean={mean_lat:.4f}, Var={var_lat:.4f}")
             # if var_lat < 0.5 or var_lat > 2.0:
             #     print(f"  WARNING: Latent Variance is {var_lat:.4f}. Expected ~1.0. Check VAE Scale Factor!")
@@ -169,7 +170,7 @@ class LDMLightningModule(pl.LightningModule):
 
     def training_step(self, batch, batch_idx):
         
-        loss, loss_detached = self._get_weighted_loss(batch, is_probabilities = self.hparams.is_probabilities)
+        loss, loss_detached = self._get_weighted_loss(batch)
         self.log('train_loss', loss_detached, on_step=True, on_epoch=True, prog_bar=True, logger=True)
         return loss
 
