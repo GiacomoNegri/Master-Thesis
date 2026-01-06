@@ -16,8 +16,8 @@ import matplotlib
 matplotlib.use('Agg') 
 
 # 2. Setup Paths (Mirroring your sys.path logic)
-p1 = Path.cwd().parent
-p2 = Path.cwd().parent.parent
+p1 = Path.cwd()
+p2 = Path.cwd().parent
 csdi_dir = p2 / "CSDI"
 sys.path.insert(0, str(csdi_dir))
 sys.path.insert(0, str(p1 / "data"))
@@ -48,10 +48,10 @@ def run_experiment():
     device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
 
     # 5. Load Config & Dataloaders
-    with open("../configs/base_csdi.yaml", "r") as f:
+    with open("configs/base_csdi.yaml", "r") as f:
         config = yaml.safe_load(f)
 
-    df = pd.read_csv(f'../data/{ticker}_{start_date}_{end_date}_processed.csv')
+    df = pd.read_csv(f'data/{ticker}_{start_date}_{end_date}_processed.csv')
     
     full_dataset = FinancialDataset(df, seq_len=seq_len)
     total_len = len(full_dataset)
