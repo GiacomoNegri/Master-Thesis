@@ -8,7 +8,6 @@ import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
 from pathlib import Path
-from tqdm import tqdm
 from torch.utils.data import DataLoader, Subset
 
 # 1. HPC PRE-REQUISITE: Use non-interactive backend for plots
