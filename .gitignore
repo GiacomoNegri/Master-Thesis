@@ -24,3 +24,4 @@ git rm -r --cached images/
 configs/
 datasets/
 checkpoints/
+outputs/
