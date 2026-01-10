@@ -198,7 +198,7 @@ def main():
             model.eval()
             with torch.no_grad():
                 val_batch = next(iter(val_loader))
-                vloss = model(val_batch, is_train=0)
+                vloss = model(val_batch, is_train=1)
                 val_loss = float(vloss.item()) if hasattr(vloss, "item") else float(vloss)
                 history["val_loss"].append(val_loss)
 
