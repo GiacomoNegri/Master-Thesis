@@ -26,7 +26,6 @@ The core idea of this thesis is to **embed financial structure directly into the
 
    This aims to reflect realistic **heteroskedasticity**: higher prices naturally carry higher volatility.
 
-2. **Reverse process – 1D U-Net EDM**
+2. **Reverse process – CSDI Transformer based architecture within the EDM framework**
 
-   - The reverse-time SDE is parameterized by a **1D U-Net denoiser** trained in the **Elucidated Diffusion Model (EDM)** framework, using noise-level preconditioning so that the network always operates on approximately unit-variance inputs.:contentReference[oaicite:5]{index=5}  
-   - Architectural and conditioning choices (time / diffusion embeddings, sequ
+   - The reverse-time SDE is parameterized by a **Transformer denoiser** trained in the **Elucidated Diffusion Model (EDM)** framework, using noise-level preconditioning so that the network always operates on approximately unit-variance inputs.:contentReference[oaicite:5]{index=5} 
