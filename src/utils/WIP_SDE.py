@@ -3,8 +3,74 @@ import math
 from typing import Tuple
 
 import numpy as np
-import torch
+import torch    
 
+# ============================================================
+# Sigma Scheduler, single scheduler
+# ============================================================
+
+from dataclasses import dataclass
+
+from dataclasses import dataclass
+
+
+@dataclass(frozen=True)
+class SigmaSchedule:
+    """
+    Continuous sigma(t) schedule on t in [0, 1] with analytic derivative.
+    Used by VE-style forward processes (including the paper's GBM->log reduction).
+
+    Supported:
+      - linear:      sigma(t) = s0 + t (s1 - s0)
+      - exponential: sigma(t) = s0 * (s1/s0)^t
+      - cosine:      sigma(t) = s0 + 0.5 (s1 - s0) (1 - cos(pi t))
+    """
+    sigma_min: float = 0.01
+    sigma_max: float = 1.0
+    schedule: str = "exponential"  # paper-style VE often uses exponential by default
+
+    def sigma(self, t: torch.Tensor) -> torch.Tensor:
+        if self.schedule == "linear":
+            return t.new_tensor(self.sigma_min) + t * (self.sigma_max - self.sigma_min)
+
+        if self.schedule == "exponential":
+            s0 = t.new_tensor(self.sigma_min)
+            ratio = t.new_tensor(self.sigma_max / self.sigma_min)
+            return s0 * (ratio ** t)
+
+        if self.schedule == "cosine":
+            s0 = t.new_tensor(self.sigma_min)
+            amp = t.new_tensor(0.5 * (self.sigma_max - self.sigma_min))
+            return s0 + amp * (1.0 - torch.cos(math.pi * t))
+
+        raise ValueError("SigmaSchedule.schedule must be one of: 'linear', 'exponential', 'cosine'")
+
+    def dsigma_dt(self, t: torch.Tensor) -> torch.Tensor:
+        """Analytic derivative d/dt sigma(t)."""
+        if self.schedule == "linear":
+            return t.new_tensor(self.sigma_max - self.sigma_min)
+
+        if self.schedule == "exponential":
+            sigma_t = self.sigma(t)
+            return sigma_t * t.new_tensor(math.log(self.sigma_max / self.sigma_min))
+
+        if self.schedule == "cosine":
+            amp = t.new_tensor(0.5 * (self.sigma_max - self.sigma_min))
+            return amp * t.new_tensor(math.pi) * torch.sin(math.pi * t)
+
+        raise ValueError("SigmaSchedule.schedule must be one of: 'linear', 'exponential', 'cosine'")
+
+    def g(self, t: torch.Tensor) -> torch.Tensor:
+        """
+        Diffusion coefficient g(t) such that the marginal std is sigma(t).
+        If X_t = X_0 + ∫_0^t g(s) dW_s, then Var[X_t|X_0] = ∫_0^t g(s)^2 ds.
+        To make std(t) = sigma(t), we need: d/dt (sigma(t)^2) = g(t)^2.
+        """
+        sigma_t = self.sigma(t)
+        dsdt = self.dsigma_dt(t)
+        g2 = 2.0 * sigma_t * dsdt
+        # numeric safety (should be non-negative analytically for our schedules)
+        return torch.sqrt(torch.clamp(g2, min=0.0))
 
 # ============================================================
 # Abstract base SDE, following Yang Song's design
@@ -179,8 +245,8 @@ class BetaScheduleSDE(SDE):
         super().__init__(N)
         self.beta_0 = beta_min
         self.beta_1 = beta_max
-        if schedule not in ("linear", "exponential"):
-            raise ValueError("schedule must be 'linear' or 'exponential'")
+        if schedule not in ("linear", "exponential", "cosine"):
+            raise ValueError("schedule must be 'linear' or 'exponential' or 'cosine'")
         self.schedule = schedule
 
         if self.schedule == "exponential":
@@ -198,9 +264,13 @@ class BetaScheduleSDE(SDE):
         if self.schedule == "linear":
             return self.beta_0 + t * (self.beta_1 - self.beta_0)
 
-        # exponential
-        k = t.new_tensor(self._k)
-        return t.new_tensor(self.beta_0) * torch.exp(k * t)
+        if self.schedule == "exponential":
+            k = t.new_tensor(self._k)
+            return t.new_tensor(self.beta_0) * torch.exp(k * t)
+
+        # cosine: smooth from beta_0 to beta_1
+        # beta(t) = beta_0 + 0.5*(beta_1-beta_0)*(1 - cos(pi t))
+        return t.new_tensor(self.beta_0) + 0.5 * t.new_tensor(self.beta_1 - self.beta_0) * (1.0 - torch.cos(math.pi * t))
 
     def B(self, t: torch.Tensor) -> torch.Tensor:
         """
@@ -215,6 +285,13 @@ class BetaScheduleSDE(SDE):
             return (beta0 / k) * (torch.exp(k * t) - 1.0)
 
         # Should never reach here
+        # integral of cosine beta(t):
+        # ∫ [beta0 + 0.5*(beta1-beta0)*(1 - cos(pi s))] ds
+        # = beta0*t + 0.5*(beta1-beta0)*(t - (1/pi)sin(pi t))
+        beta0 = t.new_tensor(self.beta_0)
+        delta = t.new_tensor(self.beta_1 - self.beta_0)
+        return beta0 * t + 0.5 * delta * (t - (1.0 / math.pi) * torch.sin(math.pi * t))
+    
         raise ValueError("Invalid schedule in BetaScheduleSDE")
 
     def mean_coeff(self, t: torch.Tensor) -> torch.Tensor:
@@ -386,20 +463,28 @@ class VESDE(SDE):
     Variance Exploding SDE, re-written as a subclass of SDE.
     """
 
-    def __init__(self, sigma_min: float = 0.01, sigma_max: float = 50.0, N: int = 1000):
+    def __init__(self, sigma_min: float = 0.01, sigma_max: float = 1.0, N: int = 1000, schedule: str = "exponential"):
         """
         Args:
             sigma_min: smallest sigma.
             sigma_max: largest sigma.
             N: number of discretization steps.
         """
+        # super().__init__(N)
+        # self.sigma_min = sigma_min
+        # self.sigma_max = sigma_max
+        # # Precomputed discrete sigmas for SMLD-style discretization
+        # self.discrete_sigmas = torch.exp(
+        #     torch.linspace(np.log(self.sigma_min), np.log(self.sigma_max), N)
+        # )
         super().__init__(N)
-        self.sigma_min = sigma_min
-        self.sigma_max = sigma_max
-        # Precomputed discrete sigmas for SMLD-style discretization
-        self.discrete_sigmas = torch.exp(
-            torch.linspace(np.log(self.sigma_min), np.log(self.sigma_max), N)
+        self.sigma_schedule = SigmaSchedule(
+            sigma_min=sigma_min, sigma_max=sigma_max, schedule=schedule
         )
+
+        # Discrete sigmas for SMLD-like discretization (optional, but kept)
+        sigmas = torch.linspace(0.0, 1.0, N)
+        self.discrete_sigmas = self.sigma_schedule.sigma(sigmas)
 
     @property
     def T(self) -> float:
@@ -410,21 +495,22 @@ class VESDE(SDE):
         Time-dependent noise scale σ(t) for VE:
             σ(t) = σ_min (σ_max / σ_min)^t
         """
-        return self.sigma_min * (self.sigma_max / self.sigma_min) ** t
+        return self.sigma_schedule.sigma(t)
 
     def diffusion_coeff(self, t: torch.Tensor) -> torch.Tensor:
         """
         Diffusion coefficient g(t) of the VE SDE:
             g(t) = σ(t) * sqrt( 2 (log σ_max - log σ_min) )
         """
-        sigma = self.sigma_t(t)
-        return sigma * torch.sqrt(
-            torch.tensor(
-                2.0 * (np.log(self.sigma_max) - np.log(self.sigma_min)),
-                device=t.device,
-                dtype=t.dtype,
-            )
-        )
+        # sigma = self.sigma_t(t)
+        # return sigma * torch.sqrt(
+        #     torch.tensor(
+        #         2.0 * (np.log(self.sigma_max) - np.log(self.sigma_min)),
+        #         device=t.device,
+        #         dtype=t.dtype,
+        #     )
+        # )
+        return self.sigma_schedule.g(t)
 
     # ---- Core SDE interface ----
 
@@ -457,12 +543,16 @@ class VESDE(SDE):
         """
         Gaussian prior with variance σ_max^2.
         """
-        return torch.randn(*shape, dtype = dtype) * self.sigma_max
+        # return torch.randn(*shape, dtype = dtype) * self.sigma_max
+        sigma_max = self.sigma_schedule.sigma_max
+        return torch.randn(*shape, dtype=dtype) * sigma_max
 
     def prior_logp(self, z: torch.Tensor) -> torch.Tensor:
         """
         Log-density of N(0, σ_max^2 I).
         """
+        sigma_max = self.sigma_schedule.sigma_max
+
         batch_size = z.size(0)
         d = z[0].numel()
         quadratic = z.view(batch_size, -1).pow(2).sum(dim=1)
@@ -488,5 +578,93 @@ class VESDE(SDE):
             sigmas[timestep - 1],
         )
         f = torch.zeros_like(x)
-        G = torch.sqrt(sigma**2 - adjacent_sigma**2)
+        G = torch.sqrt(torch.clamp(sigma**2 - adjacent_sigma**2, min=0.0))
         return f, G
+
+    
+class GBMLogSDE(SDE):
+    """
+    GBM-inspired forward diffusion in *log-space*.
+
+    Start from a price-space multiplicative noise model:
+        dS_t = μ_t S_t dt + σ_t S_t dW_t
+
+    Let X_t = log S_t. By Ito:
+        dX_t = (μ_t - 0.5 σ_t^2) dt + σ_t dW_t
+
+    Choosing μ_t = 0.5 σ_t^2 makes:
+        dX_t = σ_t dW_t
+
+    So in log-space this becomes a VE-style process with time-varying σ(t).
+    We implement it exactly like VE with configurable sigma schedule.
+    """
+
+    def __init__(
+        self,
+        sigma_min: float = 0.01,
+        sigma_max: float = 1.0,
+        N: int = 1000,
+        schedule: str = "exponential",
+    ):
+        super().__init__(N)
+        self.sigma_schedule = SigmaSchedule(
+            sigma_min=sigma_min, sigma_max=sigma_max, schedule=schedule
+        )
+
+    @property
+    def T(self) -> float:
+        return 1.0
+
+    def sigma_t(self, t: torch.Tensor) -> torch.Tensor:
+        return self.sigma_schedule.sigma(t)
+
+    def sde(self, x: torch.Tensor, t: torch.Tensor):
+        # In log-space: drift = 0, diffusion = g(t) matching std(t)=sigma(t)
+        drift = torch.zeros_like(x)
+        diffusion = self.sigma_schedule.g(t)
+        return drift, diffusion
+
+    def marginal_prob(self, x0: torch.Tensor, t: torch.Tensor) -> Tuple[torch.Tensor, torch.Tensor]:
+        mean = x0
+        std = self.sigma_t(t)
+        return mean, std
+
+    def prior_sampling(self, shape, dtype=torch.float32):
+        return torch.randn(*shape, dtype=dtype) * self.sigma_schedule.sigma_max
+
+    def prior_logp(self, z: torch.Tensor) -> torch.Tensor:
+        sigma_max = self.sigma_schedule.sigma_max
+        batch_size = z.size(0)
+        d = z[0].numel()
+        quadratic = z.view(batch_size, -1).pow(2).sum(dim=1)
+        return -0.5 * (
+            quadratic / (sigma_max**2) + d * math.log(2.0 * math.pi * sigma_max**2)
+        )
+    
+
+# ============================================================
+# Easier access for test
+# ============================================================
+
+def sample_uniform_time(batch_size: int, device=None, dtype=torch.float32, T: float = 1.0) -> torch.Tensor:
+    """
+    Sample t ~ Uniform(0, T) as a (B,) tensor.
+    """
+    device = device if device is not None else torch.device("cpu")
+    return torch.rand(batch_size, device=device, dtype=dtype) * T
+
+
+@torch.no_grad()
+def perturb_x0(sde: SDE, x0: torch.Tensor, t: torch.Tensor) -> Tuple[torch.Tensor, torch.Tensor]:
+    """
+    Given x0 and times t, generate x_t = mean(t) + std(t) * eps.
+    Returns:
+        x_t, eps
+    """
+    mean, std = sde.marginal_prob(x0, t)
+    eps = torch.randn_like(x0)
+    # std is (B,) broadcastable -> expand along remaining dims
+    while std.ndim < x0.ndim:
+        std = std.unsqueeze(-1)
+    xt = mean + std * eps
+    return xt, eps
