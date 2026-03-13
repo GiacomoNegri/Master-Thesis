@@ -194,7 +194,8 @@ class SDE(abc.ABC):
                 drift, diffusion = sde_fn(x, t)
                 score = score_fn(x, t, labels)
                 # Assume diffusion is (B,)
-                diff_sq = diffusion[:, None, None] ** 2
+                # diff_sq = diffusion[:, None, None] ** 2
+                diff_sq = diffusion.view(-1, *([1] * (x.dim() - 1))) ** 2
                 factor = 0.5 if self.probability_flow else 1.0
                 drift = drift - diff_sq * score * factor
                 diffusion_rev = 0.0 if self.probability_flow else diffusion
@@ -205,7 +206,8 @@ class SDE(abc.ABC):
                 f, G = discretize_fn(x, t)
                 score = score_fn(x, t, labels)
                 factor = 0.5 if self.probability_flow else 1.0
-                G_sq = G[:, None, None] ** 2
+                # G_sq = G[:, None, None] ** 2
+                G_sq    = G.view(-1, *([1] * (x.dim() - 1))) ** 2
                 rev_f = f - G_sq * score * factor
                 rev_G = torch.zeros_like(G) if self.probability_flow else G
                 
