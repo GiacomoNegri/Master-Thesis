@@ -5,14 +5,17 @@ import json
 import random
 from dataclasses import dataclass
 from typing import Dict, Any, Tuple, Optional
+from tqdm import tqdm
+import time
 
 import numpy as np
 import torch
 import torch.nn as nn
 from torch.optim import AdamW
 
-from model_core import CSDIModel
+from src.models.model_core import CSDIModel
 from src.utils.WIP_processes import Diffusion_Processes
+from src.utils.dataloader import make_dataloader
 
 
 # ----------------------------
@@ -101,7 +104,7 @@ def train(
     set_seed(int(config["train"]["seed"]))
 
     # 1) Instantiate diffusion processes (forward noising) based on SDE definitions
-    processes = Diffusion_Processes(config["process"]).to if False else Diffusion_Processes(config["process"])
+    processes = Diffusion_Processes(config["process"])
     # forward_process uses sde.marginal_prob(x0,t) under the hood :contentReference[oaicite:4]{index=4}:contentReference[oaicite:5]{index=5}
 
     # 2) Instantiate denoiser model (CSDIModel wraps diff_CSDI backbone)
@@ -125,9 +128,32 @@ def train(
     os.makedirs(out_dir, exist_ok=True)
     save_every = int(config["train"]["save_every_steps"])
 
+    # Add for tracking
+    num_epochs = int(config["train"]["epochs"])
+    steps_per_epoch = len(train_loader)
+    total_steps = num_epochs * steps_per_epoch
+    
     global_step = 0
-    for epoch in range(int(config["train"]["epochs"])):
-        for batch in train_loader:
+    # for epoch in range(int(config["train"]["epochs"])):
+    for epoch in range(num_epochs):
+        model.train()
+        pbar = tqdm(
+            enumerate(train_loader),
+            total=steps_per_epoch,
+            desc=f"epoch {epoch+1}/{num_epochs}",
+            dynamic_ncols=True,
+        )
+
+        # Just for tracking performance
+        epoch_loss_sum = 0.0
+        epoch_loss_count = 0
+        ema_loss = None
+        ema_beta = float(config["train"].get("ema_beta", 0.98))  # smoothing
+        # Just for tracking performance
+
+        t0 = time.time()
+
+        for batch_idx, batch in pbar:
             observed_data, observed_mask, observed_tp = unpack_batch(batch, device)
 
             # (A) Build conditioning mask (what the model can see as context)
@@ -165,6 +191,17 @@ def train(
                 )  # (B,K,L)
 
                 loss = masked_mse(eps_hat, eps, target_mask)
+            
+            # Just for tracking performance
+            loss_val = float(loss.detach().item())
+            epoch_loss_sum += loss_val
+            epoch_loss_count += 1
+
+            if ema_loss is None:
+                ema_loss = loss_val
+            else:
+                ema_loss = ema_beta * ema_loss + (1.0 - ema_beta) * loss_val
+            # Just for tracking performance
 
             # (E) Optimize
             optim.zero_grad(set_to_none=True)
@@ -173,6 +210,27 @@ def train(
             scaler.update()
 
             global_step += 1
+
+            # Just for tracking performance
+            elapsed = time.time() - t0
+            steps_done = batch_idx + 1
+            it_per_s = steps_done / max(elapsed, 1e-9)
+
+            pbar.set_postfix({
+                "step": global_step,
+                "loss": f"{loss_val:.4f}",                 # last batch loss
+                "ema": f"{ema_loss:.4f}",                  # smoothed loss
+                "avg": f"{(epoch_loss_sum/epoch_loss_count):.4f}",  # epoch running avg
+                "it/s": f"{it_per_s:.2f}",
+                "t": f"{t_idx.float().mean().item():.1f}",
+            })
+            # Update bar every step (cheap)
+            pbar.set_postfix({
+                "step": global_step,
+                "loss": f"{loss.item():.4f}",
+                "t": f"{t_idx.float().mean().item():.1f}",
+            })
+            # Just for tracking performance
 
             # (F) Logging (minimal)
             if global_step % int(config["train"]["log_every_steps"]) == 0:
@@ -232,7 +290,8 @@ if __name__ == "__main__":
         },
         "train": {
             "seed": 42,
-            "epochs": 20,
+            "epochs": 1,
+            "batch_size":32,
             "lr": 1e-4,
             "weight_decay": 1e-4,
             "use_amp": True,
@@ -240,14 +299,29 @@ if __name__ == "__main__":
             "cond_max_ratio": 0.9,         # reveal at most 90%
             "log_every_steps": 50,
             "save_every_steps": 1000,
-            "out_dir": "./runs/csdi",
+            "seq_len":252,
+            "stride":5,
+            "num_workers":0,
+            "shuffle":False,
+            "pin_memory": False, #pin_memory=True tells the loader to allocate batch tensors in page-locked (pinned) CPU memory.
+            "out_dir": "./checkpoints/csdi",
+            "data_root": "./data/sp500_individual_gbm"
         },
     }
 
-    # You said you will define the DataLoader.
-    # So here you would do:
-    #
-    #   train_loader = DataLoader(...)
-    #   train(config, train_loader)
-    #
-    raise RuntimeError("Create your DataLoader and call train(config, train_loader).")
+    train_loader = make_dataloader(
+        root_dir=config["train"]["data_root"],
+        batch_size=config["train"]["batch_size"],
+        seq_len=config["train"]["seq_len"],
+        stride=config["train"]["stride"],
+        num_workers=config["train"]["num_workers"],
+        shuffle=config["train"]["shuffle"],
+        pin_memory=config["train"]["pin_memory"],
+    )
+
+    #Sanity check all good, you sure, sure 10000%.
+    batch = next(iter(train_loader))
+    print(batch["observed_data"].shape, batch["observed_mask"].shape, batch["observed_tp"].shape)
+
+    train(config, train_loader)
+    print("Training is finished")

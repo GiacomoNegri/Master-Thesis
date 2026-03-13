@@ -1,7 +1,7 @@
 # model_core.py
 import torch
 import torch.nn as nn
-from diff_models import diff_CSDI
+from .diff_models import diff_CSDI
 
 class CSDIModel(nn.Module):
     """
