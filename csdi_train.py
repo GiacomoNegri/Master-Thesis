@@ -254,6 +254,9 @@ def train(
                     ckpt_path,
                 )
                 print(f"Saved: {ckpt_path}")
+            
+            epoch_avg = epoch_loss_sum / max(epoch_loss_count, 1)
+            print(f"[epoch {epoch+1}/{num_epochs}] avg_train_loss={epoch_avg:.6f}")
 
     # Final save
     torch.save({"model": model.state_dict(), "config": config}, os.path.join(out_dir, "final.pt"))
