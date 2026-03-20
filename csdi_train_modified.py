@@ -12,6 +12,7 @@ import numpy as np
 import torch
 import torch.nn as nn
 from torch.optim import AdamW
+from torch.utils.data import DataLoader, Subset
 
 from src.models.model_core import CSDIModel
 from src.utils.WIP_processes import Diffusion_Processes
@@ -98,6 +99,20 @@ def parse_args():
     # data overrides
     parser.add_argument("--target_dim", type=int, default=None)
 
+    # resume training
+    parser.add_argument(
+        "--resume_checkpoint",
+        type=str,
+        default=None,
+        help="Path to a checkpoint .pt file to resume training from"
+        )
+    
+    # training only on a portion
+    parser.add_argument("--train_subset_ratio", type=float, default=None,
+                    help="Fraction of dataset to use for training, e.g. 0.1 for 10%")
+    parser.add_argument("--train_subset_size", type=int, default=None,
+                        help="Number of samples to use for training")
+
     return parser.parse_args()
 
 # ----------------------------
@@ -151,6 +166,10 @@ def build_cli_override_dict(args) -> Dict[str, Any]:
         override["train"]["data_root"] = args.data_root
     if args.out_dir is not None:
         override["train"]["out_dir"] = args.out_dir
+    if args.train_subset_ratio is not None:
+        override["train"]["train_subset_ratio"] = args.train_subset_ratio
+    if args.train_subset_size is not None:
+        override["train"]["train_subset_size"] = args.train_subset_size
 
     # remove empty sections
     override = {k: v for k, v in override.items() if v}
@@ -166,7 +185,7 @@ def get_final_config() -> Dict[str, Any]:
     cli_override = build_cli_override_dict(args)
 
     final_config = deep_update(yaml_config, cli_override)
-    return final_config
+    return final_config, args
 
 # ----------------------------
 # Reproducibility
@@ -245,22 +264,171 @@ def masked_mse(eps_hat: torch.Tensor, eps: torch.Tensor, target_mask: torch.Tens
 # ----------------------------
 # Main training loop
 # ----------------------------
+
+# Helper function so that we save the model each epoch if less than 5 epoch training or each 5 epochs otherwise
+def get_checkpoint_save_interval(num_epochs: int) -> int:
+    """
+    Save every epoch if total epochs <= 5, otherwise every 5 epochs.
+    """
+    return 1 if num_epochs <= 5 else 5
+
+# Helper funciton to report the checkpoints parameters
+def build_run_metadata(config: Dict[str, Any]) -> Dict[str, Any]:
+    """
+    Flatten the most relevant config values for quick inspection in saved .pt files.
+    The full config is still saved separately.
+    """
+    return {
+        "train": {
+            "seed": config["train"]["seed"],
+            "epochs": config["train"]["epochs"],
+            "batch_size": config["train"]["batch_size"],
+            "lr": config["train"]["lr"],
+            "weight_decay": config["train"]["weight_decay"],
+            "use_amp": config["train"]["use_amp"],
+            "cond_min_ratio": config["train"]["cond_min_ratio"],
+            "cond_max_ratio": config["train"]["cond_max_ratio"],
+            "seq_len": config["train"]["seq_len"],
+            "stride": config["train"]["stride"],
+        },
+        "process": {
+            "sde_type": config["process"]["sde_type"],
+            "N": config["process"]["N"],
+            "model_steps": config["process"]["model_steps"],
+            "eps": config["process"].get("eps", 1e-3),
+            "enforce_observed": config["process"].get("enforce_observed", True),
+        },
+        "diffusion": {
+            "num_steps": config["diffusion"]["num_steps"],
+            "diffusion_embedding_dim": config["diffusion"]["diffusion_embedding_dim"],
+            "channels": config["diffusion"]["channels"],
+            "layers": config["diffusion"]["layers"],
+            "nheads": config["diffusion"]["nheads"],
+            "is_linear": config["diffusion"]["is_linear"],
+        },
+        "model": {
+            "timeemb": config["model"]["timeemb"],
+            "featureemb": config["model"]["featureemb"],
+            "is_unconditional": config["model"]["is_unconditional"],
+        },
+        "data": {
+            "target_dim": config["data"]["target_dim"],
+        },
+    }
+
+# For resuming training
+
+def make_checkpoint_payload(
+    model: nn.Module,
+    optim: torch.optim.Optimizer,
+    scaler: torch.cuda.amp.GradScaler,
+    config: Dict[str, Any],
+    epoch: int,
+    global_step: int,
+    history: Dict[str, Any],
+) -> Dict[str, Any]:
+    return {
+        "epoch": epoch,
+        "global_step": global_step,
+        "model": model.state_dict(),
+        "optim": optim.state_dict(),
+        "scaler": scaler.state_dict(),
+        "config": config,                       # full config
+        "run_metadata": build_run_metadata(config),  # quick-access summary
+        "history": history,
+    }
+
+
+def load_checkpoint(
+    ckpt_path: str,
+    model: nn.Module,
+    optim: torch.optim.Optimizer,
+    scaler: torch.cuda.amp.GradScaler,
+    device: torch.device,
+) -> Tuple[int, int, Dict[str, Any]]:
+    """
+    Loads checkpoint and returns:
+      start_epoch, global_step, history
+    """
+    ckpt = torch.load(ckpt_path, map_location=device)
+
+    model.load_state_dict(ckpt["model"])
+    optim.load_state_dict(ckpt["optim"])
+
+    if "scaler" in ckpt and ckpt["scaler"] is not None:
+        scaler.load_state_dict(ckpt["scaler"])
+
+    start_epoch = int(ckpt["epoch"]) + 1
+    global_step = int(ckpt.get("global_step", 0))
+    history = ckpt.get("history", {"epoch_losses": []})
+
+    return start_epoch, global_step, history
+
+from datetime import datetime
+
+# Final checkpoint name
+def build_final_checkpoint_name(
+    config: Dict[str, Any],
+    global_step: int,
+    timestamp: Optional[str] = None,
+) -> str:
+    """
+    Build a descriptive final checkpoint filename.
+
+    Requested fields:
+      1. epochs
+      2. global_step
+      3. sde_type
+      4. lr
+      5. N
+      6. is_linear -> 'linear' or 'notlinear'
+      7. layers
+      8. nheads
+      + timestamp to avoid overwriting
+    """
+    if timestamp is None:
+        timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+
+    epochs = int(config["train"]["epochs"])
+    sde_type = str(config["process"]["sde_type"])
+    lr = float(config["train"]["lr"])
+    N = int(config["process"]["N"])
+    is_linear = "linear" if bool(config["diffusion"]["is_linear"]) else "notlinear"
+    layers = int(config["diffusion"]["layers"])
+    nheads = int(config["diffusion"]["nheads"])
+
+    # safer string for learning rate, e.g. 1e-4 -> 1e-04
+    lr_str = f"{lr:.0e}"
+
+    filename = (
+        f"final_"
+        f"ep-{epochs}_"
+        f"step-{global_step}_"
+        f"sde-{sde_type}_"
+        f"lr-{lr_str}_"
+        f"N-{N}_"
+        f"{is_linear}_"
+        f"layers-{layers}_"
+        f"nheads-{nheads}_"
+        f"{timestamp}.pt"
+    )
+    return filename
+
 def train(
     config: Dict[str, Any],
     train_loader,
     val_loader=None,
+    resume_checkpoint: Optional[str] = None,
 ) -> None:
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
     set_seed(int(config["train"]["seed"]))
 
-    # 1) Instantiate diffusion processes (forward noising) based on SDE definitions
+    # 1) Instantiate diffusion processes
     processes = Diffusion_Processes(config["process"])
-    # forward_process uses sde.marginal_prob(x0,t) under the hood :contentReference[oaicite:4]{index=4}:contentReference[oaicite:5]{index=5}
 
-    # 2) Instantiate denoiser model (CSDIModel wraps diff_CSDI backbone)
+    # 2) Instantiate model
     target_dim = int(config["data"]["target_dim"])
-    model = CSDIModel(target_dim=target_dim, config=config, device=device).to(device)  # :contentReference[oaicite:6]{index=6}
-    model.train()
+    model = CSDIModel(target_dim=target_dim, config=config, device=device).to(device)
 
     # 3) Optimizer
     optim = AdamW(
@@ -269,24 +437,33 @@ def train(
         weight_decay=float(config["train"]["weight_decay"]),
     )
 
-    # Optional: AMP
+    # 4) AMP
     use_amp = bool(config["train"].get("use_amp", True)) and device.type == "cuda"
     scaler = torch.cuda.amp.GradScaler(enabled=use_amp)
 
-    # 4) Checkpointing
+    # 5) Output dir
     out_dir = config["train"]["out_dir"]
     os.makedirs(out_dir, exist_ok=True)
-    save_every = int(config["train"]["save_every_steps"])
 
-    # Add for tracking
     num_epochs = int(config["train"]["epochs"])
     steps_per_epoch = len(train_loader)
-    total_steps = num_epochs * steps_per_epoch
-    
+    ckpt_every_epochs = get_checkpoint_save_interval(num_epochs)
+
+    # Resume state
+    start_epoch = 0
     global_step = 0
-    # for epoch in range(int(config["train"]["epochs"])):
-    for epoch in range(num_epochs):
+    history = {"epoch_losses": []}
+
+    if resume_checkpoint is not None:
+        print(f"Resuming from checkpoint: {resume_checkpoint}")
+        start_epoch, global_step, history = load_checkpoint(
+            resume_checkpoint, model, optim, scaler, device
+        )
+        print(f"Resumed at epoch={start_epoch}, global_step={global_step}")
+
+    for epoch in range(start_epoch, num_epochs):
         model.train()
+
         pbar = tqdm(
             enumerate(train_loader),
             total=steps_per_epoch,
@@ -294,21 +471,18 @@ def train(
             dynamic_ncols=True,
         )
 
-        # Just for tracking performance
         epoch_loss_sum = 0.0
         epoch_loss_count = 0
         ema_loss = None
-        ema_beta = float(config["train"].get("ema_beta", 0.98))  # smoothing
-        # Just for tracking performance
-
+        ema_beta = float(config["train"].get("ema_beta", 0.98))
         t0 = time.time()
 
         for batch_idx, batch in pbar:
             observed_data, observed_mask, observed_tp = unpack_batch(batch, device)
 
-            # (A) Build conditioning mask (what the model can see as context)
+            # conditioning mask
             if config["model"]["is_unconditional"]:
-                cond_mask = torch.zeros_like(observed_mask)  # no conditioning channel used
+                cond_mask = torch.zeros_like(observed_mask)
             else:
                 cond_mask = get_randmask(
                     observed_mask,
@@ -316,21 +490,13 @@ def train(
                     max_ratio=float(config["train"]["cond_max_ratio"]),
                 )
 
-            # The model should only be penalized on entries that are:
-            #   - truly observed in dataset (observed_mask==1)
-            #   - NOT revealed in the conditioning (cond_mask==0)
             target_mask = (observed_mask.float() * (1.0 - cond_mask.float())).float()
 
-            # (B) Forward diffusion: sample x_t and eps at a random continuous time t
-            # forward_process returns x_t (same shape as x0), continuous t in [0,T], and eps :contentReference[oaicite:7]{index=7}
+            # forward diffusion
             x_t, t_cont, eps = processes.forward_process(observed_data)
+            t_idx = processes.mapper.cont_to_idx(t_cont)
 
-            # (C) Map continuous time -> discrete model step index for DiffusionEmbedding
-            # This matches your reverse_process logic using TimeMapper.cont_to_idx :contentReference[oaicite:8]{index=8}
-            t_idx = processes.mapper.cont_to_idx(t_cont)  # (B,) long in [0, model_steps-1]
-
-            # (D) Predict eps with the denoiser
-            # CSDIModel.forward() builds side_info and makes the 1/2-channel input for diff_CSDI :contentReference[oaicite:9]{index=9}
+            # forward + loss
             with torch.cuda.amp.autocast(enabled=use_amp):
                 eps_hat = model(
                     x_t=x_t,
@@ -338,11 +504,9 @@ def train(
                     observed_data=observed_data,
                     cond_mask=cond_mask,
                     observed_tp=observed_tp,
-                )  # (B,K,L)
-
+                )
                 loss = masked_mse(eps_hat, eps, target_mask)
-            
-            # Just for tracking performance
+
             loss_val = float(loss.detach().item())
             epoch_loss_sum += loss_val
             epoch_loss_count += 1
@@ -351,9 +515,8 @@ def train(
                 ema_loss = loss_val
             else:
                 ema_loss = ema_beta * ema_loss + (1.0 - ema_beta) * loss_val
-            # Just for tracking performance
 
-            # (E) Optimize
+            # optimize
             optim.zero_grad(set_to_none=True)
             scaler.scale(loss).backward()
             scaler.step(optim)
@@ -361,109 +524,77 @@ def train(
 
             global_step += 1
 
-            # Just for tracking performance
             elapsed = time.time() - t0
             steps_done = batch_idx + 1
             it_per_s = steps_done / max(elapsed, 1e-9)
 
             pbar.set_postfix({
                 "step": global_step,
-                "loss": f"{loss_val:.4f}",                 # last batch loss
-                "ema": f"{ema_loss:.4f}",                  # smoothed loss
-                "avg": f"{(epoch_loss_sum/epoch_loss_count):.4f}",  # epoch running avg
+                "loss": f"{loss_val:.4f}",
+                "ema": f"{ema_loss:.4f}",
+                "avg": f"{(epoch_loss_sum / epoch_loss_count):.4f}",
                 "it/s": f"{it_per_s:.2f}",
                 "t": f"{t_idx.float().mean().item():.1f}",
             })
-            # Update bar every step (cheap)
-            pbar.set_postfix({
-                "step": global_step,
-                "loss": f"{loss.item():.4f}",
-                "t": f"{t_idx.float().mean().item():.1f}",
-            })
-            # Just for tracking performance
 
-            # (F) Logging (minimal)
             if global_step % int(config["train"]["log_every_steps"]) == 0:
                 print(
-                    f"epoch={epoch} step={global_step} "
-                    f"loss={loss.item():.6f} "
+                    f"epoch={epoch+1}/{num_epochs} "
+                    f"step={global_step} "
+                    f"loss={loss_val:.6f} "
                     f"t_idx_mean={t_idx.float().mean().item():.2f}"
                 )
 
-            # (G) Save checkpoint
-            if global_step % save_every == 0:
-                ckpt_path = os.path.join(out_dir, f"ckpt_step_{global_step}.pt")
-                torch.save(
-                    {
-                        "step": global_step,
-                        "epoch": epoch,
-                        "model": model.state_dict(),
-                        "optim": optim.state_dict(),
-                        "config": config,
-                    },
-                    ckpt_path,
-                )
-                print(f"Saved: {ckpt_path}")
-            
-            epoch_avg = epoch_loss_sum / max(epoch_loss_count, 1)
-            print(f"[epoch {epoch+1}/{num_epochs}] avg_train_loss={epoch_avg:.6f}")
+        # end of epoch
+        epoch_avg = epoch_loss_sum / max(epoch_loss_count, 1)
+        history["epoch_losses"].append({
+            "epoch": epoch + 1,
+            "avg_train_loss": epoch_avg,
+        })
 
-    # Final save
-    torch.save({"model": model.state_dict(), "config": config}, os.path.join(out_dir, "final.pt"))
-    print("Training complete. Saved final.pt")
+        print(f"[epoch {epoch+1}/{num_epochs}] avg_train_loss={epoch_avg:.6f}")
 
+        # save checkpoint by epoch cadence
+        should_save = ((epoch + 1) % ckpt_every_epochs == 0) or ((epoch + 1) == num_epochs)
+        if should_save:
+            ckpt_path = os.path.join(out_dir, f"ckpt_epoch_{epoch+1}.pt")
+            payload = make_checkpoint_payload(
+                model=model,
+                optim=optim,
+                scaler=scaler,
+                config=config,
+                epoch=epoch,
+                global_step=global_step,
+                history=history,
+            )
+            torch.save(payload, ckpt_path)
+            print(f"Saved checkpoint: {ckpt_path}")
+
+    # final save
+    final_payload = {
+    "model": model.state_dict(),
+    "optim": optim.state_dict(),
+    "scaler": scaler.state_dict(),
+    "epoch": num_epochs - 1,
+    "global_step": global_step,
+    "config": config,
+    "run_metadata": build_run_metadata(config),
+    "history": history,
+    "training_completed": True,
+    }
+
+    final_filename = build_final_checkpoint_name(config=config, global_step=global_step)
+    final_path = os.path.join(out_dir, final_filename)
+
+    torch.save(final_payload, final_path)
+    print(f"Training complete. Saved: {final_path}")
+
+# MAIN
 
 if __name__ == "__main__":
-    # Example config dict (you can externalize later)
-    config = {
-        "data": {
-            "target_dim": 5,  # K = number of variables/features
-        },
-        "model": {
-            "timeemb": 128,
-            "featureemb": 64,
-            "is_unconditional": False,
-        },
-        "diffusion": {
-            # These are used by diff_CSDI + DiffusionEmbedding :contentReference[oaicite:10]{index=10}
-            "num_steps": 50,                 # should match process.model_steps
-            "diffusion_embedding_dim": 128,
-            "channels": 64,
-            "layers": 4,
-            "nheads": 8,
-            "is_linear": False,
-        },
-        "process": {
-            # These are used by Diffusion_Processes to pick the SDE and discretization :contentReference[oaicite:11]{index=11}
-            "N": 1000,               # SDE discretization steps (mainly for sampling; training uses marginal_prob)
-            "sde_type": "ve",        # "ve", "vp", "subVP", else -> GBMLogSDE in your code :contentReference[oaicite:12]{index=12}
-            "model_steps": 50,       # discrete steps used by the neural net (t_idx range)
-            "eps": 1e-3,
-            "enforce_observed": True,
-        },
-        "train": {
-            "seed": 42,
-            "epochs": 1,
-            "batch_size":32,
-            "lr": 1e-4,
-            "weight_decay": 1e-4,
-            "use_amp": True,
-            "cond_min_ratio": 0.1,         # reveal at least 10% of observed entries
-            "cond_max_ratio": 0.9,         # reveal at most 90%
-            "log_every_steps": 50,
-            "save_every_steps": 1000,
-            "seq_len":252,
-            "stride":5,
-            "num_workers":0,
-            "shuffle":False,
-            "pin_memory": False, #pin_memory=True tells the loader to allocate batch tensors in page-locked (pinned) CPU memory.
-            "out_dir": "./checkpoints/csdi",
-            "data_root": "./data/sp500_individual_gbm"
-        },
-    }
-    config = get_final_config()
+    config, args = get_final_config()
 
-    print("Final merged config: ")
+    print("Final merged config:")
     print(json.dumps(config, indent=2))
 
     train_loader = make_dataloader(
@@ -476,11 +607,58 @@ if __name__ == "__main__":
         pin_memory=config["train"]["pin_memory"],
     )
 
-    #Sanity check all good, you sure, sure 10000%.
-    batch = next(iter(train_loader))
-    print(batch["observed_data"].shape,
-          batch["observed_mask"].shape,
-          batch["observed_tp"].shape)
+    dataset = train_loader.dataset
+    dataset_size = len(dataset)
 
-    train(config, train_loader)
+    # Subset conditions
+    subset_ratio = config["train"].get("train_subset_ratio", None)
+    subset_size = config["train"].get("train_subset_size", None)
+
+    if subset_ratio is not None and subset_size is not None:
+        raise ValueError("Use only one of train_subset_ratio or train_subset_size")
+
+    if subset_ratio is not None:
+        if not (0 < subset_ratio <= 1):
+            raise ValueError("train_subset_ratio must be in (0, 1]")
+        subset_size = max(1, int(dataset_size * subset_ratio))
+
+    if subset_size is not None:
+        if subset_size <= 0:
+            raise ValueError("train_subset_size must be > 0")
+        subset_size = min(subset_size, dataset_size)
+
+        rng = torch.Generator().manual_seed(int(config["train"]["seed"]))
+        indices = torch.randperm(dataset_size, generator=rng)[:subset_size].tolist()
+
+        subset_dataset = Subset(dataset, indices)
+
+        train_loader = DataLoader(
+            subset_dataset,
+            batch_size=config["train"]["batch_size"],
+            shuffle=config["train"]["shuffle"],
+            num_workers=config["train"]["num_workers"],
+            pin_memory=config["train"]["pin_memory"],
+            collate_fn=getattr(train_loader, "collate_fn", None),
+        )
+        print(f"Using subset of dataset: {subset_size}/{dataset_size} samples")
+
+    else:
+        print(f"Using full dataset: {dataset_size} samples")
+        
+
+    batch = next(iter(train_loader))
+    print(
+        batch["observed_data"].shape,
+        batch["observed_mask"].shape,
+        batch["observed_tp"].shape,
+    )
+
+    train(
+        config=config,
+        train_loader=train_loader,
+        resume_checkpoint=args.resume_checkpoint,
+    )
+
     print("Training is finished")
+
+#python csdi_train_modified.py --config configs/csdi_gbm.yaml --epochs=1 --train_subset_ratio=0.001 --resume_checkpoint ./checkpoints/csdi/<check_name>.pt
