@@ -22,6 +22,8 @@ import yaml
 from copy import deepcopy
 from typing import Any, Dict
 
+import wandb
+
 # ----------------------------
 # YAML uploader & updater
 # ----------------------------
@@ -112,6 +114,16 @@ def parse_args():
                     help="Fraction of dataset to use for training, e.g. 0.1 for 10%")
     parser.add_argument("--train_subset_size", type=int, default=None,
                         help="Number of samples to use for training")
+    parser.add_argument("--val_split_ratio", type=float, default=None,
+                        help="Fraction of dataset to hold out for validation, e.g. 0.1 for 10%")
+
+    # wandb
+    parser.add_argument("--wandb_project", type=str, default=None,
+                        help="W&B project name. If omitted, W&B logging is disabled.")
+    parser.add_argument("--wandb_entity", type=str, default=None,
+                        help="W&B entity (team or username), e.g. 'thesis-giacomo-negri'")
+    parser.add_argument("--wandb_run_name", type=str, default=None,
+                        help="W&B run name (optional, auto-generated if not set)")
 
     return parser.parse_args()
 
@@ -125,6 +137,7 @@ def build_cli_override_dict(args) -> Dict[str, Any]:
         "model": {},
         "process": {},
         "train": {},
+        "wandb": {},
     }
 
     # data
@@ -170,6 +183,16 @@ def build_cli_override_dict(args) -> Dict[str, Any]:
         override["train"]["train_subset_ratio"] = args.train_subset_ratio
     if args.train_subset_size is not None:
         override["train"]["train_subset_size"] = args.train_subset_size
+    if args.val_split_ratio is not None:
+        override["train"]["val_split_ratio"] = args.val_split_ratio
+
+    # wandb
+    if args.wandb_project is not None:
+        override["wandb"]["project"] = args.wandb_project
+    if args.wandb_entity is not None:
+        override["wandb"]["entity"] = args.wandb_entity
+    if args.wandb_run_name is not None:
+        override["wandb"]["run_name"] = args.wandb_run_name
 
     # remove empty sections
     override = {k: v for k, v in override.items() if v}
@@ -360,7 +383,7 @@ def load_checkpoint(
 
     start_epoch = int(ckpt["epoch"]) + 1
     global_step = int(ckpt.get("global_step", 0))
-    history = ckpt.get("history", {"epoch_losses": []})
+    history = ckpt.get("history", {"epoch_losses": [], "val_losses": []})
 
     return start_epoch, global_step, history
 
@@ -452,7 +475,7 @@ def train(
     # Resume state
     start_epoch = 0
     global_step = 0
-    history = {"epoch_losses": []}
+    history = {"epoch_losses": [], "val_losses": []}
 
     if resume_checkpoint is not None:
         print(f"Resuming from checkpoint: {resume_checkpoint}")
@@ -460,6 +483,25 @@ def train(
             resume_checkpoint, model, optim, scaler, device
         )
         print(f"Resumed at epoch={start_epoch}, global_step={global_step}")
+
+    # W&B initialisation (optional — only when --wandb_project is provided)
+    wandb_cfg = config.get("wandb", {})
+    use_wandb = bool(wandb_cfg.get("project"))
+    if use_wandb:
+        auto_name = build_final_checkpoint_name(config, global_step=global_step).replace(".pt", "")
+        init_kwargs = dict(
+            entity=wandb_cfg.get("entity"),
+            project=wandb_cfg["project"],
+            name=wandb_cfg.get("run_name") or auto_name,
+            config=build_run_metadata(config),
+        )
+        # resume the same W&B run if we loaded a checkpoint that already has one
+        prior_run_id = history.get("wandb_run_id")
+        if prior_run_id is not None:
+            init_kwargs["id"] = prior_run_id
+            init_kwargs["resume"] = "must"
+        wandb.init(**init_kwargs)
+        history["wandb_run_id"] = wandb.run.id
 
     for epoch in range(start_epoch, num_epochs):
         model.train()
@@ -544,15 +586,77 @@ def train(
                     f"loss={loss_val:.6f} "
                     f"t_idx_mean={t_idx.float().mean().item():.2f}"
                 )
+                if use_wandb:
+                    wandb.log({
+                        "train/step_loss": loss_val,
+                        "train/ema_loss": ema_loss,
+                        "train/avg_loss": epoch_loss_sum / epoch_loss_count,
+                        "train/it_per_s": it_per_s,
+                    }, step=global_step)
 
         # end of epoch
         epoch_avg = epoch_loss_sum / max(epoch_loss_count, 1)
+
+        # validation
+        val_avg = None
+        if val_loader is not None:
+            model.eval()
+            val_loss_sum = 0.0
+            val_loss_count = 0
+            with torch.no_grad():
+                for val_batch in val_loader:
+                    observed_data, observed_mask, observed_tp = unpack_batch(val_batch, device)
+
+                    if config["model"]["is_unconditional"]:
+                        cond_mask = torch.zeros_like(observed_mask)
+                    else:
+                        cond_mask = get_randmask(
+                            observed_mask,
+                            min_ratio=float(config["train"]["cond_min_ratio"]),
+                            max_ratio=float(config["train"]["cond_max_ratio"]),
+                        )
+
+                    target_mask = (observed_mask.float() * (1.0 - cond_mask.float())).float()
+
+                    x_t, t_cont, eps = processes.forward_process(observed_data)
+                    t_idx = processes.mapper.cont_to_idx(t_cont)
+
+                    with torch.cuda.amp.autocast(enabled=use_amp):
+                        eps_hat = model(
+                            x_t=x_t,
+                            t=t_idx,
+                            observed_data=observed_data,
+                            cond_mask=cond_mask,
+                            observed_tp=observed_tp,
+                        )
+                        val_loss = masked_mse(eps_hat, eps, target_mask)
+
+                    val_loss_sum += float(val_loss.item())
+                    val_loss_count += 1
+
+            val_avg = val_loss_sum / max(val_loss_count, 1)
+            history["val_losses"].append({"epoch": epoch + 1, "avg_val_loss": val_avg})
+
         history["epoch_losses"].append({
             "epoch": epoch + 1,
             "avg_train_loss": epoch_avg,
+            "avg_val_loss": val_avg,
         })
 
-        print(f"[epoch {epoch+1}/{num_epochs}] avg_train_loss={epoch_avg:.6f}")
+        if val_avg is not None:
+            print(f"[epoch {epoch+1}/{num_epochs}] avg_train_loss={epoch_avg:.6f}  avg_val_loss={val_avg:.6f}")
+        else:
+            print(f"[epoch {epoch+1}/{num_epochs}] avg_train_loss={epoch_avg:.6f}")
+
+        if use_wandb:
+            epoch_metrics = {
+                "epoch/train_loss": epoch_avg,
+                "epoch/epoch": epoch + 1,
+                "epoch/epoch_time_s": time.time() - t0,
+            }
+            if val_avg is not None:
+                epoch_metrics["epoch/val_loss"] = val_avg
+            wandb.log(epoch_metrics, step=global_step)
 
         # save checkpoint by epoch cadence
         should_save = ((epoch + 1) % ckpt_every_epochs == 0) or ((epoch + 1) == num_epochs)
@@ -588,6 +692,9 @@ def train(
 
     torch.save(final_payload, final_path)
     print(f"Training complete. Saved: {final_path}")
+
+    if use_wandb:
+        wandb.finish()
 
 # MAIN
 
@@ -644,7 +751,25 @@ if __name__ == "__main__":
 
     else:
         print(f"Using full dataset: {dataset_size} samples")
-        
+
+    # Validation split (drawn from the full dataset, separate from the train subset)
+    val_loader = None
+    val_split_ratio = config["train"].get("val_split_ratio", None)
+    if val_split_ratio is not None:
+        if not (0 < val_split_ratio < 1):
+            raise ValueError("val_split_ratio must be in (0, 1)")
+        val_size = max(1, int(dataset_size * val_split_ratio))
+        rng_val = torch.Generator().manual_seed(int(config["train"]["seed"]) + 1)
+        val_indices = torch.randperm(dataset_size, generator=rng_val)[:val_size].tolist()
+        val_dataset = Subset(dataset, val_indices)
+        val_loader = DataLoader(
+            val_dataset,
+            batch_size=config["train"]["batch_size"],
+            shuffle=False,
+            num_workers=config["train"]["num_workers"],
+            pin_memory=config["train"]["pin_memory"],
+        )
+        print(f"Validation set: {val_size}/{dataset_size} samples")
 
     batch = next(iter(train_loader))
     print(
@@ -656,9 +781,10 @@ if __name__ == "__main__":
     train(
         config=config,
         train_loader=train_loader,
+        val_loader=val_loader,
         resume_checkpoint=args.resume_checkpoint,
     )
 
     print("Training is finished")
 
-#python csdi_train_modified.py --config configs/csdi_gbm.yaml --epochs=1 --train_subset_ratio=0.001 --resume_checkpoint ./checkpoints/csdi/<check_name>.pt
+#python csdi_train_modified.py --config configs/csdi_gbm.yaml --epochs 1 --train_subset_ratio 0.005 --val_split_ratio 0.005 --data_root "./data/fake_individual_gbm" --resume_checkpoint ./checkpoints/csdi/<check_name>.pt

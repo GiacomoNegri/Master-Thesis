@@ -1,5 +1,5 @@
 #!/bin/bash
-#SBATCH --job-name=gbm_csdi
+#SBATCH --job-name=train_gbm
 #SBATCH --account=3155287
 #SBATCH --partition=stud
 #SBATCH --gpus=1
@@ -39,7 +39,7 @@ cd /home/3155287/Thesis/Master-Thesis
 echo "PWD:"
 pwd
 
-srun python -u csdi_train.py --config configs/csdi_gbm.yaml --epochs 5 --data_root ./data/fake_individual_gbm
+srun python -u csdi_train_modified.py --config configs/csdi_gbm.yaml --epochs 5 --data_root ./data/fake_individual_gbm --train_subset_ratio 0.1
 echo "Python exit code: $?"
 
 echo "Job finished."
