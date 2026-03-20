@@ -1,0 +1,25 @@
+type: args
+
+train:
+  epochs: 50            # Reduced: 200 is excessive for feasibility; 50 is enough to see loss decay.
+  batch_size: 8         # Reduced: Diffusion models are memory-heavy; 8 is safer for local hardware.
+  lr: 1.0e-3
+  itr_per_epoch: 1.0e+8    # CRITICAL: Change from 1.0e+8 to 100. 
+
+diffusion:
+  layers: 4 
+  channels: 64 
+  nheads: 8
+  diffusion_embedding_dim: 128
+  beta_start: 0.0001
+  beta_end: 0.5
+  num_steps: 50
+  schedule: "quad"
+  is_linear: False
+
+model:
+  is_unconditional: 0
+  timeemb: 128
+  featureemb: 16
+  target_dim: 5         # MANDATORY: Must match your 5 features (Open, High, Low, Close, Volume).
+  target_strategy: "mix" # Recommended: Combines random and historical masking.

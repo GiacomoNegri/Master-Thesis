@@ -1,0 +1,50 @@
+data:
+  target_dim: 5
+
+model:
+  timeemb: 128
+  featureemb: 64
+  is_unconditional: false
+
+diffusion:
+  num_steps: 50
+  diffusion_embedding_dim: 128
+  channels: 64
+  layers: 4
+  nheads: 8
+  is_linear: false
+
+process:
+  N: 1000
+  sde_type: ve
+  model_steps: 50
+  eps: 1.0e-3
+  enforce_observed: true
+
+train:
+  seed: 42
+  epochs: 10
+  batch_size: 32
+  lr: 1.0e-4
+  weight_decay: 1.0e-4
+  use_amp: true
+  cond_min_ratio: 0.1
+  cond_max_ratio: 0.9
+  ema_beta: 0.98           # smoothing factor for the step-level EMA loss display
+  log_every_steps: 50
+  save_every_steps: 1000
+  seq_len: 252
+  stride: 10
+  num_workers: 4
+  shuffle: true
+  pin_memory: false
+  out_dir: ./checkpoints/csdi
+  data_root: ./data/sp500_individual_gbm
+  val_split_ratio: 0.1   # fraction of dataset held out for validation
+  train_subset_ratio: 1.0  # fraction of dataset used for training (quick tests)
+  # train_subset_size:  # absolute number of training samples (alternative to ratio)
+
+wandb:
+  entity: thesis-giacomo-negri   # your W&B team name
+  project: csdi-gbm          # project name on wandb.ai
+  # run_name:                      # human-readable run label (auto-generated if blank)
