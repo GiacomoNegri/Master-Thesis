@@ -39,7 +39,7 @@ cd /home/3155287/Thesis/Master-Thesis
 echo "PWD:"
 pwd
 
-srun python -u csdi_train_modified.py --config configs/csdi_gbm.yaml --epochs 5 --data_root ./data/fake_individual_gbm --train_subset_ratio 0.1
+srun python -u csdi_train_modified.py --config configs/csdi_gbm.yaml --epochs 5 --train_subset_ratio 0.001 --val_split_ratio 0.001 --data_root "./data/fake_individual_gbm"
 echo "Python exit code: $?"
 
 echo "Job finished."
