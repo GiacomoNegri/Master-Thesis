@@ -344,7 +344,7 @@ def build_run_metadata(config: Dict[str, Any]) -> Dict[str, Any]:
 def make_checkpoint_payload(
     model: nn.Module,
     optim: torch.optim.Optimizer,
-    scaler: torch.cuda.amp.GradScaler,
+    scaler: torch.amp.GradScaler,
     config: Dict[str, Any],
     epoch: int,
     global_step: int,
@@ -366,7 +366,7 @@ def load_checkpoint(
     ckpt_path: str,
     model: nn.Module,
     optim: torch.optim.Optimizer,
-    scaler: torch.cuda.amp.GradScaler,
+    scaler: torch.amp.GradScaler,
     device: torch.device,
 ) -> Tuple[int, int, Dict[str, Any]]:
     """
@@ -412,6 +412,13 @@ def build_final_checkpoint_name(
     if timestamp is None:
         timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
 
+    if str(config['train']['data_root']) == "./data/sp500_individual_gbm":
+        data_root = "REAL"
+    elif str(config['train']['data_root']) == "./data/fake_individual_gbm":
+        data_root = "FAKE"
+    else:
+        data_root = "OTHER"
+    
     epochs = int(config["train"]["epochs"])
     sde_type = str(config["process"]["sde_type"])
     lr = float(config["train"]["lr"])
@@ -424,6 +431,7 @@ def build_final_checkpoint_name(
     lr_str = f"{lr:.0e}"
 
     filename = (
+        f"{data_root}_"
         f"final_"
         f"ep-{epochs}_"
         f"step-{global_step}_"
@@ -462,7 +470,7 @@ def train(
 
     # 4) AMP
     use_amp = bool(config["train"].get("use_amp", True)) and device.type == "cuda"
-    scaler = torch.cuda.amp.GradScaler(enabled=use_amp)
+    scaler = torch.amp.GradScaler("cuda", enabled=use_amp)
 
     # 5) Output dir
     out_dir = config["train"]["out_dir"]
@@ -539,7 +547,7 @@ def train(
             t_idx = processes.mapper.cont_to_idx(t_cont)
 
             # forward + loss
-            with torch.cuda.amp.autocast(enabled=use_amp):
+            with torch.amp.autocast("cuda", enabled=use_amp):
                 eps_hat = model(
                     x_t=x_t,
                     t=t_idx,
@@ -621,7 +629,7 @@ def train(
                     x_t, t_cont, eps = processes.forward_process(observed_data)
                     t_idx = processes.mapper.cont_to_idx(t_cont)
 
-                    with torch.cuda.amp.autocast(enabled=use_amp):
+                    with torch.amp.autocast("cuda", enabled=use_amp):
                         eps_hat = model(
                             x_t=x_t,
                             t=t_idx,
