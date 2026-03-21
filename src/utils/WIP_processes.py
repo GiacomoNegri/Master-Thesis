@@ -2,7 +2,6 @@ import torch
 import torch.nn as nn
 
 import time
-import torchvision.utils
 import matplotlib.pyplot as plt
 
 from src.utils.WIP_SDE import SDE, BetaScheduleSDE, SigmaSchedule, SubVPSDE, VESDE, VPSDE, GBMLogSDE
@@ -228,10 +227,12 @@ class Diffusion_Processes:
 
         k = max(num_steps//10, 1)
         start_time = time.time()
-        
+
+        # Tracks (t_value, global_std, dx_norm) at each logging checkpoint
+        std_trajectory = []
+
         # Time discretization from T -> 0
         for i in range(num_steps):
-            # t_i = torch.full((B,), T * i / num_steps, device=device)
             t_i = ts[i].expand(B)
             f, G = rsde.discretize(x, t_i, labels=None)  # f: (B, ...), G: (B,)
 
@@ -242,42 +243,75 @@ class Diffusion_Processes:
             else:
                 noise = torch.randn_like(x)
 
-            x = x + f + G_b * noise
+            dx = f + G_b * noise
+            x  = x + dx
 
-
-            # ---- log stats + show images every 10% of steps ----
+            # ---- log stats every 10% of steps (and the first 15) ----
             if (i % k == 0) or (i < 15):
-                x_cpu = x.detach().cpu()
-        
-                # discrete statistics
-                mean = x_cpu.mean().item()
-                std = x_cpu.std().item()
-                x_min = x_cpu.min().item()
-                x_max = x_cpu.max().item()
+                x_cpu  = x.detach().cpu()
+                dx_cpu = dx.detach().cpu() if isinstance(dx, torch.Tensor) else None
+
+                global_std = x_cpu.std().item()
+                # per-feature std: shape (K,) — std across batch and time dims
+                per_feat_std = x_cpu.std(dim=[0, 2]).tolist()   # (K,)
+                dx_norm = (dx_cpu.norm() / dx_cpu.numel()).item() if dx_cpu is not None else 0.0
+
+                std_trajectory.append((t_i[0].item(), global_std, dx_norm))
 
                 elapsed_time, start_time = time.time() - start_time, time.time()
+                feat_str = "  ".join(f"k{ki}={v:.3f}" for ki, v in enumerate(per_feat_std))
                 print(
-                    f"[reverse step {i+1}/{num_steps} | i={i} | t={t_i[0].item():.4f}]\n"
-                    f"mean={mean:.4f}, std={std:.4f}, min={x_min:.4f}, max={x_max:.4f}\n"
-                    f"Time of last {k} steps: {elapsed_time}. Time remaining {(k - i//10) * elapsed_time}.\n"
+                    f"[step {i+1:4d}/{num_steps} | t={t_i[0].item():.4f}]  "
+                    f"mean={x_cpu.mean():.4f}  std={global_std:.4f}  "
+                    f"min={x_cpu.min():.4f}  max={x_cpu.max():.4f}  "
+                    f"dx_norm={dx_norm:.2e}\n"
+                    f"  per-feat std: {feat_str}\n"
+                    f"  elapsed {elapsed_time:.1f}s\n"
                 )
-                
-                # visualize a few samples
-                # if model works in [-1, 1], map to [0, 1] for display
-                x_vis = x_cpu.clamp(-1.0, 1.0)
-                x_vis = (x_vis + 1.0) / 2.0
-        
-                grid = torchvision.utils.make_grid(x_vis[:16], nrow=4)
-                grid = grid.permute(1, 2, 0).numpy()
-        
-                plt.figure(figsize=(4, 4))
-                plt.imshow(grid)
-                plt.title(f"Reverse step {i+1}/{num_steps}")
-                plt.axis("off")
-                plt.tight_layout()
-                plt.show()
 
         if self.enforce_observed:
             x = cond_mask * observed_data + (1.0 - cond_mask) * x
-        
+
+        # ── Post-loop diagnostics ──────────────────────────────────────────────
+        x_cpu = x.detach().cpu()          # (B, K, L)
+        B_p, K_p, L_p = x_cpu.shape
+
+        # 1. std trajectory: should decrease from sigma_max toward data std
+        if len(std_trajectory) > 1:
+            t_vals   = [r[0] for r in std_trajectory]
+            std_vals = [r[1] for r in std_trajectory]
+            dx_vals  = [r[2] for r in std_trajectory]
+
+            fig, (ax1, ax2) = plt.subplots(2, 1, figsize=(10, 4), sharex=True)
+            ax1.plot(t_vals, std_vals, marker="o", markersize=3)
+            ax1.set_ylabel("global std(x)")
+            ax1.set_title("Denoising trajectory — std should fall from σ_max toward data std")
+            ax1.grid(True, linewidth=0.4)
+            ax2.semilogy(t_vals, [max(d, 1e-10) for d in dx_vals], marker="o", markersize=3, color="tab:orange")
+            ax2.set_ylabel("||dx|| / numel  (log)")
+            ax2.set_xlabel("diffusion time t  (T → ε)")
+            ax2.set_title("Update magnitude — should shrink as t → 0")
+            ax2.grid(True, linewidth=0.4)
+            plt.tight_layout()
+            plt.show()
+
+        # 2. Generated time-series for the first sample (all K features)
+        fig, axes = plt.subplots(K_p, 1, figsize=(12, 2 * K_p), sharex=True)
+        if K_p == 1:
+            axes = [axes]
+        n_show = min(B_p, 5)
+        for k_idx, ax in enumerate(axes):
+            for b in range(n_show):
+                alpha = 0.9 if b == 0 else 0.35
+                lw    = 1.5 if b == 0 else 0.8
+                ax.plot(x_cpu[b, k_idx].numpy(), alpha=alpha, linewidth=lw,
+                        label=f"sample {b}" if k_idx == 0 else None)
+            ax.set_ylabel(f"feat {k_idx}", fontsize=9)
+            ax.grid(True, linewidth=0.4)
+        axes[0].legend(fontsize=7, loc="upper right")
+        axes[-1].set_xlabel("Time step")
+        fig.suptitle("Generated samples — normalised space  (each colour = one sample)", fontsize=11)
+        plt.tight_layout()
+        plt.show()
+
         return x
