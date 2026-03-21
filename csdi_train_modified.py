@@ -116,6 +116,18 @@ def parse_args():
                         help="Number of samples to use for training")
     parser.add_argument("--val_split_ratio", type=float, default=None,
                         help="Fraction of dataset to hold out for validation, e.g. 0.1 for 10%")
+    parser.add_argument(
+        "--mask_mode",
+        type=str,
+        default=None,
+        choices=["random", "unconditional", "predict_close"],
+        help=(
+            "Conditioning strategy during training. "
+            "'random': randomly hide 10-90%% of entries (default CSDI); "
+            "'unconditional': no context at all (requires is_unconditional=true); "
+            "'predict_close': always condition on Open/High/Low/Volume, predict Close."
+        ),
+    )
 
     # wandb
     parser.add_argument("--wandb_project", type=str, default=None,
@@ -185,6 +197,8 @@ def build_cli_override_dict(args) -> Dict[str, Any]:
         override["train"]["train_subset_size"] = args.train_subset_size
     if args.val_split_ratio is not None:
         override["train"]["val_split_ratio"] = args.val_split_ratio
+    if args.mask_mode is not None:
+        override["train"]["mask_mode"] = args.mask_mode
 
     # wandb
     if args.wandb_project is not None:
@@ -240,6 +254,19 @@ def get_randmask(observed_mask: torch.Tensor, min_ratio: float = 0.1, max_ratio:
     # keep if rand > miss_ratio; but only where observed_mask==1
     keep = (rand > miss_ratio.view(B, 1, 1)).float()
     cond_mask = (observed_mask.float() * keep).float()
+    return cond_mask
+
+
+def get_predict_close_mask(observed_mask: torch.Tensor, close_idx: int = 3) -> torch.Tensor:
+    """
+    Fixed conditioning mask for 'predict Close' mode.
+    All features except Close are fully revealed as context;
+    Close (feature index close_idx) is always the prediction target.
+
+    Feature order matches the dataloader: Open=0, High=1, Low=2, Close=3, Volume=4
+    """
+    cond_mask = observed_mask.clone().float()
+    cond_mask[:, close_idx, :] = 0.0
     return cond_mask
 
 
@@ -311,6 +338,7 @@ def build_run_metadata(config: Dict[str, Any]) -> Dict[str, Any]:
             "use_amp": config["train"]["use_amp"],
             "cond_min_ratio": config["train"]["cond_min_ratio"],
             "cond_max_ratio": config["train"]["cond_max_ratio"],
+            "mask_mode": config["train"].get("mask_mode", "random"),
             "seq_len": config["train"]["seq_len"],
             "stride": config["train"]["stride"],
         },
@@ -412,12 +440,21 @@ def build_final_checkpoint_name(
     if timestamp is None:
         timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
 
-    if str(config['train']['data_root']) == "./data/sp500_individual_gbm":
+    data_root = str(config['train']['data_root'])
+    if data_root == "./data/sp500_individual_gbm":
         data_root = "REAL"
-    elif str(config['train']['data_root']) == "./data/fake_individual_gbm":
+    elif data_root == "./data/fake_individual_gbm":
         data_root = "FAKE"
     else:
         data_root = "OTHER"
+
+    mask_mode = str(config['train']['mask_mode'])
+    if mask_mode == "random":
+        mask_mode = "RAND"
+    elif str(config['model']['is_unconditional']):
+        mask_mode = "UNCO"
+    else:
+        mask_mode = "CLOS"
     
     epochs = int(config["train"]["epochs"])
     sde_type = str(config["process"]["sde_type"])
@@ -432,6 +469,7 @@ def build_final_checkpoint_name(
 
     filename = (
         f"{data_root}_"
+        f"{mask_mode}_"
         f"final_"
         f"ep-{epochs}_"
         f"step-{global_step}_"
@@ -531,9 +569,12 @@ def train(
             observed_data, observed_mask, observed_tp = unpack_batch(batch, device)
 
             # conditioning mask
-            if config["model"]["is_unconditional"]:
+            mask_mode = config["train"].get("mask_mode", "random")
+            if config["model"]["is_unconditional"] or mask_mode == "unconditional":
                 cond_mask = torch.zeros_like(observed_mask)
-            else:
+            elif mask_mode == "predict_close":
+                cond_mask = get_predict_close_mask(observed_mask)
+            else:  # "random"
                 cond_mask = get_randmask(
                     observed_mask,
                     min_ratio=float(config["train"]["cond_min_ratio"]),
@@ -615,9 +656,11 @@ def train(
                 for val_batch in val_loader:
                     observed_data, observed_mask, observed_tp = unpack_batch(val_batch, device)
 
-                    if config["model"]["is_unconditional"]:
+                    if config["model"]["is_unconditional"] or mask_mode == "unconditional":
                         cond_mask = torch.zeros_like(observed_mask)
-                    else:
+                    elif mask_mode == "predict_close":
+                        cond_mask = get_predict_close_mask(observed_mask)
+                    else:  # "random"
                         cond_mask = get_randmask(
                             observed_mask,
                             min_ratio=float(config["train"]["cond_min_ratio"]),

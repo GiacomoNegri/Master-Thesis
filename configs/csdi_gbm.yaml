@@ -28,6 +28,11 @@ train:
   lr: 1.0e-4
   weight_decay: 1.0e-4
   use_amp: true
+  # mask_mode controls what the model conditions on during training:
+  #   random        – randomly hide 10-90% of all entries (original CSDI behaviour)
+  #   unconditional – no context at all; pair with is_unconditional: true in model
+  #   predict_close – always condition on Open/High/Low/Volume; Close is the target
+  mask_mode: random
   cond_min_ratio: 0.1
   cond_max_ratio: 0.9
   ema_beta: 0.98           # smoothing factor for the step-level EMA loss display
