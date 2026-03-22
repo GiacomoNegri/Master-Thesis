@@ -3,12 +3,13 @@ generate_samples.py — CLI version of notebooks/Reverse_samples_generation.ipyn
 
 Run unconditional generation:
     python generate_samples.py --checkpoint_folder toy --checkpoint_name MY.pt \
-        --mask_mode unconditional --n_samples 100
+        --mask_mode unconditional --n_samples 100 --years_per_sample 1
 
 Run conditional (predict_close) generation:
     python generate_samples.py --checkpoint_folder toy --checkpoint_name MY.pt \
         --mask_mode predict_close --n_samples 100 \
-        --cond_data_dir data/fake_individual_gbm
+        --cond_data_dir data/fake_individual_gbm \
+        --years_per_sample 2 --start_date 1986-01-01 --end_date 2025-12-31 --seed 42
 
 W&B logging (optional — omit --wandb_project to skip):
     python generate_samples.py ... \
@@ -32,6 +33,7 @@ import matplotlib.pyplot as plt  # noqa: E402 — kept here to apply the backend
 warnings.filterwarnings("ignore")
 
 import numpy as np
+from dateutil.relativedelta import relativedelta
 import pandas as pd
 import torch
 import wandb
@@ -78,9 +80,15 @@ def parse_args():
 
     # Date range for output CSVs
     p.add_argument("--start_date", type=str, default="1986-01-01",
-                   help="Start of the business-day date range used to label rows.")
+                   help="Earliest possible start date for any generated sample.")
     p.add_argument("--end_date", type=str, default="2025-12-31",
-                   help="End of the business-day date range.")
+                   help="Latest possible end date for any generated sample.")
+    p.add_argument("--years_per_sample", type=int, default=1,
+                   help="Number of years of business days each sample covers. "
+                        "A random start date is drawn uniformly from "
+                        "[start_date, end_date - years_per_sample] for each sample.")
+    p.add_argument("--seed", type=int, default=42,
+                   help="Random seed for start-date sampling (set to -1 for a random seed).")
 
     # Reverse diffusion
     p.add_argument("--num_reverse_steps", type=int, default=None,
@@ -270,14 +278,19 @@ def main():
     plt.close("all")
 
     # ── Save results ──────────────────────────────────────────────────────────
-    dates = pd.bdate_range(start=args.start_date, end=args.end_date)
-    if len(dates) < seq_len:
+    all_bdays   = pd.bdate_range(start=args.start_date, end=args.end_date)
+    cutoff_date = pd.Timestamp(args.end_date) - relativedelta(years=args.years_per_sample)
+    valid_starts = all_bdays[all_bdays <= cutoff_date]
+    if len(valid_starts) == 0:
         raise ValueError(
-            f"Date range {args.start_date} → {args.end_date} yields only "
-            f"{len(dates)} business days but seq_len = {seq_len}. "
-            "Please extend --end_date."
+            f"No valid start dates: end_date ({args.end_date}) minus "
+            f"{args.years_per_sample} year(s) is before start_date ({args.start_date}). "
+            "Widen the window or reduce --years_per_sample."
         )
-    dates = dates[:seq_len]
+
+    rng_seed = None if args.seed == -1 else args.seed
+    rng = np.random.default_rng(rng_seed)
+    start_indices = rng.integers(0, len(valid_starts), size=N_SAMPLES)
 
     samples_np  = samples.detach().cpu().numpy()         # (N_SAMPLES, K, L)
     obs_np_cpu  = observed_data.detach().cpu().numpy() if mask_mode == "predict_close" else None
@@ -287,6 +300,17 @@ def main():
     for i in range(N_SAMPLES):
         ticker = cond_tickers[i]
         gen    = samples_np[i]   # (K, L) in normalised space
+
+        # ── Per-sample date index ─────────────────────────────────────────────
+        sample_start = valid_starts[start_indices[i]]
+        sample_end   = sample_start + relativedelta(years=args.years_per_sample)
+        dates = pd.bdate_range(start=sample_start, end=sample_end)[:seq_len]
+        if len(dates) < seq_len:
+            raise ValueError(
+                f"Sample {i}: only {len(dates)} business days available between "
+                f"{sample_start.date()} and {sample_end.date()}, but seq_len={seq_len}. "
+                "Increase --years_per_sample or widen the date window."
+            )
 
         if mask_mode == "unconditional":
             series = gen
@@ -309,7 +333,7 @@ def main():
         df.insert(0, "Date", dates.strftime("%d/%m/%Y"))
 
         suffix   = "predicted_close" if mask_mode == "predict_close" else "generated"
-        filename = f"{ticker}_{args.start_date}_{args.end_date}_{suffix}.csv"
+        filename = f"{ticker}_{dates[0].strftime('%Y%m%d')}_{dates[-1].strftime('%Y%m%d')}_{suffix}.csv"
         df.to_csv(os.path.join(args.out_dir, filename), index=False)
 
         stats_dict[ticker] = {"mean": mu, "std": std}
