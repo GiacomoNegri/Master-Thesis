@@ -451,7 +451,7 @@ def build_final_checkpoint_name(
     mask_mode = str(config['train']['mask_mode'])
     if mask_mode == "random":
         mask_mode = "RAND"
-    elif str(config['model']['is_unconditional']):
+    elif mask_mode == "unconditional" or bool(config['model']['is_conditional']):
         mask_mode = "UNCO"
     else:
         mask_mode = "CLOS"
