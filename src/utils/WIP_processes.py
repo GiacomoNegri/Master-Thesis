@@ -243,7 +243,7 @@ class Diffusion_Processes:
             else:
                 noise = torch.randn_like(x)
 
-            dx = f + G_b * noise
+            dx = -f + G_b * noise
             x  = x + dx
 
             # ---- log stats every 10% of steps (and the first 15) ----

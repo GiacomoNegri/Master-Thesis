@@ -559,7 +559,7 @@ class VESDE(SDE):
         d = z[0].numel()
         quadratic = z.view(batch_size, -1).pow(2).sum(dim=1)
         return -0.5 * (
-            quadratic / (self.sigma_max**2) + d * math.log(2.0 * math.pi * self.sigma_max**2)
+            quadratic / (sigma_max**2) + d * math.log(2.0 * math.pi * sigma_max**2)
         )
 
     # Optional: keep specialized SMLD discretization

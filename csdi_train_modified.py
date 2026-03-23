@@ -451,7 +451,7 @@ def build_final_checkpoint_name(
     mask_mode = str(config['train']['mask_mode'])
     if mask_mode == "random":
         mask_mode = "RAND"
-    elif mask_mode == "unconditional" or bool(config['model']['is_conditional']):
+    elif mask_mode == "unconditional" or bool(config['model']['is_unconditional']):
         mask_mode = "UNCO"
     else:
         mask_mode = "CLOS"
@@ -515,6 +515,7 @@ def train(
     os.makedirs(out_dir, exist_ok=True)
 
     num_epochs = int(config["train"]["epochs"])
+    # Total number of batches per epoch (for progress bar)
     steps_per_epoch = len(train_loader)
     ckpt_every_epochs = get_checkpoint_save_interval(num_epochs)
 
@@ -553,10 +554,10 @@ def train(
         model.train()
 
         pbar = tqdm(
-            enumerate(train_loader),
-            total=steps_per_epoch,
-            desc=f"epoch {epoch+1}/{num_epochs}",
-            dynamic_ncols=True,
+            enumerate(train_loader), #iterable to wrap
+            total=steps_per_epoch, #how many steps to expect
+            desc=f"epoch {epoch+1}/{num_epochs}", #label
+            dynamic_ncols=True, #adapt the bar width
         )
 
         epoch_loss_sum = 0.0
@@ -785,33 +786,19 @@ if __name__ == "__main__":
             raise ValueError("train_subset_size must be > 0")
         subset_size = min(subset_size, dataset_size)
 
-        rng = torch.Generator().manual_seed(int(config["train"]["seed"]))
-        indices = torch.randperm(dataset_size, generator=rng)[:subset_size].tolist()
+    # --- Single permutation guarantees train/val are disjoint ---
+    rng = torch.Generator().manual_seed(int(config["train"]["seed"]))
+    all_indices = torch.randperm(dataset_size, generator=rng).tolist()
 
-        subset_dataset = Subset(dataset, indices)
-
-        train_loader = DataLoader(
-            subset_dataset,
-            batch_size=config["train"]["batch_size"],
-            shuffle=config["train"]["shuffle"],
-            num_workers=config["train"]["num_workers"],
-            pin_memory=config["train"]["pin_memory"],
-            collate_fn=getattr(train_loader, "collate_fn", None),
-        )
-        print(f"Using subset of dataset: {subset_size}/{dataset_size} samples")
-
-    else:
-        print(f"Using full dataset: {dataset_size} samples")
-
-    # Validation split (drawn from the full dataset, separate from the train subset)
+    # Carve out validation first
     val_loader = None
     val_split_ratio = config["train"].get("val_split_ratio", None)
     if val_split_ratio is not None:
         if not (0 < val_split_ratio < 1):
             raise ValueError("val_split_ratio must be in (0, 1)")
         val_size = max(1, int(dataset_size * val_split_ratio))
-        rng_val = torch.Generator().manual_seed(int(config["train"]["seed"]) + 1)
-        val_indices = torch.randperm(dataset_size, generator=rng_val)[:val_size].tolist()
+        val_indices = all_indices[:val_size]
+        train_pool = all_indices[val_size:]
         val_dataset = Subset(dataset, val_indices)
         val_loader = DataLoader(
             val_dataset,
@@ -821,6 +808,36 @@ if __name__ == "__main__":
             pin_memory=config["train"]["pin_memory"],
         )
         print(f"Validation set: {val_size}/{dataset_size} samples")
+    else:
+        train_pool = all_indices
+
+    # Then carve out the training subset from the remaining indices
+    if subset_size is not None:
+        subset_size = min(subset_size, len(train_pool))
+        train_indices = train_pool[:subset_size]
+        subset_dataset = Subset(dataset, train_indices)
+        train_loader = DataLoader(
+            subset_dataset,
+            batch_size=config["train"]["batch_size"],
+            shuffle=config["train"]["shuffle"],
+            num_workers=config["train"]["num_workers"],
+            pin_memory=config["train"]["pin_memory"],
+            collate_fn=getattr(train_loader, "collate_fn", None),
+        )
+        print(f"Using subset of dataset: {subset_size}/{dataset_size} samples (excl. val)")
+    else:
+        if val_split_ratio is not None:
+            # Rebuild train_loader excluding val indices
+            train_dataset = Subset(dataset, train_pool)
+            train_loader = DataLoader(
+                train_dataset,
+                batch_size=config["train"]["batch_size"],
+                shuffle=config["train"]["shuffle"],
+                num_workers=config["train"]["num_workers"],
+                pin_memory=config["train"]["pin_memory"],
+                collate_fn=getattr(train_loader, "collate_fn", None),
+            )
+        print(f"Using full training pool: {len(train_pool)}/{dataset_size} samples (excl. val)")
 
     batch = next(iter(train_loader))
     print(

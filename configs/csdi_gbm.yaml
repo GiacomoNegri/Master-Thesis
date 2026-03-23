@@ -17,7 +17,7 @@ diffusion:
 process:
   N: 1000
   sde_type: ve
-  model_steps: 50
+  model_steps: 200
   eps: 1.0e-3
   enforce_observed: true
 

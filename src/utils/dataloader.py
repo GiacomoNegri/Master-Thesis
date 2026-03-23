@@ -141,15 +141,15 @@ class SP500WindowDataset(Dataset):
             x_win = x[start:end]          # (L,K)
             tp_win = tp[start:end]        # (L,)
             mask = np.ones_like(x_win, dtype=np.float32) #all ones because it is real data
-        else:
-            # Padding path (only if drop_incomplete=False)
-            x_win = x[start:]             # (<=L,K)
-            tp_win = tp[start:]           # (<=L,)
-            pad = self.seq_len - len(x_win)
-            x_win = np.pad(x_win, ((0, pad), (0, 0)), mode="constant") # padding with zeros
-            tp_win = np.pad(tp_win, (0, pad), mode="edge") # we are repeating the last value
-            mask = np.zeros_like(x_win, dtype=np.float32)
-            mask[: self.seq_len - pad, :] = 1.0
+        # else:
+        #     # Padding path (only if drop_incomplete=False)
+        #     x_win = x[start:]             # (<=L,K)
+        #     tp_win = tp[start:]           # (<=L,)
+        #     pad = self.seq_len - len(x_win)
+        #     x_win = np.pad(x_win, ((0, pad), (0, 0)), mode="constant") # padding with zeros
+        #     tp_win = np.pad(tp_win, (0, pad), mode="edge") # we are repeating the last value
+        #     mask = np.zeros_like(x_win, dtype=np.float32)
+        #     mask[: self.seq_len - pad, :] = 1.0
 
         # Convert to torch and transpose to (K,L)
         observed_data = torch.from_numpy(x_win).transpose(0, 1)  # (K,L)
