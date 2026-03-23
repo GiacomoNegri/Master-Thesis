@@ -610,9 +610,21 @@ def train(
 
             # optimize
             optim.zero_grad(set_to_none=True)
+
+            # DEBUGGING: zero-initalizied output is a local trap
+            w = model.diffmodel.output_projection2.weight
+            print(f"output_proj2 weight norm: {w.norm().item():.6f}")   # should be > 0 after step 1
+            print(f"output_proj2 weight grad: {w.grad.norm().item() if w.grad is not None else 'None'}")
+            # END DEBUGGING
+
             scaler.scale(loss).backward()
             scaler.step(optim)
             scaler.update()
+
+            # DEBUGGING: AMP scaler silently skipping every update
+            scale = scaler.get_scale()
+            print(f"AMP scale: {scale}")   # if this keeps halving, NaN gradients are occurring
+            # END DEBUGGING
 
             global_step += 1
 
