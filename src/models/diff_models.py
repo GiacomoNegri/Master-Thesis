@@ -11,7 +11,7 @@ from linear_attention_transformer import LinearAttentionTransformer
 
 def get_torch_trans(heads=8, layers=1, channels=64):
     encoder_layer = nn.TransformerEncoderLayer(
-        d_model=channels, nhead=heads, dim_feedforward=64, activation="gelu"
+        d_model=channels, nhead=heads, dim_feedforward=channels, activation="gelu"
     )
     return nn.TransformerEncoder(encoder_layer, num_layers=layers)
 
@@ -36,33 +36,32 @@ def Conv1d_with_init(in_channels, out_channels, kernel_size):
 # encode diffusion step t
 
 class DiffusionEmbedding(nn.Module):
-    def __init__(self, num_steps, embedding_dim=128, projection_dim=None):
+    def __init__(self, embedding_dim=128, projection_dim=None):
         super().__init__()
         if projection_dim is None:
             projection_dim = embedding_dim
-        self.register_buffer(
-            "embedding",
-            self._build_embedding(num_steps, embedding_dim / 2),
-            persistent=False,
-        )
+        self.embedding_dim = embedding_dim
         self.projection1 = nn.Linear(embedding_dim, projection_dim)
         self.projection2 = nn.Linear(projection_dim, projection_dim)
 
-    def forward(self, diffusion_step):
-        x = self.embedding[diffusion_step]
+    def _sinusoidal_embedding(self, t: torch.Tensor) -> torch.Tensor:
+        # t: (B,) float in [0, T]
+        # Same frequency grid as the original lookup table, evaluated at arbitrary float t.
+        half_dim = self.embedding_dim // 2
+        frequencies = 10.0 ** (
+            torch.arange(half_dim, device=t.device) / (half_dim - 1) * 4.0
+        )  # (half_dim,) — log-spaced from 10^0 to 10^4
+        args = t.unsqueeze(1) * frequencies.unsqueeze(0)  # (B, half_dim)
+        return torch.cat([torch.sin(args), torch.cos(args)], dim=1)  # (B, embedding_dim)
+
+    def forward(self, t: torch.Tensor) -> torch.Tensor:
+        # t: (B,) float — continuous SDE time, no discretisation needed
+        x = self._sinusoidal_embedding(t)
         x = self.projection1(x)
         x = F.silu(x)
         x = self.projection2(x)
         x = F.silu(x)
         return x
-    
-    # Sinusoidal embedding
-    def _build_embedding(self, num_steps, dim=64):
-        steps = torch.arange(num_steps).unsqueeze(1)  # (T,1)
-        frequencies = 10.0 ** (torch.arange(dim) / (dim - 1) * 4.0).unsqueeze(0)  # (1,dim)
-        table = steps * frequencies  # (T,dim)
-        table = torch.cat([torch.sin(table), torch.cos(table)], dim=1)  # (T,dim*2)
-        return table
 
 
 class diff_CSDI(nn.Module):
@@ -71,7 +70,6 @@ class diff_CSDI(nn.Module):
         self.channels = config["channels"]
 
         self.diffusion_embedding = DiffusionEmbedding(
-            num_steps=config["num_steps"],
             embedding_dim=config["diffusion_embedding_dim"],
         )
 
@@ -136,25 +134,44 @@ class ResidualBlock(nn.Module):
             self.feature_layer = get_torch_trans(heads=nheads, layers=1, channels=channels)
 
 
+    @staticmethod
+    def _sinusoidal_pe(length, channels, device):
+        """Fixed sinusoidal positional encoding: (1, channels, length) for broadcast add."""
+        pe = torch.zeros(length, channels, device=device)
+        pos = torch.arange(length, device=device).unsqueeze(1).float()
+        div_term = torch.exp(
+            torch.arange(0, channels, 2, device=device).float()
+            * (-math.log(10000.0) / channels)
+        )
+        pe[:, 0::2] = torch.sin(pos * div_term)
+        pe[:, 1::2] = torch.cos(pos * div_term)
+        return pe.permute(1, 0).unsqueeze(0)  # (1, channels, length)
+
     def forward_time(self, y, base_shape):
         B, channel, K, L = base_shape
         if L == 1:
             return y
-        y = y.reshape(B, channel, K, L).permute(0, 2, 1, 3).reshape(B * K, channel, L) #input: (B,channel,K,L)->permute: (B,K,channel,L)->reshape: (BK,channel,L)
+        y = y.reshape(B, channel, K, L).permute(0, 2, 1, 3).reshape(B * K, channel, L)
+
+        # Positional encoding injected prior to the Transformer (relative sequence position)
+        y = y + self._sinusoidal_pe(L, channel, y.device)  # (BK, channel, L)
 
         if self.is_linear:
-            y = self.time_layer(y.permute(0, 2, 1)).permute(0, 2, 1) #permute 1: (BK,L,channel)->permute 2: (BK,channel,L) permute back
+            y = self.time_layer(y.permute(0, 2, 1)).permute(0, 2, 1)
         else:
-            y = self.time_layer(y.permute(2, 0, 1)).permute(1, 2, 0) #permute 1: (L,BK,channel)->permute 2: (BK,channel,L) permute back
-        y = y.reshape(B, K, channel, L).permute(0, 2, 1, 3).reshape(B, channel, K * L) #input: (BK,channel,L)->reshape: (B,K,channel,L)->(B,channel,K,L)->(B,channel,K*L)
+            y = self.time_layer(y.permute(2, 0, 1)).permute(1, 2, 0)
+        y = y.reshape(B, K, channel, L).permute(0, 2, 1, 3).reshape(B, channel, K * L)
         return y
-
 
     def forward_feature(self, y, base_shape):
         B, channel, K, L = base_shape
         if K == 1:
             return y
         y = y.reshape(B, channel, K, L).permute(0, 3, 1, 2).reshape(B * L, channel, K)
+
+        # Positional encoding injected prior to the Transformer (relative feature position)
+        y = y + self._sinusoidal_pe(K, channel, y.device)  # (BL, channel, K)
+
         if self.is_linear:
             y = self.feature_layer(y.permute(0, 2, 1)).permute(0, 2, 1)
         else:

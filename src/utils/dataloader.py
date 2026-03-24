@@ -24,7 +24,7 @@ class SP500WindowDataset(Dataset):
         root_dir: str = "../../data/sp500_individual_gbm/",
         seq_len: int = 252,
         stride: int = 1,
-        columns: Tuple[str, ...] = ("Date", "Open", "High", "Low", "Close", "Volume"),
+        columns: Tuple[str, ...] = ("date", "log_adj_close"),
         date_format: str = "%d/%m/%Y",
         time_mode: str = "index_norm",  # "index", "index_norm", "date_ordinal"
         cache_data: bool = False,
@@ -91,7 +91,7 @@ class SP500WindowDataset(Dataset):
 
         # Build time vector tp
         if self.time_mode == "date_ordinal":
-            dt = pd.to_datetime(df["Date"], format=self.date_format, errors="coerce")
+            dt = pd.to_datetime(df[self.columns[0]], format=self.date_format, errors="coerce")
             if dt.isna().any(): # we coerce errors to NaT
                 raise ValueError(f"Failed parsing some dates in {fp} with format {self.date_format}")
             tp = dt.map(pd.Timestamp.toordinal).to_numpy(dtype=np.float32)
@@ -110,7 +110,7 @@ class SP500WindowDataset(Dataset):
         # otherwise we keep it out of x and only use tp. Since you explicitly
         # want conditioning on Date, we include a numeric Date feature.
 
-        x_cols = ["Open", "High", "Low", "Close", "Volume"]
+        x_cols = list(self.columns[1:])
 
         # Convert Date feature to numeric if it's still string
         # if "Date" in x_cols:

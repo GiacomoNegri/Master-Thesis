@@ -446,7 +446,7 @@ def build_final_checkpoint_name(
     elif data_root == "./data/fake_individual_gbm":
         data_root = "FAKE"
     else:
-        data_root = "OTHER"
+        data_root = "REPL"
 
     mask_mode = str(config['train']['mask_mode'])
     if mask_mode == "random":
@@ -586,13 +586,12 @@ def train(
 
             # forward diffusion
             x_t, t_cont, eps = processes.forward_process(observed_data)
-            t_idx = processes.mapper.cont_to_idx(t_cont)
 
             # forward + loss
             with torch.amp.autocast("cuda", enabled=use_amp):
                 eps_hat = model(
                     x_t=x_t,
-                    t=t_idx,
+                    t=t_cont,
                     observed_data=observed_data,
                     cond_mask=cond_mask,
                     observed_tp=observed_tp,
@@ -867,4 +866,4 @@ if __name__ == "__main__":
 
     print("Training is finished")
 
-#python csdi_train_modified.py --config configs/csdi_gbm.yaml --epochs 1 --train_subset_ratio 0.005 --val_split_ratio 0.005 --data_root "./data/fake_individual_gbm" --resume_checkpoint ./checkpoints/csdi/<check_name>.pt
+# python csdi_train_modified.py --config configs/replication.yaml --epochs 1 --train_subset_ratio 0.005 --val_split_ratio 0.005 --data_root "./data/replication"

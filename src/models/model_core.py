@@ -24,6 +24,9 @@ class CSDIModel(nn.Module):
             self.emb_total_dim += 1  # conditional mask channel
 
         self.embed_layer = nn.Embedding(target_dim, self.emb_feature_dim)
+        # Learnable linear applied on top of the sinusoidal basis, making the
+        # time embedding a combination of sinusoidal functions and learnable vectors.
+        self.time_embed_proj = nn.Linear(self.emb_time_dim, self.emb_time_dim)
 
         config_diff = dict(config["diffusion"])
         config_diff["side_dim"] = self.emb_total_dim
@@ -41,20 +44,26 @@ class CSDIModel(nn.Module):
         return pe
 
     def get_side_info(self, observed_tp, cond_mask, feature_id=None):
-        # for every location (feature k, time l) the model receives: a time embedding, a feature identity embedding, and optionally a conditioning mask value. 
+        # For every location (feature k, time l) the model receives:
+        # a time embedding (sinusoidal + learnable), a feature identity embedding,
+        # and optionally a conditioning mask value.
+        # NOTE: the positional encoding (relative sequence index) is injected directly
+        # inside ResidualBlock.forward_time/_forward_feature, prior to the Transformer.
         B, K, L = cond_mask.shape
 
-        time_embed = self.time_embedding(observed_tp, self.emb_time_dim)  # (B,L,E), where E is the embedding time dimensions
-        time_embed = time_embed.unsqueeze(2).expand(-1, -1, K, -1)        # (B,L,K,E) copy time step across all features
+        # Time embedding: sinusoidal basis → learnable projection (absolute temporal positions)
+        time_embed = self.time_embedding(observed_tp, self.emb_time_dim)  # (B,L,E)
+        time_embed = self.time_embed_proj(time_embed)                      # (B,L,E) learnable
+        time_embed = time_embed.unsqueeze(2).expand(-1, -1, K, -1)        # (B,L,K,E)
 
-        if feature_id is None: #learned embedding for each feature index
+        if feature_id is None:  # learned embedding for each feature index
             feature_embed = self.embed_layer(torch.arange(self.target_dim, device=self.device))
             feature_embed = feature_embed.unsqueeze(0).unsqueeze(0).expand(B, L, -1, -1)
         else:
             feature_embed = self.embed_layer(feature_id).unsqueeze(1).expand(-1, L, -1, -1)
 
-        side_info = torch.cat([time_embed, feature_embed], dim=-1)  # (B,L,K,E+E) #what time it is, which variable is this?
-        side_info = side_info.permute(0, 3, 2, 1)                  # (B,side_dim,K,L)
+        side_info = torch.cat([time_embed, feature_embed], dim=-1)  # (B,L,K,E+F)
+        side_info = side_info.permute(0, 3, 2, 1)                   # (B,side_dim,K,L)
 
         if not self.is_unconditional:
             side_info = torch.cat([side_info, cond_mask.unsqueeze(1)], dim=1)
@@ -63,13 +72,13 @@ class CSDIModel(nn.Module):
     def make_diff_input(self, x_t, observed_data, cond_mask):
         if self.is_unconditional:
             return x_t.unsqueeze(1)  # (B,1,K,L), because the network receives only the noisy input
-        cond_obs = (cond_mask * observed_data).unsqueeze(1) #Observed part
-        noisy_target = ((1 - cond_mask) * x_t).unsqueeze(1) #Target part
-        return torch.cat([cond_obs, noisy_target], dim=1)  # (B,2,K,L)
+        cond_obs = (cond_mask * observed_data).unsqueeze(1)        # observed part
+        noisy_target = ((1 - cond_mask) * x_t).unsqueeze(1)       # target part
+        return torch.cat([cond_obs, noisy_target], dim=1)          # (B,2,K,L)
 
     def forward(self, x_t, t, observed_data, cond_mask, observed_tp, feature_id=None):
-        side_info = self.get_side_info(observed_tp, cond_mask, feature_id=feature_id) #build side info
-        diff_in = self.make_diff_input(x_t, observed_data, cond_mask) #produces the model input channels
+        side_info = self.get_side_info(observed_tp, cond_mask, feature_id=feature_id)
+        diff_in = self.make_diff_input(x_t, observed_data, cond_mask)
         return self.diffmodel(diff_in, side_info, t)  # run the denoiser and predict the noise
 
     @torch.no_grad()
