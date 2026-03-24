@@ -385,4 +385,5 @@ def main():
 
 if __name__ == "__main__":
     main()
-#python generate_samples.py --checkpoint_folder "toy" --checkpoint_name   "FAKE_final_ep-30_step-92160_sde-ve_lr-1e-04_N-1000_notlinear_layers-4_nheads-8_20260321_050613.pt" --mask_mode "unconditional" --n_samples "10" --cond_data_dir "./data/fake_individual_gbm" --out_dir "./data/generated/toy" --wandb_project "generation-gbm" --wandb_entity "thesis-giacomo-negri" --years_per_sample 1 --seed 42
+#python generate_samples.py --checkpoint_folder "replication" --checkpoint_name "REPL_UNCO_final_ep-10_ste
+# p-440_sde-gbm_lr-1e-04_N-2000_notlinear_layers-4_nheads-8_20260324_143022.pt" --mask_mode "unconditional" --n_samples "250" --cond_data_dir "./data/fake_individual_gbm" --out_dir "./data/generated/replication" --wandb_project "generation-gbm" --wandb_entity "thesis-giacomo-negri" --years_per_sample 40 --seed 42
