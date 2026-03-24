@@ -61,16 +61,40 @@ class Diffusion_Processes:
         # self.num_attributes = cfg.get("num_attributes", 0)
         # self.guidance_scale = cfg.get("guidance_scale", 1.5)
 
+        noise_schedule = cfg.get("noise_schedule", None)
+        sigma_min = float(cfg.get("sigma_min", 0.01))
+        sigma_max = float(cfg.get("sigma_max", 1.0))
+        beta_min  = float(cfg.get("beta_min",  0.1))
+        beta_max  = float(cfg.get("beta_max",  20.0))
+
         if self.sde_type == "ve":
-            # You can pass sigma_min, sigma_max, etc. via cfg if you want
-            self.sde: SDE = VESDE(N=self.N)
+            self.sde: SDE = VESDE(
+                N=self.N,
+                sigma_min=sigma_min,
+                sigma_max=sigma_max,
+                schedule=noise_schedule if noise_schedule is not None else "exponential",
+            )
         elif self.sde_type == "vp":
-            # Default to sub-VP; you can also pass beta_min, beta_max, schedule, etc. via cfg
-            self.sde: SDE = VPSDE(N=self.N)
+            self.sde: SDE = VPSDE(
+                N=self.N,
+                beta_min=beta_min,
+                beta_max=beta_max,
+                schedule=noise_schedule if noise_schedule is not None else "linear",
+            )
         elif self.sde_type == "subVP":
-            self.sde: SDE = SubVPSDE(N=self.N)
+            self.sde: SDE = SubVPSDE(
+                N=self.N,
+                beta_min=beta_min,
+                beta_max=beta_max,
+                schedule=noise_schedule if noise_schedule is not None else "linear",
+            )
         else:
-            self.sde: SDE = GBMLogSDE(N=self.N)
+            self.sde: SDE = GBMLogSDE(
+                N=self.N,
+                sigma_min=sigma_min,
+                sigma_max=sigma_max,
+                schedule=noise_schedule if noise_schedule is not None else "exponential",
+            )
 
         self.mapper = TimeMapper(T=self.sde.T, S=cfg["model_steps"])
         

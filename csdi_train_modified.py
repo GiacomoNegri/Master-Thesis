@@ -92,6 +92,26 @@ def parse_args():
     parser.add_argument("--sde_type", type=str, default=None)
     parser.add_argument("--model_steps", type=int, default=None)
     parser.add_argument("--N", type=int, default=None)
+    parser.add_argument(
+        "--noise_schedule",
+        type=str,
+        default=None,
+        choices=["linear", "exponential", "cosine"],
+        help=(
+            "Beta/sigma noise schedule shape. "
+            "'linear': linear interpolation (VP/subVP default); "
+            "'exponential': exponential interpolation; "
+            "'cosine': cosine-smoothed schedule."
+        ),
+    )
+    parser.add_argument("--sigma_min", type=float, default=None,
+                        help="Minimum sigma for VE/GBM SDEs (overrides config)")
+    parser.add_argument("--sigma_max", type=float, default=None,
+                        help="Maximum sigma for VE/GBM SDEs (overrides config)")
+    parser.add_argument("--beta_min", type=float, default=None,
+                        help="Minimum beta for VP/subVP SDEs (overrides config)")
+    parser.add_argument("--beta_max", type=float, default=None,
+                        help="Maximum beta for VP/subVP SDEs (overrides config)")
 
     # model overrides
     parser.add_argument("--is_unconditional", type=str2bool, default=None)
@@ -171,6 +191,16 @@ def build_cli_override_dict(args) -> Dict[str, Any]:
         override["process"]["model_steps"] = args.model_steps
     if args.N is not None:
         override["process"]["N"] = args.N
+    if args.noise_schedule is not None:
+        override["process"]["noise_schedule"] = args.noise_schedule
+    if args.sigma_min is not None:
+        override["process"]["sigma_min"] = args.sigma_min
+    if args.sigma_max is not None:
+        override["process"]["sigma_max"] = args.sigma_max
+    if args.beta_min is not None:
+        override["process"]["beta_min"] = args.beta_min
+    if args.beta_max is not None:
+        override["process"]["beta_max"] = args.beta_max
 
     # train
     if args.epochs is not None:
@@ -866,4 +896,4 @@ if __name__ == "__main__":
 
     print("Training is finished")
 
-# python csdi_train_modified.py --config configs/replication.yaml --epochs 1 --train_subset_ratio 0.005 --val_split_ratio 0.005 --data_root "./data/replication"
+# python csdi_train_modified.py --config configs/replication.yaml --epochs 1 --train_subset_ratio 0.005 --val_split_ratio 0.005 --data_root "./data/replication" --noise_schedule exponential --sigma_min 0.01 --sigma_max 1.0 --beta_min 0.01 --beta_max 20.0
