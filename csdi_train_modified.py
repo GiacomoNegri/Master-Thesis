@@ -493,6 +493,7 @@ def build_final_checkpoint_name(
     is_linear = "linear" if bool(config["diffusion"]["is_linear"]) else "notlinear"
     layers = int(config["diffusion"]["layers"])
     nheads = int(config["diffusion"]["nheads"])
+    noise_schedule = str(config["process"].get("noise_schedule", "linear"))
 
     # safer string for learning rate, e.g. 1e-4 -> 1e-04
     lr_str = f"{lr:.0e}"
@@ -504,6 +505,7 @@ def build_final_checkpoint_name(
         f"ep-{epochs}_"
         f"step-{global_step}_"
         f"sde-{sde_type}_"
+        f"noise-{noise_schedule}_"
         f"lr-{lr_str}_"
         f"N-{N}_"
         f"{is_linear}_"
