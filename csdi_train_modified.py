@@ -637,7 +637,7 @@ def train(
                 "ema": f"{ema_loss:.4f}",
                 "avg": f"{(epoch_loss_sum / epoch_loss_count):.4f}",
                 "it/s": f"{it_per_s:.2f}",
-                "t": f"{t_idx.float().mean().item():.1f}",
+                "t": f"{t_cont.float().mean().item():.1f}",
             })
 
             if global_step % int(config["train"]["log_every_steps"]) == 0:
@@ -645,7 +645,7 @@ def train(
                     f"epoch={epoch+1}/{num_epochs} "
                     f"step={global_step} "
                     f"loss={loss_val:.6f} "
-                    f"t_idx_mean={t_idx.float().mean().item():.2f}"
+                    f"t_cont_mean={t_cont.float().mean().item():.2f}"
                 )
                 if use_wandb:
                     wandb.log({
@@ -682,12 +682,12 @@ def train(
                     target_mask = (observed_mask.float() * (1.0 - cond_mask.float())).float()
 
                     x_t, t_cont, eps = processes.forward_process(observed_data)
-                    t_idx = processes.mapper.cont_to_idx(t_cont)
+                    # t_idx = processes.mapper.cont_to_idx(t_cont)
 
                     with torch.amp.autocast("cuda", enabled=use_amp):
                         eps_hat = model(
                             x_t=x_t,
-                            t=t_idx,
+                            t=t_cont,
                             observed_data=observed_data,
                             cond_mask=cond_mask,
                             observed_tp=observed_tp,

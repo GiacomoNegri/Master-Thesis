@@ -25,3 +25,6 @@ datasets/
 checkpoints/
 outputs/
 *.sh
+
+err/
+out/
