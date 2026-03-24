@@ -345,12 +345,14 @@ def masked_mse(eps_hat: torch.Tensor, eps: torch.Tensor, target_mask: torch.Tens
 # Main training loop
 # ----------------------------
 
-# Helper function so that we save the model each epoch if less than 5 epoch training or each 5 epochs otherwise
+# Helper function so that we save at ~10% of epochs, or every 5 epochs if total < 10
 def get_checkpoint_save_interval(num_epochs: int) -> int:
     """
-    Save every epoch if total epochs <= 5, otherwise every 5 epochs.
+    Save every 5 epochs if total epochs < 10, otherwise every 10% of total epochs.
     """
-    return 1 if num_epochs <= 5 else 5
+    if num_epochs < 10:
+        return 5
+    return max(1, num_epochs // 10)
 
 # Helper funciton to report the checkpoints parameters
 def build_run_metadata(config: Dict[str, Any]) -> Dict[str, Any]:
@@ -550,6 +552,7 @@ def train(
     # Total number of batches per epoch (for progress bar)
     steps_per_epoch = len(train_loader)
     ckpt_every_epochs = get_checkpoint_save_interval(num_epochs)
+    run_timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
 
     # Resume state
     start_epoch = 0
@@ -756,7 +759,7 @@ def train(
         # save checkpoint by epoch cadence
         should_save = ((epoch + 1) % ckpt_every_epochs == 0) or ((epoch + 1) == num_epochs)
         if should_save:
-            ckpt_path = os.path.join(out_dir, f"ckpt_epoch_{epoch+1}.pt")
+            ckpt_path = os.path.join(out_dir, f"ckpt_epoch_{epoch+1}_{run_timestamp}.pt")
             payload = make_checkpoint_payload(
                 model=model,
                 optim=optim,
