@@ -305,7 +305,7 @@ class Diffusion_Processes:
                 # ---- inline snapshot plot every 10% checkpoint (not for early steps) ----
                 if i % k == 0:
                     x_np    = x_cpu.numpy()          # (B, K, L)
-                    n_show  = min(B_p, 5)
+                    n_show  = min(x_cpu.shape[0], 5)
                     t_label = f"t={t_i[0].item():.3f}  step {i+1}/{num_steps}"
 
                     fig, axes = plt.subplots(1, 2, figsize=(12, 3))
