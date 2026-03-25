@@ -1,34 +1,34 @@
 """
-generate_samples.py — CLI version of notebooks/Reverse_samples_generation.ipynb
+generate_samples.py — unconditional generation of log_adj_close time-series.
 
-Run unconditional generation:
-    python generate_samples.py --checkpoint_folder toy --checkpoint_name MY.pt \
-        --mask_mode unconditional --n_samples 100 --years_per_sample 1
+Run:
+    python generate_samples.py \
+        --checkpoint_folder replication \
+        --checkpoint_name   MY.pt \
+        --n_samples         250 \
+        --years_per_sample  39 \
+        --seed              42
 
-Run conditional (predict_close) generation:
-    python generate_samples.py --checkpoint_folder toy --checkpoint_name MY.pt \
-        --mask_mode predict_close --n_samples 100 \
-        --cond_data_dir data/fake_individual_gbm \
-        --years_per_sample 2 --start_date 1986-01-01 --end_date 2025-12-31 --seed 42
+Output CSVs land in:
+    <out_dir>/<checkpoint_name_without_ext>/
 
 W&B logging (optional — omit --wandb_project to skip):
     python generate_samples.py ... \
-        --wandb_project csdi-gbm --wandb_entity thesis-giacomo-negri
+        --wandb_project generation-gbm --wandb_entity thesis-giacomo-negri
 
-On a headless HPC node matplotlib is forced to the 'Agg' backend so that the
-diagnostic plots produced inside Diffusion_Processes.reverse_process are saved
-to PNG files instead of being displayed interactively.
+On a headless HPC node matplotlib is forced to the 'Agg' backend so that
+diagnostic plots produced inside Diffusion_Processes.reverse_process are
+saved to PNG files instead of being displayed interactively.
 """
 
 import argparse
 import os
-import pickle
 import sys
 import warnings
 
 import matplotlib
 matplotlib.use("Agg")          # must come before any other matplotlib import
-import matplotlib.pyplot as plt  # noqa: E402 — kept here to apply the backend
+import matplotlib.pyplot as plt  # noqa: E402
 
 warnings.filterwarnings("ignore")
 
@@ -50,7 +50,7 @@ from src.utils.WIP_processes import Diffusion_Processes
 
 def parse_args():
     p = argparse.ArgumentParser(
-        description="Generate synthetic time-series with a trained CSDI checkpoint."
+        description="Generate synthetic log_adj_close time-series with a trained CSDI checkpoint."
     )
 
     # Checkpoint
@@ -59,54 +59,35 @@ def parse_args():
     p.add_argument("--checkpoint_name", type=str, required=True,
                    help="Filename of the checkpoint (.pt).")
 
-    # Generation mode
-    p.add_argument("--mask_mode", type=str, default="unconditional",
-                   choices=["unconditional", "predict_close"],
-                   help="'unconditional': generate all features from noise. "
-                        "'predict_close': condition on O,H,L,V and predict Close.")
+    # Kept for .sh compatibility — ignored at runtime
+    p.add_argument("--mask_mode",     type=str, default="unconditional")
+    p.add_argument("--cond_data_dir", type=str, default=None)
 
     # Volume
     p.add_argument("--n_samples", type=int, default=100,
                    help="Number of synthetic time-series to generate.")
 
-    # Conditioning data (predict_close only)
-    p.add_argument("--cond_data_dir", type=str,
-                   default=os.path.join("data", "fake_individual_gbm"),
-                   help="Directory of processed CSVs used as conditioning context "
-                        "(only used when --mask_mode predict_close).")
-    p.add_argument("--cond_stats_path", type=str, default=None,
-                   help="Optional path to a pre-computed stats pickle "
-                        "{ticker: {mean, std}}. Computed on-the-fly if omitted.")
-
     # Date range for output CSVs
-    p.add_argument("--start_date", type=str, default="1986-01-01",
-                   help="Earliest possible start date for any generated sample.")
-    p.add_argument("--end_date", type=str, default="2025-12-31",
-                   help="Latest possible end date for any generated sample.")
+    p.add_argument("--start_date", type=str, default="1986-01-01")
+    p.add_argument("--end_date",   type=str, default="2025-12-31")
     p.add_argument("--years_per_sample", type=int, default=1,
-                   help="Number of years of business days each sample covers. "
-                        "A random start date is drawn uniformly from "
-                        "[start_date, end_date - years_per_sample] for each sample.")
+                   help="Number of years of business days each sample covers.")
     p.add_argument("--seed", type=int, default=42,
-                   help="Random seed for start-date sampling (set to -1 for a random seed).")
+                   help="Random seed for start-date sampling (-1 for a random seed).")
 
     # Reverse diffusion
     p.add_argument("--num_reverse_steps", type=int, default=None,
-                   help="Override the number of reverse diffusion steps "
-                        "(default: value stored in the checkpoint config).")
+                   help="Override reverse diffusion steps (default: value in checkpoint config).")
 
-    # Output
+    # Output base dir — checkpoint subfolder is appended automatically
     p.add_argument("--out_dir", type=str,
-                   default=os.path.join("data", "generated", "toy"),
-                   help="Directory where generated CSVs and stats pickle are saved.")
+                   default=os.path.join("data", "generated", "replication"),
+                   help="Base directory; a sub-folder named after the checkpoint is created here.")
 
-    # W&B (all optional — omit --wandb_project to disable logging entirely)
-    p.add_argument("--wandb_project", type=str, default=None,
-                   help="W&B project name. W&B logging is disabled when omitted.")
-    p.add_argument("--wandb_entity", type=str, default=None,
-                   help="W&B entity (team or username).")
-    p.add_argument("--wandb_run_name", type=str, default=None,
-                   help="Human-readable run name. Auto-generated from checkpoint if omitted.")
+    # W&B (all optional)
+    p.add_argument("--wandb_project",  type=str, default=None)
+    p.add_argument("--wandb_entity",   type=str, default=None)
+    p.add_argument("--wandb_run_name", type=str, default=None)
 
     return p.parse_args()
 
@@ -118,6 +99,11 @@ def parse_args():
 def main():
     args = parse_args()
 
+    # ── Output dir = base_dir / checkpoint_stem ───────────────────────────────
+    ckpt_stem = os.path.splitext(args.checkpoint_name)[0]
+    out_dir   = os.path.join(args.out_dir, ckpt_stem)
+    os.makedirs(out_dir, exist_ok=True)
+
     # ── Device ────────────────────────────────────────────────────────────────
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
     print(f"Device: {device}")
@@ -126,10 +112,18 @@ def main():
     checkpoint_path = os.path.join("checkpoints", args.checkpoint_folder, args.checkpoint_name)
     print(f"Loading checkpoint: {checkpoint_path}")
     ckpt   = torch.load(checkpoint_path, map_location=device)
+    print("Checkpoint loaded successfully.")
     config = ckpt["config"]
 
-    target_dim = int(config["data"]["target_dim"])   # K features
-    seq_len    = int(config["train"]["seq_len"])      # L time steps
+    # CHECK PRINTING
+    print("Checkpoint config:")
+    for section, params in config.items():
+        print(f"  {section}:")
+        for key, value in params.items():
+            print(f"    {key}: {value}")
+
+    target_dim = int(config["data"]["target_dim"])   # expected: 1 (log_adj_close)
+    seq_len    = int(config["train"]["seq_len"])
 
     model = CSDIModel(target_dim=target_dim, config=config, device=device).to(device)
     model.load_state_dict(ckpt["model"])
@@ -138,28 +132,26 @@ def main():
     print(f"Checkpoint : {args.checkpoint_name}")
     print(f"target_dim : {target_dim}  |  seq_len : {seq_len}")
     print(f"SDE type   : {config['process']['sde_type']}")
+    print(f"Noise sched.: {config['process']['noise_schedule']} with N={config['process']['N']} steps")
 
     # ── W&B init (optional) ───────────────────────────────────────────────────
     use_wandb = args.wandb_project is not None
     if use_wandb:
-        run_name = args.wandb_run_name or (
-            f"gen_{args.mask_mode}_{args.checkpoint_name.replace('.pt', '')}"
-        )
+        run_name = args.wandb_run_name or f"gen_unconditional_{ckpt_stem}"
         wandb.init(
             project = args.wandb_project,
             entity  = args.wandb_entity,
             name    = run_name,
             config  = {
-                # generation settings
                 "checkpoint_folder":  args.checkpoint_folder,
                 "checkpoint_name":    args.checkpoint_name,
-                "mask_mode":          args.mask_mode,
+                "mask_mode":          "unconditional",
                 "n_samples":          args.n_samples,
                 "num_reverse_steps":  args.num_reverse_steps,
                 "start_date":         args.start_date,
                 "end_date":           args.end_date,
-                # model / process settings from the checkpoint
                 "sde_type":           config["process"]["sde_type"],
+                "noise_schedule":     config["process"]["noise_schedule"],
                 "sde_N":              config["process"]["N"],
                 "model_steps":        config["process"]["model_steps"],
                 "target_dim":         target_dim,
@@ -175,67 +167,11 @@ def main():
           f"model_steps: {processes.model_steps}")
     print(f"Reverse steps to use: {num_reverse_steps}")
 
-    # ── Feature bookkeeping ───────────────────────────────────────────────────
-    FEATURE_COLS = ["Open", "High", "Low", "Close", "Volume"]
-    CLOSE_IDX    = FEATURE_COLS.index("Close")                              # 3
-    COND_INDICES = [i for i, f in enumerate(FEATURE_COLS) if f != "Close"]  # [0,1,2,4]
-
-    norm_stats = {}  # filled only in predict_close mode
-
-    # ── Build observed_data and cond_mask ─────────────────────────────────────
-    N_SAMPLES  = args.n_samples
-    mask_mode  = args.mask_mode
-
-    if mask_mode == "unconditional":
-        observed_data = torch.zeros(N_SAMPLES, target_dim, seq_len, device=device)
-        cond_mask     = torch.zeros(N_SAMPLES, target_dim, seq_len, device=device)
-        cond_tickers  = [f"FAKE_{i+1:04d}" for i in range(N_SAMPLES)]
-
-    elif mask_mode == "predict_close":
-        csv_files = sorted([f for f in os.listdir(args.cond_data_dir) if f.endswith(".csv")])
-        if len(csv_files) < N_SAMPLES:
-            raise ValueError(
-                f"Need {N_SAMPLES} CSV files but found only {len(csv_files)} "
-                f"in {args.cond_data_dir}"
-            )
-        selected_files = csv_files[:N_SAMPLES]
-
-        # Load optional pre-computed stats
-        precomp_stats = {}
-        if args.cond_stats_path is not None:
-            with open(args.cond_stats_path, "rb") as fh:
-                precomp_stats = pickle.load(fh)
-
-        obs_np       = np.zeros((N_SAMPLES, target_dim, seq_len), dtype=np.float32)
-        cond_tickers = []
-
-        for idx, fname in enumerate(selected_files):
-            ticker = fname.split("_processed")[0]
-            cond_tickers.append(ticker)
-
-            df   = pd.read_csv(os.path.join(args.cond_data_dir, fname))
-            vals = df[FEATURE_COLS].values[:seq_len].T.astype(np.float32)  # (K, L)
-
-            if ticker in precomp_stats:
-                mu  = precomp_stats[ticker]["mean"].reshape(-1, 1)
-                std = precomp_stats[ticker]["std"].reshape(-1, 1)
-            else:
-                mu  = vals.mean(axis=1, keepdims=True)
-                std = vals.std(axis=1, keepdims=True).clip(min=1e-8)
-
-            norm_stats[idx] = {"mean": mu.squeeze(), "std": std.squeeze(), "ticker": ticker}
-            obs_np[idx] = (vals - mu) / std
-
-        observed_data = torch.from_numpy(obs_np).to(device)
-
-        cond_mask = torch.zeros(N_SAMPLES, target_dim, seq_len, device=device)
-        cond_mask[:, COND_INDICES, :] = 1.0
-
-    else:
-        raise ValueError(f"Unknown mask_mode: {mask_mode!r}")
-
-    print(f"mask_mode     : {mask_mode}")
-    print(f"observed frac : {cond_mask.mean().item():.2f}")
+    # ── Unconditional: all-zero observed data and mask ────────────────────────
+    N_SAMPLES     = args.n_samples
+    print(f"Number of samples: {N_SAMPLES}")
+    observed_data = torch.zeros(N_SAMPLES, target_dim, seq_len, device=device)
+    cond_mask     = torch.zeros(N_SAMPLES, target_dim, seq_len, device=device)
 
     # ── Run reverse diffusion ─────────────────────────────────────────────────
     observed_tp = (
@@ -253,7 +189,9 @@ def main():
         num_steps        = num_reverse_steps,
         probability_flow = False,
         device           = device,
-    )  # → (N_SAMPLES, K, L)
+    )  # → (N_SAMPLES, 1, L)
+    print("Reverse diffusion completed. Samples shape:", samples.shape)
+    print('Samples head:\n', samples[:2, 0, :5])  # print first 5 values of first 2 samples
 
     samples_global_mean = samples.mean().item()
     samples_global_std  = samples.std().item()
@@ -265,22 +203,22 @@ def main():
     print(f"Std   : {samples_global_std:.4f}")
     print(f"Range : [{samples_global_min:.4f}, {samples_global_max:.4f}]")
 
-    # ── Save diagnostic figures and optionally upload to W&B ─────────────────
-    os.makedirs(args.out_dir, exist_ok=True)
+    # ── Save diagnostic figures ───────────────────────────────────────────────
     wandb_images = {}
     for fig_num in plt.get_fignums():
         label    = "denoising_trajectory" if fig_num == 1 else "generated_samples"
-        fig_path = os.path.join(args.out_dir, f"diagnostic_{label}.png")
+        fig_path = os.path.join(out_dir, f"diagnostic_{label}.png")
         plt.figure(fig_num).savefig(fig_path, dpi=100, bbox_inches="tight")
         print(f"Saved diagnostic figure → {fig_path}")
         if use_wandb:
             wandb_images[label] = wandb.Image(fig_path)
     plt.close("all")
 
-    # ── Save results ──────────────────────────────────────────────────────────
-    all_bdays   = pd.bdate_range(start=args.start_date, end=args.end_date)
-    cutoff_date = pd.Timestamp(args.end_date) - relativedelta(years=args.years_per_sample)
+    # ── Build date pool ───────────────────────────────────────────────────────
+    all_bdays    = pd.bdate_range(start=args.start_date, end=args.end_date)
+    cutoff_date  = pd.Timestamp(args.end_date) - relativedelta(years=args.years_per_sample)
     valid_starts = all_bdays[all_bdays <= cutoff_date]
+    print(f"Number of valid starts: {len(valid_starts)} (from {valid_starts[0].date()} to {valid_starts[-1].date()})")
     if len(valid_starts) == 0:
         raise ValueError(
             f"No valid start dates: end_date ({args.end_date}) minus "
@@ -288,70 +226,35 @@ def main():
             "Widen the window or reduce --years_per_sample."
         )
 
-    rng_seed = None if args.seed == -1 else args.seed
-    rng = np.random.default_rng(rng_seed)
+    rng_seed      = None if args.seed == -1 else args.seed
+    rng           = np.random.default_rng(rng_seed)
     start_indices = rng.integers(0, len(valid_starts), size=N_SAMPLES)
 
-    samples_np  = samples.detach().cpu().numpy()         # (N_SAMPLES, K, L)
-    obs_np_cpu  = observed_data.detach().cpu().numpy() if mask_mode == "predict_close" else None
+    samples_np = samples.detach().cpu().numpy()  # (N_SAMPLES, 1, L)
 
-    stats_dict = {}
-
+    # ── Save CSVs ─────────────────────────────────────────────────────────────
     for i in range(N_SAMPLES):
-        ticker = cond_tickers[i]
-        gen    = samples_np[i]   # (K, L) in normalised space
+        series = samples_np[i, 0, :]  # (L,) — log_adj_close values
 
-        # ── Per-sample date index ─────────────────────────────────────────────
         sample_start = valid_starts[start_indices[i]]
-        sample_end   = sample_start + relativedelta(years=args.years_per_sample)
-        dates = pd.bdate_range(start=sample_start, end=sample_end)[:seq_len]
-        if len(dates) < seq_len:
-            raise ValueError(
-                f"Sample {i}: only {len(dates)} business days available between "
-                f"{sample_start.date()} and {sample_end.date()}, but seq_len={seq_len}. "
-                "Increase --years_per_sample or widen the date window."
-            )
+        dates        = pd.bdate_range(start=sample_start, periods=seq_len)
 
-        if mask_mode == "unconditional":
-            series = gen
-            mu  = series.mean(axis=1).astype(np.float32)
-            std = series.std(axis=1).clip(min=1e-8).astype(np.float32)
+        df = pd.DataFrame({
+            "Date":          dates.strftime("%d/%m/%Y"),
+            "log_adj_close": series,
+        })
 
-        else:  # predict_close
-            mu_arr  = norm_stats[i]["mean"]   # (K,)
-            std_arr = norm_stats[i]["std"]    # (K,)
+        filename = (
+            f"FAKE_{i+1:04d}_"
+            f"{dates[0].strftime('%Y%m%d')}_"
+            f"{dates[-1].strftime('%Y%m%d')}_generated.csv"
+        )
+        df.to_csv(os.path.join(out_dir, filename), index=False)
 
-            series_denorm = gen * std_arr[:, None] + mu_arr[:, None]
-            orig = obs_np_cpu[i] * std_arr[:, None] + mu_arr[:, None]
-            series_denorm[COND_INDICES, :] = orig[COND_INDICES, :]
+    print(f"\nSaved {N_SAMPLES} CSV files → {out_dir}")
 
-            series = series_denorm
-            mu  = series.mean(axis=1).astype(np.float32)
-            std = series.std(axis=1).clip(min=1e-8).astype(np.float32)
-
-        df = pd.DataFrame(series.T, columns=FEATURE_COLS)
-        df.insert(0, "Date", dates.strftime("%d/%m/%Y"))
-
-        suffix   = "predicted_close" if mask_mode == "predict_close" else "generated"
-        filename = f"{ticker}_{dates[0].strftime('%Y%m%d')}_{dates[-1].strftime('%Y%m%d')}_{suffix}.csv"
-        df.to_csv(os.path.join(args.out_dir, filename), index=False)
-
-        stats_dict[ticker] = {"mean": mu, "std": std}
-
-    stats_path = os.path.join(args.out_dir, "fake_stats_generated.pkl")
-    with open(stats_path, "wb") as fh:
-        pickle.dump(stats_dict, fh)
-
-    print(f"\nmask_mode : {mask_mode}")
-    print(f"Saved {N_SAMPLES} CSV files  →  {args.out_dir}")
-    print(f"Saved stats pickle          →  {stats_path}")
-
-    # ── W&B — log summary metrics, per-feature stats, and plots ──────────────
+    # ── W&B — log summary metrics and diagnostic plots ────────────────────────
     if use_wandb:
-        FEATURE_COLS = ["Open", "High", "Low", "Close", "Volume"]
-        samples_np_final = samples.detach().cpu().numpy()  # (N, K, L)
-
-        # Global stats
         log_dict = {
             "gen/global_mean": samples_global_mean,
             "gen/global_std":  samples_global_std,
@@ -359,25 +262,7 @@ def main():
             "gen/global_max":  samples_global_max,
             "gen/n_samples":   N_SAMPLES,
         }
-
-        # Per-feature mean and std (averaged across samples and time steps)
-        for k_idx, feat in enumerate(FEATURE_COLS):
-            feat_vals = samples_np_final[:, k_idx, :]   # (N, L)
-            log_dict[f"gen/feat_{feat}_mean"] = float(feat_vals.mean())
-            log_dict[f"gen/feat_{feat}_std"]  = float(feat_vals.std())
-
-        # Diagnostic plots
         log_dict.update(wandb_images)
-
-        # W&B artifact — upload the stats pickle
-        artifact = wandb.Artifact(
-            name=f"generated_samples_{wandb.run.id}",
-            type="generation_output",
-            description=f"{mask_mode} generation from {args.checkpoint_name}",
-        )
-        artifact.add_file(stats_path)
-        wandb.log_artifact(artifact)
-
         wandb.log(log_dict)
         wandb.finish()
         print("W&B run finished.")
@@ -385,4 +270,3 @@ def main():
 
 if __name__ == "__main__":
     main()
-#python generate_samples.py --checkpoint_folder "replication" --checkpoint_name "REPL_UNCO_final_ep-10_step-440_sde-gbm_lr-1e-04_N-2000_notlinear_layers-4_nheads-8_20260324_143022.pt" --mask_mode "unconditional" --n_samples "250" --cond_data_dir "./data/fake_individual_gbm" --out_dir "./data/generated/replication" --wandb_project "generation-gbm" --wandb_entity "thesis-giacomo-negri" --years_per_sample 40 --seed 42
