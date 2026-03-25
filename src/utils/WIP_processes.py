@@ -280,6 +280,14 @@ class Diffusion_Processes:
                 per_feat_std = x_cpu.std(dim=[0, 2]).tolist()   # (K,)
                 dx_norm = (dx_cpu.norm() / dx_cpu.numel()).item() if dx_cpu is not None else 0.0
 
+                # skewness and excess kurtosis over all elements (batch × features × time)
+                xf = x_cpu.flatten()
+                mu = xf.mean()
+                diff = xf - mu
+                var  = (diff ** 2).mean()
+                skew_val = ((diff ** 3).mean() / (var ** 1.5 + 1e-8)).item()
+                kurt_val = ((diff ** 4).mean() / (var ** 2 + 1e-8) - 3.0).item()  # excess kurtosis
+
                 std_trajectory.append((t_i[0].item(), global_std, dx_norm))
 
                 elapsed_time, start_time = time.time() - start_time, time.time()
@@ -289,9 +297,40 @@ class Diffusion_Processes:
                     f"mean={x_cpu.mean():.4f}  std={global_std:.4f}  "
                     f"min={x_cpu.min():.4f}  max={x_cpu.max():.4f}  "
                     f"dx_norm={dx_norm:.2e}\n"
+                    f"  skew={skew_val:.4f}  kurt(excess)={kurt_val:.4f}\n"
                     f"  per-feat std: {feat_str}\n"
                     f"  elapsed {elapsed_time:.1f}s\n"
                 )
+
+                # ---- inline snapshot plot every 10% checkpoint (not for early steps) ----
+                if i % k == 0:
+                    x_np    = x_cpu.numpy()          # (B, K, L)
+                    n_show  = min(B_p, 5)
+                    t_label = f"t={t_i[0].item():.3f}  step {i+1}/{num_steps}"
+
+                    fig, axes = plt.subplots(1, 2, figsize=(12, 3))
+
+                    # Left: marginal histogram of all values — should narrow and shift as t→0
+                    axes[0].hist(x_np.ravel(), bins=80, density=True, color="steelblue", alpha=0.8)
+                    axes[0].set_title(f"Marginal distribution  ({t_label})")
+                    axes[0].set_xlabel("value")
+                    axes[0].set_ylabel("density")
+                    axes[0].grid(True, linewidth=0.4)
+
+                    # Right: first-feature trajectories for n_show samples
+                    # shows whether samples are diverse or collapsing to the same path
+                    for b in range(n_show):
+                        alpha = 0.9 if b == 0 else 0.4
+                        lw    = 1.4 if b == 0 else 0.7
+                        axes[1].plot(x_np[b, 0], alpha=alpha, linewidth=lw,
+                                     label=f"s{b}" if b == 0 else None)
+                    axes[1].set_title(f"Sample trajectories feat-0  ({t_label})")
+                    axes[1].set_xlabel("time step")
+                    axes[1].set_ylabel("value")
+                    axes[1].grid(True, linewidth=0.4)
+
+                    plt.tight_layout()
+                    plt.show()
 
         if self.enforce_observed:
             x = cond_mask * observed_data + (1.0 - cond_mask) * x
@@ -316,6 +355,7 @@ class Diffusion_Processes:
             ax2.set_xlabel("diffusion time t  (T → ε)")
             ax2.set_title("Update magnitude — should shrink as t → 0")
             ax2.grid(True, linewidth=0.4)
+            ax1.invert_xaxis()   # show T on the left, ε on the right (denoising direction)
             plt.tight_layout()
             plt.show()
 

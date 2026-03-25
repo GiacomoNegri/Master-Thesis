@@ -240,12 +240,12 @@ def main():
         dates        = pd.bdate_range(start=sample_start, periods=seq_len)
 
         df = pd.DataFrame({
-            "Date":          dates.strftime("%d/%m/%Y"),
+            "date":          dates.strftime("%d/%m/%Y"),
             "log_adj_close": series,
         })
 
         filename = (
-            f"FAKE_{i+1:04d}_"
+            f"FAKE_{i+1:04d}"
             f"{dates[0].strftime('%Y%m%d')}_"
             f"{dates[-1].strftime('%Y%m%d')}_generated.csv"
         )
