@@ -271,7 +271,7 @@ class Diffusion_Processes:
             x  = x + dx
 
             # ---- log stats every 10% of steps (and the first 15) ----
-            if (i % k == 0) or (i < 15):
+            if (i % k == 0) or (i > num_steps - 10):
                 x_cpu  = x.detach().cpu()
                 dx_cpu = dx.detach().cpu() if isinstance(dx, torch.Tensor) else None
 
