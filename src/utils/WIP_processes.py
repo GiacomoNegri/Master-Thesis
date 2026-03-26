@@ -81,7 +81,7 @@ class Diffusion_Processes:
                 beta_max=beta_max,
                 schedule=noise_schedule if noise_schedule is not None else "linear",
             )
-        elif self.sde_type == "subVP":
+        elif self.sde_type == "subvp":
             self.sde: SDE = SubVPSDE(
                 N=self.N,
                 beta_min=beta_min,
