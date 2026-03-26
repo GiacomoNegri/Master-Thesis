@@ -136,6 +136,8 @@ def parse_args():
                         help="Number of samples to use for training")
     parser.add_argument("--val_split_ratio", type=float, default=None,
                         help="Fraction of dataset to hold out for validation, e.g. 0.1 for 10%")
+    parser.add_argument("--early_stop_patience", type=int, default=None,
+                        help="Stop training if val loss does not improve for this many epochs. Requires val_split_ratio. 0 or omit to disable.")
     parser.add_argument(
         "--mask_mode",
         type=str,
@@ -227,6 +229,8 @@ def build_cli_override_dict(args) -> Dict[str, Any]:
         override["train"]["train_subset_size"] = args.train_subset_size
     if args.val_split_ratio is not None:
         override["train"]["val_split_ratio"] = args.val_split_ratio
+    if args.early_stop_patience is not None:
+        override["train"]["early_stop_patience"] = args.early_stop_patience
     if args.mask_mode is not None:
         override["train"]["mask_mode"] = args.mask_mode
 
@@ -454,6 +458,7 @@ def build_final_checkpoint_name(
     config: Dict[str, Any],
     global_step: int,
     timestamp: Optional[str] = None,
+    actual_epoch: Optional[int] = None,
 ) -> str:
     """
     Build a descriptive final checkpoint filename.
@@ -488,7 +493,7 @@ def build_final_checkpoint_name(
     else:
         mask_mode = "CLOS"
     
-    epochs = int(config["train"]["epochs"])
+    epochs = actual_epoch if actual_epoch is not None else int(config["train"]["epochs"])
     sde_type = str(config["process"]["sde_type"])
     lr = float(config["train"]["lr"])
     N = int(config["process"]["N"])
@@ -584,6 +589,13 @@ def train(
             init_kwargs["resume"] = "must"
         wandb.init(**init_kwargs)
         history["wandb_run_id"] = wandb.run.id
+
+    # Early stopping state
+    early_stop_patience = config["train"].get("early_stop_patience", None)
+    if early_stop_patience is not None:
+        early_stop_patience = int(early_stop_patience) if int(early_stop_patience) > 0 else None
+    best_val_loss = float("inf")
+    epochs_no_improve = 0
 
     for epoch in range(start_epoch, num_epochs):
         model.train()
@@ -755,6 +767,26 @@ def train(
                 epoch_metrics["epoch/val_loss"] = val_avg
             wandb.log(epoch_metrics, step=global_step)
 
+        # early stopping (only when val_loader is provided)
+        if early_stop_patience is not None and val_avg is not None:
+            if val_avg < best_val_loss:
+                best_val_loss = val_avg
+                epochs_no_improve = 0
+                best_ckpt_path = os.path.join(out_dir, f"best_{run_timestamp}.pt")
+                torch.save(
+                    make_checkpoint_payload(model, optim, scaler, config, epoch, global_step, history),
+                    best_ckpt_path,
+                )
+                print(f"  [early-stop] New best val_loss={best_val_loss:.6f} — saved {best_ckpt_path}")
+            else:
+                epochs_no_improve += 1
+                print(f"  [early-stop] No improvement for {epochs_no_improve}/{early_stop_patience} epochs")
+                if epochs_no_improve >= early_stop_patience:
+                    print(f"  [early-stop] Patience exhausted — stopping training at epoch {epoch+1}")
+                    if use_wandb:
+                        wandb.log({"early_stop_epoch": epoch + 1}, step=global_step)
+                    break
+
         # save checkpoint by epoch cadence
         should_save = ((epoch + 1) % ckpt_every_epochs == 0) or ((epoch + 1) == num_epochs)
         if should_save:
@@ -776,15 +808,16 @@ def train(
     "model": model.state_dict(),
     "optim": optim.state_dict(),
     "scaler": scaler.state_dict(),
-    "epoch": num_epochs - 1,
+    "epoch": epoch,
     "global_step": global_step,
     "config": config,
     "run_metadata": build_run_metadata(config),
     "history": history,
-    "training_completed": True,
+    "training_completed": (epoch + 1) == num_epochs,
+    "early_stopped": (epoch + 1) < num_epochs,
     }
 
-    final_filename = build_final_checkpoint_name(config=config, global_step=global_step)
+    final_filename = build_final_checkpoint_name(config=config, global_step=global_step, actual_epoch=epoch + 1)
     final_path = os.path.join(out_dir, final_filename)
 
     torch.save(final_payload, final_path)
