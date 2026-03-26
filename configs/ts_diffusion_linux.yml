@@ -1,8 +1,0 @@
-name: ts_diffusion
-channels:
-  - defaults
-dependencies:
-  - python=3.9
-  - ipykernel
-  - yfinance
-prefix: C:\Users\Lenovo\anaconda3\envs\ts_diffusion

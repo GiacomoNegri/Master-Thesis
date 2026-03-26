@@ -96,7 +96,7 @@ class Diffusion_Processes:
                 schedule=noise_schedule if noise_schedule is not None else "exponential",
             )
 
-        self.mapper = TimeMapper(T=self.sde.T, S=cfg["model_steps"])
+        # self.mapper = TimeMapper(T=self.sde.T, S=cfg["model_steps"])
         
 
     @torch.no_grad()
@@ -190,11 +190,11 @@ class Diffusion_Processes:
             Computes the score using the pre-trained model.
             Handles the mapping from continuous SDE time t to model-specific inputs.
             """
-            t_idx = self.mapper.cont_to_idx(t)
+            # t_idx = self.mapper.cont_to_idx(t)
 
             eps_hat = model.predict_eps(
                 x_t = x,
-                t = t_idx,
+                t = t,
                 observed_data = observed_data,
                 cond_mask = cond_mask,
                 observed_tp = observed_tp
