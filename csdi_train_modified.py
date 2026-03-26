@@ -619,8 +619,8 @@ def train(
 
             target_mask = (observed_mask.float() * (1.0 - cond_mask.float())).float()
 
-            # forward diffusion
-            x_t, t_cont, eps = processes.forward_process(observed_data)
+            # forward diffusion  (std discarded: λ(t)=g²/σ² is constant for GBMLog/VE exponential)
+            x_t, t_cont, eps, _ = processes.forward_process(observed_data)
 
             # forward + loss
             with torch.amp.autocast("cuda", enabled=use_amp):
@@ -716,8 +716,7 @@ def train(
 
                     target_mask = (observed_mask.float() * (1.0 - cond_mask.float())).float()
 
-                    x_t, t_cont, eps = processes.forward_process(observed_data)
-                    # t_idx = processes.mapper.cont_to_idx(t_cont)
+                    x_t, t_cont, eps, _ = processes.forward_process(observed_data)
 
                     with torch.amp.autocast("cuda", enabled=use_amp):
                         eps_hat = model(

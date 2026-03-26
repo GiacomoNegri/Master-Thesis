@@ -115,9 +115,9 @@ class Diffusion_Processes:
         device = x0.device
         B = x0.size(0)
 
-        if t == None:
+        if t is None:
             # Sample a time for each example: t ~ Uniform(0, T)
-            t = torch.rand(B, device=device) * self.sde.T
+            t = self.eps_time + torch.rand(B, device=device) * (self.sde.T - self.eps_time)
 
 
         # Get closed-form mean and std of p_t(z | z0)
@@ -132,7 +132,7 @@ class Diffusion_Processes:
         std_b = _expand_batch_vector_to(x0,std)
         x_t = mean + std_b * eps
 
-        return x_t, t, eps
+        return x_t, t, eps, std
     
     @torch.no_grad()
     def reverse_process(
