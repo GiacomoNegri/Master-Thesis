@@ -25,14 +25,14 @@ def compute_log_returns(folder_name: str, out_folder: str, global_normalization:
     for filename in files:
         filepath = os.path.join(folder_name, filename)
         df = pd.read_csv(filepath, parse_dates=["date"])
-        df["log_returns"] = df["log_adj_close"].diff()
-        df = df[["date", "log_returns"]].dropna()
+        df["log_adj_close"] = df["log_adj_close"].diff()
+        df = df[["date", "log_adj_close"]].dropna()
         file_data[filename] = df
 
     # Compute and persist the global std when requested
     global_std = 1.0
     if global_normalization:
-        all_values = np.concatenate([df["log_returns"].values for df in file_data.values()])
+        all_values = np.concatenate([df["log_adj_close"].values for df in file_data.values()])
         global_std = float(np.std(all_values, ddof=0))
         print(f"Global std of log returns across all stocks: {global_std:.8f}")
 
@@ -45,7 +45,7 @@ def compute_log_returns(folder_name: str, out_folder: str, global_normalization:
     for filename, df in file_data.items():
         if global_normalization:
             df = df.copy()
-            df["log_returns"] = df["log_returns"] / global_std
+            df["log_adj_close"] = df["log_adj_close"] / global_std
 
         out_path = os.path.join(out_folder, filename)
         df.to_csv(out_path, index=False)
