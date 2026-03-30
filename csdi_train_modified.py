@@ -482,6 +482,8 @@ def build_final_checkpoint_name(
         data_root = "REAL"
     elif data_root == "./data/fake_individual_gbm":
         data_root = "FAKE"
+    elif data_root == "./data/fake_individual_gbm_close":
+        data_root = "FAKE_REPL"
     else:
         data_root = "REPL"
 
