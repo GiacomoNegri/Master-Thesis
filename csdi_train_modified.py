@@ -335,7 +335,7 @@ def unpack_batch(batch: Any, device: torch.device) -> Tuple[torch.Tensor, torch.
 # ----------------------------
 # Loss: MSE on target (non-conditioned) entries
 # ----------------------------
-def masked_mse_debug(eps_hat, eps, target_mask):
+def masked_mse(eps_hat, eps, target_mask):
     sq_err = (eps_hat - eps) ** 2  # (B, K, L)
     masked = sq_err[target_mask.bool()]  # flatten to 1D
 
