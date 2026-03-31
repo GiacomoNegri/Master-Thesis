@@ -359,9 +359,15 @@ def masked_mse(eps_hat, eps, target_mask, sigma_t=None):
 
     # DEBUGGING: temporary debugging output to understand error distribution
     masked = sq_err[target_mask.bool()]  # unweighted, for interpretable diagnostics
-    print(f"  err | mean={masked.mean():.4f}  std={masked.std():.4f}  "
+    print(f"  err     | mean={masked.mean():.4f}  std={masked.std():.4f}  "
           f"p50={masked.median():.4f}  p95={masked.quantile(0.95):.4f}  "
           f"p99={masked.quantile(0.99):.4f}  max={masked.max():.4f}")
+
+    if sigma_t is not None:
+        w_masked = (sq_err * weight)[target_mask.bool()]
+        print(f"  err(LW) | mean={w_masked.mean():.4f}  std={w_masked.std():.4f}  "
+              f"p50={w_masked.median():.4f}  p95={w_masked.quantile(0.95):.4f}  "
+              f"p99={w_masked.quantile(0.99):.4f}  max={w_masked.max():.4f}")
 
     return loss
 
