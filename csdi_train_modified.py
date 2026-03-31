@@ -484,9 +484,12 @@ def build_final_checkpoint_name(
         data_root = "FAKE"
     elif data_root == "./data/fake_individual_gbm_close":
         data_root = "FAKE_REPL"
+    elif data_root == "./data/replication_returns":
+        data_root = "REPL_RET_"
+    elif data_root == "./data/replication_returns_norm":
+        data_root = "REPL_RET_NORM_"
     else:
-        data_root = "REPL"
-
+        data_root = "REPL_"
     mask_mode = str(config['train']['mask_mode'])
     if mask_mode == "random":
         mask_mode = "RAND"
