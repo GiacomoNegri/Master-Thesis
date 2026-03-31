@@ -138,6 +138,8 @@ def parse_args():
                         help="Fraction of dataset to hold out for validation, e.g. 0.1 for 10%")
     parser.add_argument("--early_stop_patience", type=int, default=None,
                         help="Stop training if val loss does not improve for this many epochs. Requires val_split_ratio. 0 or omit to disable.")
+    parser.add_argument("--likelihood_weighting", type=str2bool, default=None,
+                        help="If true, weight the loss by 1/sigma^2(t) (likelihood weighting). If false, use plain MSE.")
     parser.add_argument(
         "--mask_mode",
         type=str,
@@ -233,6 +235,8 @@ def build_cli_override_dict(args) -> Dict[str, Any]:
         override["train"]["early_stop_patience"] = args.early_stop_patience
     if args.mask_mode is not None:
         override["train"]["mask_mode"] = args.mask_mode
+    if args.likelihood_weighting is not None:
+        override["train"]["likelihood_weighting"] = args.likelihood_weighting
 
     # wandb
     if args.wandb_project is not None:
@@ -335,17 +339,30 @@ def unpack_batch(batch: Any, device: torch.device) -> Tuple[torch.Tensor, torch.
 # ----------------------------
 # Loss: MSE on target (non-conditioned) entries
 # ----------------------------
-def masked_mse(eps_hat, eps, target_mask):
+def masked_mse(eps_hat, eps, target_mask, sigma_t=None):
+    """
+    sigma_t: optional (B,) tensor of per-sample noise std from the forward process.
+             When provided, applies likelihood weighting 1/sigma^2(t) to each position,
+             concentrating the gradient signal at low-t (where the true data distribution
+             is most visible). When None, plain unweighted MSE is used.
+    """
     sq_err = (eps_hat - eps) ** 2  # (B, K, L)
-    masked = sq_err[target_mask.bool()]  # flatten to 1D
 
-    denom = target_mask.sum().clamp(min=1.0)
-    loss = masked.sum() / denom
+    if sigma_t is not None:
+        # 1/sigma^2(t) per batch element, broadcast to (B, K, L)
+        weight = (1.0 / sigma_t.float().pow(2).clamp(min=1e-8))[:, None, None]
+        denom = (target_mask.float() * weight).sum().clamp(min=1e-10)
+        loss = (sq_err * weight * target_mask).sum() / denom
+    else:
+        denom = target_mask.sum().clamp(min=1.0)
+        loss = (sq_err * target_mask).sum() / denom
+
     # DEBUGGING: temporary debugging output to understand error distribution
+    masked = sq_err[target_mask.bool()]  # unweighted, for interpretable diagnostics
     print(f"  err | mean={masked.mean():.4f}  std={masked.std():.4f}  "
           f"p50={masked.median():.4f}  p95={masked.quantile(0.95):.4f}  "
           f"p99={masked.quantile(0.99):.4f}  max={masked.max():.4f}")
-    
+
     return loss
 
 
@@ -515,7 +532,10 @@ def build_final_checkpoint_name(
     # safer string for learning rate, e.g. 1e-4 -> 1e-04
     lr_str = f"{lr:.0e}"
 
+    lw_tag = "LW_" if bool(config["train"].get("likelihood_weighting", False)) else "NO_"
+
     filename = (
+        f"{lw_tag}"
         f"{data_root}_"
         f"{mask_mode}_"
         f"final_"
@@ -621,6 +641,7 @@ def train(
         epoch_loss_count = 0
         ema_loss = None
         ema_beta = float(config["train"].get("ema_beta", 0.98))
+        use_lw = bool(config["train"].get("likelihood_weighting", False))
         t0 = time.time()
 
         for batch_idx, batch in pbar:
@@ -641,8 +662,8 @@ def train(
 
             target_mask = (observed_mask.float() * (1.0 - cond_mask.float())).float()
 
-            # forward diffusion  (std discarded: λ(t)=g²/σ² is constant for GBMLog/VE exponential)
-            x_t, t_cont, eps, _ = processes.forward_process(observed_data)
+            # forward diffusion
+            x_t, t_cont, eps, sigma_t = processes.forward_process(observed_data)
 
             # forward + loss
             with torch.amp.autocast("cuda", enabled=use_amp):
@@ -653,7 +674,10 @@ def train(
                     cond_mask=cond_mask,
                     observed_tp=observed_tp,
                 )
-                loss = masked_mse(eps_hat, eps, target_mask)
+                if use_lw:
+                    loss = masked_mse(eps_hat, eps, target_mask, sigma_t=sigma_t)
+                else:
+                    loss = masked_mse(eps_hat, eps, target_mask, None)
 
             loss_val = float(loss.detach().item())
             epoch_loss_sum += loss_val
@@ -738,7 +762,7 @@ def train(
 
                     target_mask = (observed_mask.float() * (1.0 - cond_mask.float())).float()
 
-                    x_t, t_cont, eps, _ = processes.forward_process(observed_data)
+                    x_t, t_cont, eps, sigma_t = processes.forward_process(observed_data)
 
                     with torch.amp.autocast("cuda", enabled=use_amp):
                         eps_hat = model(
@@ -748,7 +772,10 @@ def train(
                             cond_mask=cond_mask,
                             observed_tp=observed_tp,
                         )
-                        val_loss = masked_mse(eps_hat, eps, target_mask)
+                        if use_lw:
+                            val_loss = masked_mse(eps_hat, eps, target_mask, sigma_t=sigma_t)
+                        else:
+                            val_loss = masked_mse(eps_hat, eps, target_mask, None)
 
                     val_loss_sum += float(val_loss.item())
                     val_loss_count += 1
