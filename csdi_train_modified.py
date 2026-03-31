@@ -335,14 +335,19 @@ def unpack_batch(batch: Any, device: torch.device) -> Tuple[torch.Tensor, torch.
 # ----------------------------
 # Loss: MSE on target (non-conditioned) entries
 # ----------------------------
-def masked_mse(eps_hat: torch.Tensor, eps: torch.Tensor, target_mask: torch.Tensor) -> torch.Tensor:
-    """
-    eps_hat: (B,K,L)
-    eps:     (B,K,L)
-    target_mask: (B,K,L) in {0,1} where 1 = predict/score this location
-    """
+def masked_mse_debug(eps_hat, eps, target_mask):
+    sq_err = (eps_hat - eps) ** 2  # (B, K, L)
+    masked = sq_err[target_mask.bool()]  # flatten to 1D
+
     denom = target_mask.sum().clamp(min=1.0)
-    return ((eps_hat - eps) ** 2 * target_mask).sum() / denom
+    loss = masked.sum() / denom
+    # DEBUGGING: temporary debugging output to understand error distribution
+    print(f"  err | mean={masked.mean():.4f}  std={masked.std():.4f}  "
+          f"p50={masked.median():.4f}  p95={masked.quantile(0.95):.4f}  "
+          f"p99={masked.quantile(0.99):.4f}  max={masked.max():.4f}")
+    
+    return loss
+
 
 
 # ----------------------------
