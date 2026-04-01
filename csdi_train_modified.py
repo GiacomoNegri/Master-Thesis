@@ -87,6 +87,8 @@ def parse_args():
     parser.add_argument("--log_every_steps", type=int, default=None)
     parser.add_argument("--data_root", type=str, default=None)
     parser.add_argument("--out_dir", type=str, default=None)
+    parser.add_argument("--seq_len", type=int, default=None)
+    parser.add_argument("--stride", type=int, default=None)
 
     # process overrides
     parser.add_argument("--sde_type", type=str, default=None)
