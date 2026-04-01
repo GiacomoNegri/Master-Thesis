@@ -563,25 +563,25 @@ class VESDE(SDE):
         )
 
     # Optional: keep specialized SMLD discretization
-    def discretize(self, x: torch.Tensor, t: torch.Tensor):
-        """
-        SMLD (NCSN) discretization for VE:
+    # def discretize(self, x: torch.Tensor, t: torch.Tensor):
+    #     """
+    #     SMLD (NCSN) discretization for VE:
 
-            x_{i+1} = x_i + G_i z_i
+    #         x_{i+1} = x_i + G_i z_i
 
-        where G_i = sqrt(σ_i^2 - σ_{i-1}^2).
-        """
-        timestep = (t * (self.N - 1) / self.T).long()
-        sigmas = self.discrete_sigmas.to(t.device)
-        sigma = sigmas[timestep]
-        adjacent_sigma = torch.where(
-            timestep == 0,
-            torch.zeros_like(t),
-            sigmas[timestep - 1],
-        )
-        f = torch.zeros_like(x)
-        G = torch.sqrt(torch.clamp(sigma**2 - adjacent_sigma**2, min=0.0))
-        return f, G
+    #     where G_i = sqrt(σ_i^2 - σ_{i-1}^2).
+    #     """
+    #     timestep = (t * (self.N - 1) / self.T).long()
+    #     sigmas = self.discrete_sigmas.to(t.device)
+    #     sigma = sigmas[timestep]
+    #     adjacent_sigma = torch.where(
+    #         timestep == 0,
+    #         torch.zeros_like(t),
+    #         sigmas[timestep - 1],
+    #     )
+    #     f = torch.zeros_like(x)
+    #     G = torch.sqrt(torch.clamp(sigma**2 - adjacent_sigma**2, min=0.0))
+    #     return f, G
 
     
 class GBMLogSDE(SDE):

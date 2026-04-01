@@ -513,9 +513,9 @@ def build_final_checkpoint_name(
     elif data_root == "./data/fake_individual_gbm_close":
         data_root = "FAKE_REPL"
     elif data_root == "./data/replication_returns":
-        data_root = "REPL_RET_"
+        data_root = "REPL_RET"
     elif data_root == "./data/replication_returns_norm":
-        data_root = "REPL_RET_NORM_"
+        data_root = "REPL_RET_NORM"
     else:
         data_root = "REPL_"
     mask_mode = str(config['train']['mask_mode'])
@@ -544,7 +544,6 @@ def build_final_checkpoint_name(
         f"{lw_tag}"
         f"{data_root}_"
         f"{mask_mode}_"
-        f"final_"
         f"ep-{epochs}_"
         f"step-{global_step}_"
         f"sde-{sde_type}_"
