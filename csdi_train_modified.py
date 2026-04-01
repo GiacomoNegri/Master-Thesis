@@ -523,6 +523,12 @@ def build_final_checkpoint_name(
         data_root = "REPL_RET"
     elif data_root == "./data/replication_returns_norm":
         data_root = "REPL_RET_NORM"
+    elif data_root == "./data/toy_gaussian":
+        data_root = "TOY_GAUSS"
+    elif data_root == "./data/toy_ar1":
+        data_root = "TOY_AR1"
+    elif data_root == "./data/toy_studentt":
+        data_root = "TOY_STUDENTT"
     else:
         data_root = "REPL_"
     mask_mode = str(config['train']['mask_mode'])
