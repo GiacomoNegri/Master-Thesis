@@ -188,6 +188,7 @@ def build_cli_override_dict(args) -> Dict[str, Any]:
     if args.is_unconditional is not None:
         override["model"]["is_unconditional"] = args.is_unconditional
 
+
     # process
     if args.sde_type is not None:
         override["process"]["sde_type"] = args.sde_type
@@ -237,6 +238,10 @@ def build_cli_override_dict(args) -> Dict[str, Any]:
         override["train"]["mask_mode"] = args.mask_mode
     if args.likelihood_weighting is not None:
         override["train"]["likelihood_weighting"] = args.likelihood_weighting
+    if args.seq_len is not None:
+        override["train"]["seq_len"] = args.seq_len
+    if args.stride is not None:
+        override["train"]["stride"] = args.stride
 
     # wandb
     if args.wandb_project is not None:
