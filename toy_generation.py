@@ -18,7 +18,7 @@ def save(data, folder):
 
 
 # 1. i.i.d. Gaussian — mean=0, std matching typical daily log-returns
-gaussian = rng.normal(loc=0.0, scale=0.01, size=N)
+gaussian = rng.normal(loc=0.0, scale=1, size=N)
 save(gaussian, "./data/toy_gaussian")
 
 # 2. AR(1): x_t = phi * x_{t-1} + eps, phi=0.9, eps ~ N(0, sigma)
@@ -32,7 +32,15 @@ save(ar1, "./data/toy_ar1")
 
 # 3. i.i.d. Student-t — df=4 (fat tails), scaled to match std=0.01
 df = 4
+std = 1
 # Var(t_df) = df/(df-2), scale so empirical std ~ 0.01
-scale = 0.01 / np.sqrt(df / (df - 2))
+scale = std / np.sqrt(df / (df - 2))
 studentt = rng.standard_t(df=df, size=N) * scale
 save(studentt, "./data/toy_studentt")
+
+# 4. Normalized GBM — log-price path under zero-drift GBM (pure diffusion)
+# log(S_t) = sigma * W_t = cumsum of i.i.d. N(0, 1) increments
+# Non-stationary: variance grows linearly with t (unlike the i.i.d. gaussian above)
+gbm_increments = rng.normal(loc=0.0, scale=1.0, size=N)
+gbm = np.cumsum(gbm_increments)
+save(gbm, "./data/toy_gbm")
