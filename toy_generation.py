@@ -41,6 +41,20 @@ save(studentt, "./data/toy_studentt")
 # 4. Normalized GBM — log-price path under zero-drift GBM (pure diffusion)
 # log(S_t) = sigma * W_t = cumsum of i.i.d. N(0, 1) increments
 # Non-stationary: variance grows linearly with t (unlike the i.i.d. gaussian above)
-gbm_increments = rng.normal(loc=0.0, scale=1.0, size=N)
-gbm = np.cumsum(gbm_increments)
-save(gbm, "./data/toy_gbm")
+# this is like a browninan motion with drift=0 and volatility=sigma, sampled at discrete time steps
+SEQ_LEN = 64
+N_PATHS = N // SEQ_LEN   # 156
+
+gbm_dir = Path("./data/toy_gbm")
+gbm_dir.mkdir(parents=True, exist_ok=True)
+
+for i in range(N_PATHS):
+    inc   = rng.normal(0.0, 1.0, size=SEQ_LEN)
+    path  = np.cumsum(inc)                        # starts at inc[0], not 0
+    path  = np.insert(path, 0, 0.0)[:-1]          # shift so X_0 = 0
+    # equivalently: path = np.concatenate([[0], np.cumsum(inc[:-1])])
+    window_dates = dates[i * SEQ_LEN : (i + 1) * SEQ_LEN]
+    pd.DataFrame({"date": window_dates, "log_adj_close": path})\
+      .to_csv(gbm_dir / f"gbm_{i:04d}.csv", index=False)
+
+print(f"Saved {N_PATHS} GBM paths to {gbm_dir}")
