@@ -216,7 +216,7 @@ def main():
 
     # ── Build date pool ───────────────────────────────────────────────────────
     all_bdays    = pd.bdate_range(start=args.start_date, end=args.end_date)
-    cutoff_date  = pd.Timestamp(args.end_date) - relativedelta(years=args.years_per_sample)
+    cutoff_date  = pd.Timestamp(args.end_date) - relativedelta(years=args.years_per_sample) #latest allowed start date
     valid_starts = all_bdays[all_bdays <= cutoff_date]
     print(f"Number of valid starts: {len(valid_starts)} (from {valid_starts[0].date()} to {valid_starts[-1].date()})")
     if len(valid_starts) == 0:

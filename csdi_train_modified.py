@@ -692,6 +692,8 @@ def train(
         for batch_idx, batch in pbar:
             observed_data, observed_mask, observed_tp = unpack_batch(batch, device)
 
+            print(f"Data | mean={observed_data.mean():.4f}  std={observed_data.std():.4f} min={observed_data.min():.4f}  max={observed_data.max():.4f}")
+
             # conditioning mask
             mask_mode = config["train"].get("mask_mode", "random")
             if config["model"]["is_unconditional"] or mask_mode == "unconditional":
@@ -706,6 +708,7 @@ def train(
                 )
 
             target_mask = (observed_mask.float() * (1.0 - cond_mask.float())).float()
+            assert target_mask.sum() == observed_data.numel(), f"target_mask empty! sum={target_mask.sum().item()}"
 
             # forward diffusion
             x_t, t_cont, eps, sigma_t = processes.forward_process(observed_data)
@@ -809,6 +812,10 @@ def train(
 
                     x_t, t_cont, eps, sigma_t = processes.forward_process(observed_data)
 
+                    # DEBUGGING: check noise
+                    print(f"sigma | min={sigma_t.min():.4f}  max={sigma_t.max():.4f}  mean={sigma_t.mean():.4f}  median={sigma_t.median():.4f}")
+
+
                     with torch.amp.autocast("cuda", enabled=use_amp):
                         eps_hat = model(
                             x_t=x_t,
@@ -821,6 +828,11 @@ def train(
                             val_loss = masked_mse(eps_hat, eps, target_mask, sigma_t=sigma_t)
                         else:
                             val_loss = masked_mse(eps_hat, eps, target_mask, None)
+
+                        #DEBUGGING: forward check
+                        print(f"eps_hat | norm={eps_hat.norm().item():.4f}  mean={eps_hat.mean().item():.4f}  std={eps_hat.std().item():.4f}")
+                        print(f"eps     | norm={eps.norm().item():.4f}  mean={eps.mean().item():.4f}  std={eps.std().item():.4f}")
+
 
                     val_loss_sum += float(val_loss.item())
                     val_loss_count += 1
