@@ -145,7 +145,7 @@ def main():
             config  = {
                 "checkpoint_folder":  args.checkpoint_folder,
                 "checkpoint_name":    args.checkpoint_name,
-                "mask_mode":          "unconditional",
+                "mask_mode":          "unconditional", # hardcoded because of replication attempt
                 "n_samples":          args.n_samples,
                 "num_reverse_steps":  args.num_reverse_steps,
                 "start_date":         args.start_date,

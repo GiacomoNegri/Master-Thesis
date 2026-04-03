@@ -120,6 +120,14 @@ def parse_args():
     parser.add_argument("--timeemb", type=int, default=None)
     parser.add_argument("--featureemb", type=int, default=None)
 
+    # diffusion overrides
+    parser.add_argument("--channels", type=int, default=None,
+                        help="Number of residual channels in the diffusion model (overrides config)")
+    parser.add_argument("--layers", type=int, default=None,
+                        help="Number of residual layers in the diffusion model (overrides config)")
+    parser.add_argument("--nheads", type=int, default=None,
+                        help="Number of attention heads in the diffusion model (overrides config)")
+
     # data overrides
     parser.add_argument("--target_dim", type=int, default=None)
 
@@ -173,6 +181,7 @@ def build_cli_override_dict(args) -> Dict[str, Any]:
     override = {
         "data": {},
         "model": {},
+        "diffusion": {},
         "process": {},
         "train": {},
         "wandb": {},
@@ -190,6 +199,14 @@ def build_cli_override_dict(args) -> Dict[str, Any]:
     if args.is_unconditional is not None:
         override["model"]["is_unconditional"] = args.is_unconditional
 
+
+    # diffusion
+    if args.channels is not None:
+        override["diffusion"]["channels"] = args.channels
+    if args.layers is not None:
+        override["diffusion"]["layers"] = args.layers
+    if args.nheads is not None:
+        override["diffusion"]["nheads"] = args.nheads
 
     # process
     if args.sde_type is not None:
