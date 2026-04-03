@@ -570,6 +570,8 @@ def build_final_checkpoint_name(
         data_root = "TOY_STUDENTT"
     elif data_root == "./data/toy_gbm":
         data_root = "TOY_GBM"
+    elif data_root == "./data/toy_gbm_norm":
+        data_root = "TOY_GBM_NORM"
     else:
         data_root = "REPL_"
     mask_mode = str(config['train']['mask_mode'])
@@ -788,6 +790,9 @@ def train(
             # END DEBUGGING
 
             scaler.scale(loss).backward()
+            scaler.unscale_(optim)
+            # IMPORTANT: we are doing gradient clipping, because of extreme gradient values
+            grad_norm = torch.nn.utils.clip_grad_norm_(model.parameters(), max_norm=1.0)
             scaler.step(optim)
             scaler.update()
 
@@ -802,6 +807,8 @@ def train(
             steps_done = batch_idx + 1
             it_per_s = steps_done / max(elapsed, 1e-9)
 
+            grad_norm_val = float(grad_norm)
+
             pbar.set_postfix({
                 "step": global_step,
                 "loss": f"{loss_val:.4f}",
@@ -809,6 +816,7 @@ def train(
                 "avg": f"{(epoch_loss_sum / epoch_loss_count):.4f}",
                 "it/s": f"{it_per_s:.2f}",
                 "t": f"{t_cont.float().mean().item():.1f}",
+                "gnorm": f"{grad_norm_val:.2f}",
             })
 
             if global_step % int(config["train"]["log_every_steps"]) == 0:
@@ -816,6 +824,7 @@ def train(
                     f"epoch={epoch+1}/{num_epochs} "
                     f"step={global_step} "
                     f"loss={loss_val:.6f} "
+                    f"grad_norm={grad_norm_val:.4f} "
                     f"t_cont_mean={t_cont.float().mean().item():.2f}"
                 )
                 if use_wandb:
@@ -824,6 +833,7 @@ def train(
                         "train/ema_loss": ema_loss,
                         "train/avg_loss": epoch_loss_sum / epoch_loss_count,
                         "train/it_per_s": it_per_s,
+                        "train/grad_norm": grad_norm_val,
                     }, step=global_step)
 
         # end of epoch

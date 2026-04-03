@@ -47,6 +47,8 @@ N_PATHS = N // SEQ_LEN   # 156
 
 gbm_dir = Path("./data/toy_gbm")
 gbm_dir.mkdir(parents=True, exist_ok=True)
+gbm_norm_dir = Path("./data/toy_gbm_norm")
+gbm_norm_dir.mkdir(parents=True, exist_ok=True)
 
 for i in range(N_PATHS):
     inc   = rng.normal(0.0, 1.0, size=SEQ_LEN)
@@ -54,7 +56,13 @@ for i in range(N_PATHS):
     path  = np.insert(path, 0, 0.0)[:-1]          # shift so X_0 = 0
     # equivalently: path = np.concatenate([[0], np.cumsum(inc[:-1])])
     window_dates = dates[i * SEQ_LEN : (i + 1) * SEQ_LEN]
-    pd.DataFrame({"date": window_dates, "log_adj_close": path})\
-      .to_csv(gbm_dir / f"gbm_{i:04d}.csv", index=False)
+    pd.DataFrame({"date": window_dates, "log_adj_close": path}).to_csv(gbm_dir / f"gbm_{i:04d}.csv", index=False)
+
+    # Path-wise normalization: zero mean, unit std per path
+    path_mean = path.mean()
+    path_std  = path.std()
+    path_norm = (path - path_mean) / path_std if path_std > 0 else path - path_mean
+    pd.DataFrame({"date": window_dates, "log_adj_close": path_norm}).to_csv(gbm_norm_dir / f"gbm_{i:04d}.csv", index=False)
 
 print(f"Saved {N_PATHS} GBM paths to {gbm_dir}")
+print(f"Saved {N_PATHS} normalised GBM paths to {gbm_norm_dir}")
