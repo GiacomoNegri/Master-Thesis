@@ -152,6 +152,10 @@ def parse_args():
                         help="Stop training if val loss does not improve for this many epochs. Requires val_split_ratio. 0 or omit to disable.")
     parser.add_argument("--likelihood_weighting", type=str2bool, default=None,
                         help="If true, weight the loss by 1/sigma^2(t) (likelihood weighting). If false, use plain MSE.")
+    parser.add_argument("--lr_cosine_annealing", type=str2bool, default=None,
+                        help="If true, apply CosineAnnealingLR decaying from lr to lr_eta_min over the full run.")
+    parser.add_argument("--lr_eta_min", type=float, default=None,
+                        help="Minimum LR at the end of the cosine annealing cycle (default 1e-6).")
     parser.add_argument(
         "--mask_mode",
         type=str,
@@ -261,6 +265,10 @@ def build_cli_override_dict(args) -> Dict[str, Any]:
         override["train"]["mask_mode"] = args.mask_mode
     if args.likelihood_weighting is not None:
         override["train"]["likelihood_weighting"] = args.likelihood_weighting
+    if args.lr_cosine_annealing is not None:
+        override["train"]["lr_cosine_annealing"] = args.lr_cosine_annealing
+    if args.lr_eta_min is not None:
+        override["train"]["lr_eta_min"] = args.lr_eta_min
     if args.seq_len is not None:
         override["train"]["seq_len"] = args.seq_len
     if args.stride is not None:
@@ -470,8 +478,9 @@ def make_checkpoint_payload(
     epoch: int,
     global_step: int,
     history: Dict[str, Any],
+    scheduler=None,
 ) -> Dict[str, Any]:
-    return {
+    payload = {
         "epoch": epoch,
         "global_step": global_step,
         "model": model.state_dict(),
@@ -481,6 +490,9 @@ def make_checkpoint_payload(
         "run_metadata": build_run_metadata(config),  # quick-access summary
         "history": history,
     }
+    if scheduler is not None:
+        payload["scheduler"] = scheduler.state_dict()
+    return payload
 
 
 def load_checkpoint(
@@ -489,6 +501,7 @@ def load_checkpoint(
     optim: torch.optim.Optimizer,
     scaler: torch.amp.GradScaler,
     device: torch.device,
+    scheduler=None,
 ) -> Tuple[int, int, Dict[str, Any]]:
     """
     Loads checkpoint and returns:
@@ -501,6 +514,9 @@ def load_checkpoint(
 
     if "scaler" in ckpt and ckpt["scaler"] is not None:
         scaler.load_state_dict(ckpt["scaler"])
+
+    if scheduler is not None and "scheduler" in ckpt:
+        scheduler.load_state_dict(ckpt["scheduler"])
 
     start_epoch = int(ckpt["epoch"]) + 1
     global_step = int(ckpt.get("global_step", 0))
@@ -639,12 +655,31 @@ def train(
     global_step = 0
     history = {"epoch_losses": [], "val_losses": []}
 
+    # 5) LR scheduler (optional)
+    use_cosine = bool(config["train"].get("lr_cosine_annealing", False))
+    eta_min = float(config["train"].get("lr_eta_min", 1e-6))
+    if use_cosine:
+        scheduler = torch.optim.lr_scheduler.CosineAnnealingLR(
+            optim,
+            T_max=num_epochs,
+            eta_min=eta_min,
+            last_epoch=-1,   # will be overridden by scheduler.load_state_dict if resuming
+        )
+        print(f"CosineAnnealingLR enabled: lr={config['train']['lr']:.2e} → eta_min={eta_min:.2e} over {num_epochs} epochs")
+    else:
+        scheduler = None
+
     if resume_checkpoint is not None:
         print(f"Resuming from checkpoint: {resume_checkpoint}")
         start_epoch, global_step, history = load_checkpoint(
-            resume_checkpoint, model, optim, scaler, device
+            resume_checkpoint, model, optim, scaler, device, scheduler=scheduler
         )
         print(f"Resumed at epoch={start_epoch}, global_step={global_step}")
+        if use_cosine and "scheduler" not in torch.load(resume_checkpoint, map_location="cpu"):
+            # Checkpoint pre-dates scheduler support: fast-forward the cosine position manually
+            for _ in range(start_epoch):
+                scheduler.step()
+            print(f"  [scheduler] Fast-forwarded cosine schedule to epoch {start_epoch}")
 
     # W&B initialisation (optional — only when --wandb_project is provided)
     wandb_cfg = config.get("wandb", {})
@@ -868,6 +903,14 @@ def train(
                 epoch_metrics["epoch/val_loss"] = val_avg
             wandb.log(epoch_metrics, step=global_step)
 
+        # LR scheduler step (once per epoch, after optimizer)
+        if scheduler is not None:
+            scheduler.step()
+            current_lr = scheduler.get_last_lr()[0]
+            print(f"  [scheduler] lr={current_lr:.2e}")
+            if use_wandb:
+                wandb.log({"train/lr": current_lr}, step=global_step)
+
         # early stopping (only when val_loader is provided)
         if early_stop_patience is not None and val_avg is not None:
             if val_avg < best_val_loss:
@@ -875,7 +918,7 @@ def train(
                 epochs_no_improve = 0
                 best_ckpt_path = os.path.join(out_dir, f"best_{run_timestamp}.pt")
                 torch.save(
-                    make_checkpoint_payload(model, optim, scaler, config, epoch, global_step, history),
+                    make_checkpoint_payload(model, optim, scaler, config, epoch, global_step, history, scheduler=scheduler),
                     best_ckpt_path,
                 )
                 print(f"  [early-stop] New best val_loss={best_val_loss:.6f} — saved {best_ckpt_path}")
@@ -900,23 +943,24 @@ def train(
                 epoch=epoch,
                 global_step=global_step,
                 history=history,
+                scheduler=scheduler,
             )
             torch.save(payload, ckpt_path)
             print(f"Saved checkpoint: {ckpt_path}")
 
     # final save
-    final_payload = {
-    "model": model.state_dict(),
-    "optim": optim.state_dict(),
-    "scaler": scaler.state_dict(),
-    "epoch": epoch,
-    "global_step": global_step,
-    "config": config,
-    "run_metadata": build_run_metadata(config),
-    "history": history,
-    "training_completed": (epoch + 1) == num_epochs,
-    "early_stopped": (epoch + 1) < num_epochs,
-    }
+    final_payload = make_checkpoint_payload(
+        model=model,
+        optim=optim,
+        scaler=scaler,
+        config=config,
+        epoch=epoch,
+        global_step=global_step,
+        history=history,
+        scheduler=scheduler,
+    )
+    final_payload["training_completed"] = (epoch + 1) == num_epochs
+    final_payload["early_stopped"] = (epoch + 1) < num_epochs
 
     final_filename = build_final_checkpoint_name(config=config, global_step=global_step, actual_epoch=epoch + 1)
     final_path = os.path.join(out_dir, final_filename)
