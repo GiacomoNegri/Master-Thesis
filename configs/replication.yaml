@@ -40,6 +40,8 @@ train:
   mask_mode: random
   cond_min_ratio: 0.1
   cond_max_ratio: 0.9
+  lr_cosine_annealing: false  # if true, apply CosineAnnealingLR from lr down to lr_eta_min
+  lr_eta_min: 1.0e-6          # minimum LR at the end of the cosine cycle
   ema_beta: 0.98           # smoothing factor for the step-level EMA loss display
   log_every_steps: 50
   save_every_steps: 1000

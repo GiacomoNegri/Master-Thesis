@@ -45,7 +45,6 @@ class SP500WindowDataset(Dataset):
 
         # Optional cache: file_path -> np.ndarray shape (T, K)
         self._cache: Dict[str, np.ndarray] = {}
-        self._cache_tp: Dict[str, np.ndarray] = {}
 
         # Build an index of all windows across all files: (file_idx, start)
         self.index: List[Tuple[int, int]] = []
@@ -73,60 +72,24 @@ class SP500WindowDataset(Dataset):
         df = pd.read_csv(fp, usecols=[self.columns[0]])
         return len(df)
 
-    def _load_file(self, fp: str) -> Tuple[np.ndarray, np.ndarray]:
+    def _load_file(self, fp: str) -> np.ndarray:
         """
         Returns:
-          x:  (T, K) float32
-          tp: (T,) float32
+          x: (T, K) float32
         """
         if self.cache_data and fp in self._cache:
-            return self._cache[fp], self._cache_tp[fp]
+            return self._cache[fp]
 
         df = pd.read_csv(fp)
 
-        # Ensure columns exist
         missing = [c for c in self.columns if c not in df.columns]
         if missing:
             raise ValueError(f"{fp} is missing columns: {missing}")
 
-        # Build time vector tp
-        if self.time_mode == "date_ordinal":
-            dt = pd.to_datetime(df[self.columns[0]], format=self.date_format, errors="coerce")
-            if dt.isna().any(): # we coerce errors to NaT
-                raise ValueError(f"Failed parsing some dates in {fp} with format {self.date_format}")
-            tp = dt.map(pd.Timestamp.toordinal).to_numpy(dtype=np.float32)
-        elif self.time_mode == "index":
-            tp = np.arange(len(df), dtype=np.float32)
-        elif self.time_mode == "index_norm":
-            # normalized to [0, 1]
-            n = len(df)
-            tp = np.linspace(0.0, 1.0, num=n, dtype=np.float32) if n > 1 else np.array([0.0], dtype=np.float32)
-        else:
-            raise ValueError(f"Unknown time_mode: {self.time_mode}")
-
-        # Build features matrix x
-        # IMPORTANT: Date can be a feature (as numeric) or not.
-        # Here we include Date as a feature by converting it to ordinal if needed,
-        # otherwise we keep it out of x and only use tp. Since you explicitly
-        # want conditioning on Date, we include a numeric Date feature.
-
         x_cols = list(self.columns[1:])
+        x = df[x_cols].to_numpy(dtype=np.float32)  # (T, K)
 
-        # Convert Date feature to numeric if it's still string
-        # if "Date" in x_cols:
-        #     dt = pd.to_datetime(df["Date"], format=self.date_format, errors="coerce")
-        #     if dt.isna().any():
-        #         raise ValueError(f"Failed parsing some dates in {fp} with format {self.date_format}")
-        #     df["Date"] = dt.map(pd.Timestamp.toordinal).astype(np.float32)
-
-        x = df[x_cols].to_numpy(dtype=np.float32)  # (T, K), where T=number of rows(days) and K=number of columns(here 6)
-
-        # # Optional caching
-        # if self.cache_data:
-        #     self._cache[fp] = x
-        #     self._cache_tp[fp] = tp
-
-        return x, tp
+        return x
 
     def __len__(self) -> int:
         return len(self.index)
@@ -134,13 +97,13 @@ class SP500WindowDataset(Dataset):
     def __getitem__(self, idx: int) -> Dict[str, Any]:
         file_idx, start = self.index[idx]
         fp = self.files[file_idx]
-        x, tp = self._load_file(fp)  # x: (T,K), full feature matrix for the file, and tp is the full time vector
+        x = self._load_file(fp)  # (T, K)
 
         end = start + self.seq_len
         if end <= len(x):
-            x_win = x[start:end]          # (L,K)
-            tp_win = tp[start:end]        # (L,)
-            mask = np.ones_like(x_win, dtype=np.float32) #all ones because it is real data
+            x_win  = x[start:end]                                                   # (L, K)
+            tp_win = np.linspace(0.0, 1.0, self.seq_len, dtype=np.float32)          # (L,) window-local
+            mask   = np.ones_like(x_win, dtype=np.float32)
         # else:
         #     # Padding path (only if drop_incomplete=False)
         #     x_win = x[start:]             # (<=L,K)
