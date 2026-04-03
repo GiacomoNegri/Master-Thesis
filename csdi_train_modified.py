@@ -127,6 +127,8 @@ def parse_args():
                         help="Number of residual layers in the diffusion model (overrides config)")
     parser.add_argument("--nheads", type=int, default=None,
                         help="Number of attention heads in the diffusion model (overrides config)")
+    parser.add_argument("--diffusion_embedding_dim", type=int, default=None,
+                        help="Dimension of the diffusion embedding (overrides config)")
 
     # data overrides
     parser.add_argument("--target_dim", type=int, default=None)
@@ -207,6 +209,8 @@ def build_cli_override_dict(args) -> Dict[str, Any]:
         override["diffusion"]["layers"] = args.layers
     if args.nheads is not None:
         override["diffusion"]["nheads"] = args.nheads
+    if args.diffusion_embedding_dim is not None:
+        override["diffusion"]["diffusion_embedding_dim"] = args.diffusion_embedding_dim
 
     # process
     if args.sde_type is not None:
@@ -443,6 +447,7 @@ def build_run_metadata(config: Dict[str, Any]) -> Dict[str, Any]:
             "channels": config["diffusion"]["channels"],
             "layers": config["diffusion"]["layers"],
             "nheads": config["diffusion"]["nheads"],
+            "diffusion_embedding_dim": config["diffusion"]["diffusion_embedding_dim"],
             "is_linear": config["diffusion"]["is_linear"],
         },
         "model": {
@@ -524,6 +529,7 @@ def build_final_checkpoint_name(
       6. is_linear -> 'linear' or 'notlinear'
       7. layers
       8. nheads
+      9. diffusion_embedding_dim
       + timestamp to avoid overwriting
     """
     if timestamp is None:
@@ -565,6 +571,7 @@ def build_final_checkpoint_name(
     is_linear = "linear" if bool(config["diffusion"]["is_linear"]) else "notlinear"
     layers = int(config["diffusion"]["layers"])
     nheads = int(config["diffusion"]["nheads"])
+    diffusion_embedding_dim = int(config["diffusion"]["diffusion_embedding_dim"])
     noise_schedule = str(config["process"].get("noise_schedule", "linear"))
 
     # safer string for learning rate, e.g. 1e-4 -> 1e-04
@@ -585,6 +592,7 @@ def build_final_checkpoint_name(
         f"{is_linear}_"
         f"layers-{layers}_"
         f"nheads-{nheads}_"
+        f"diffemb-{diffusion_embedding_dim}_"
         f"{timestamp}.pt"
     )
     return filename
