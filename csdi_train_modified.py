@@ -402,7 +402,7 @@ def masked_mse(eps_hat, eps, target_mask, sigma_t=None, g_t=None, debug=False):
         else:
             weight = (1.0 / sigma_t.float().pow(2).clamp(min=1e-8))[:, None, None]
             # TRYING TO ADD WEIGHT CLAMPING in order to address LW effects
-            weight = weight.clamp(max=25.0)  # min-SNR-5: cap at SNR=5 → max_weight ≈ 1/σ_threshold
+            # weight = weight.clamp(max=25.0)  # min-SNR-5: cap at SNR=5 → max_weight ≈ 1/σ_threshold
         denom = (target_mask.float() * weight).sum().clamp(min=1e-10)
         loss = (sq_err * weight * target_mask).sum() / denom
     else:
