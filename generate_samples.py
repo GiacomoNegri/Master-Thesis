@@ -225,6 +225,11 @@ def main():
             f"{args.years_per_sample} year(s) is before start_date ({args.start_date}). "
             "Widen the window or reduce --years_per_sample."
         )
+    # Add to address lack of seed in prior-sampling, to address diff. runs replicability
+    if args.seed != -1:
+        torch.manual_seed(args.seed)
+        if torch.cuda.is_available():
+            torch.cuda.manual_seed_all(args.seed)
 
     rng_seed      = None if args.seed == -1 else args.seed
     rng           = np.random.default_rng(rng_seed)

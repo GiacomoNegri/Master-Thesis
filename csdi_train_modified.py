@@ -151,7 +151,7 @@ def parse_args():
     parser.add_argument("--early_stop_patience", type=int, default=None,
                         help="Stop training if val loss does not improve for this many epochs. Requires val_split_ratio. 0 or omit to disable.")
     parser.add_argument("--likelihood_weighting", type=str2bool, default=None,
-                        help="If true, weight the loss by 1/sigma^2(t) (likelihood weighting). If false, use plain MSE.")
+                        help="If true, apply Song's likelihood weighting λ(t)=g(t)²/σ²(t) to the MSE loss. If false, use plain MSE.")
     parser.add_argument("--debug", type=str2bool, default=None,
                         help="If true, print per-batch sigma / err / eps diagnostics. If false, only loss is printed.")
     parser.add_argument("--lr_cosine_annealing", type=str2bool, default=None,
@@ -379,18 +379,23 @@ def unpack_batch(batch: Any, device: torch.device) -> Tuple[torch.Tensor, torch.
 # ----------------------------
 # Loss: MSE on target (non-conditioned) entries
 # ----------------------------
-def masked_mse(eps_hat, eps, target_mask, sigma_t=None, debug=False):
+def masked_mse(eps_hat, eps, target_mask, sigma_t=None, g_t=None, debug=False):
     """
-    sigma_t: optional (B,) tensor of per-sample noise std from the forward process.
-             When provided, applies likelihood weighting 1/sigma^2(t) to each position,
-             concentrating the gradient signal at low-t (where the true data distribution
-             is most visible). When None, plain unweighted MSE is used.
+    sigma_t: optional (B,) tensor of per-sample marginal std σ(t) from the forward process.
+    g_t:     optional (B,) tensor of per-sample diffusion coefficient g(t).
+             When both are provided, applies Song's likelihood weighting
+             λ(t) = g(t)² / σ(t)², which is the theoretically correct per-timestep weight
+             for matching the log-likelihood objective. When only sigma_t is provided,
+             falls back to 1/σ²(t). When neither, plain unweighted MSE is used.
     """
     sq_err = (eps_hat - eps) ** 2  # (B, K, L)
 
     if sigma_t is not None:
-        # 1/sigma^2(t) per batch element, broadcast to (B, K, L)
-        weight = (1.0 / sigma_t.float().pow(2).clamp(min=1e-8))[:, None, None]
+        # Song's likelihood weighting: λ(t) = g(t)^2 / σ(t)^2
+        if g_t is not None:
+            weight = (g_t.float().pow(2) / sigma_t.float().pow(2).clamp(min=1e-8))[:, None, None]
+        else:
+            weight = (1.0 / sigma_t.float().pow(2).clamp(min=1e-8))[:, None, None]
         denom = (target_mask.float() * weight).sum().clamp(min=1e-10)
         loss = (sq_err * weight * target_mask).sum() / denom
     else:
@@ -756,6 +761,13 @@ def train(
             # forward diffusion
             x_t, t_cont, eps, sigma_t = processes.forward_process(observed_data)
 
+            # g(t) for Song's likelihood weighting λ(t) = g(t)^2 / σ(t)^2
+            if use_lw:
+                with torch.no_grad():
+                    _, g_t = processes.sde.sde(x_t, t_cont)
+            else:
+                g_t = None
+
             if debug:
                 print(f"sigma | min={sigma_t.min():.4f}  max={sigma_t.max():.4f}  mean={sigma_t.mean():.4f}  median={sigma_t.median():.4f}")
 
@@ -769,7 +781,7 @@ def train(
                     observed_tp=observed_tp,
                 )
                 if use_lw:
-                    loss = masked_mse(eps_hat, eps, target_mask, sigma_t=sigma_t, debug=debug)
+                    loss = masked_mse(eps_hat, eps, target_mask, sigma_t=sigma_t, g_t=g_t, debug=debug)
                 else:
                     loss = masked_mse(eps_hat, eps, target_mask, None, debug=debug)
 
@@ -870,6 +882,12 @@ def train(
 
                     x_t, t_cont, eps, sigma_t = processes.forward_process(observed_data)
 
+                    # g(t) for Song's likelihood weighting λ(t) = g(t)^2 / σ(t)^2
+                    if use_lw:
+                        _, g_t = processes.sde.sde(x_t, t_cont)
+                    else:
+                        g_t = None
+
                     if debug:
                         print(f"sigma | min={sigma_t.min():.4f}  max={sigma_t.max():.4f}  mean={sigma_t.mean():.4f}  median={sigma_t.median():.4f}")
 
@@ -882,7 +900,7 @@ def train(
                             observed_tp=observed_tp,
                         )
                         if use_lw:
-                            val_loss = masked_mse(eps_hat, eps, target_mask, sigma_t=sigma_t, debug=debug)
+                            val_loss = masked_mse(eps_hat, eps, target_mask, sigma_t=sigma_t, g_t=g_t, debug=debug)
                         else:
                             val_loss = masked_mse(eps_hat, eps, target_mask, None, debug=debug)
 
