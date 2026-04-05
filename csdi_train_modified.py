@@ -323,7 +323,7 @@ def set_seed(seed: int) -> None:
 def get_randmask(observed_mask: torch.Tensor, min_ratio: float = 0.1, max_ratio: float = 0.9) -> torch.Tensor:
     """
     Create a conditional mask (what is revealed to the model) by randomly hiding
-    a fraction of the observed entries.
+    a fraction of the observed entries.F
 
     observed_mask: (B,K,L) in {0,1}  -> indicates which entries are truly observed in data
     returns cond_mask: (B,K,L) in {0,1}  -> subset of observed_mask used as conditioning
@@ -611,10 +611,13 @@ def build_final_checkpoint_name(
     # safer string for learning rate, e.g. 1e-4 -> 1e-04
     lr_str = f"{lr:.0e}"
 
-    lw_tag = "LW_" if bool(config["train"].get("likelihood_weighting", False)) else "NO_"
+    lw_tag = "LW" if bool(config["train"].get("likelihood_weighting", False)) else "NO"
+
+    is_tag = "IS" if bool(config["train"].get("importance_sampling", False)) else "NO"
 
     filename = (
-        f"{lw_tag}"
+        f"{lw_tag}_"
+        f"{is_tag}_"
         f"{data_root}_"
         f"{mask_mode}_"
         f"ep-{epochs}_"
