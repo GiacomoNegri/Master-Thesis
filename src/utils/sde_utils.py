@@ -1,33 +1,46 @@
 import torch
-#from .SDE import VESDE
-from .WIP_processes import Diffusion_Processes 
+from .WIP_processes import Diffusion_Processes
 from .WIP_SDE import VESDE, SubVPSDE, VPSDE
-#from .subVP_forward import ForwardProcess
 
-def calculate_importance_sampling_probabilities(sde_model, N_timesteps, device):
+
+def calculate_importance_sampling_probabilities(sde, N_timesteps: int, device, eps_time: float = 1e-3):
     """
-    Calcola il tensore di probabilità p_IS per l'Importance Sampling.
-    p(t) ∝ g(t)^2 / λ_orig(t)
+    Compute IS probabilities p(t) ∝ g(t)² / σ²(t) on a uniform grid of N_timesteps points.
+
+    Theory: the score-matching loss under importance sampling with q(t) ∝ g(t)²/σ²(t)
+    becomes equivalent to plain unweighted MSE, but with training mass concentrated on
+    small-t (hard) timesteps where σ(t) is small and the model prediction matters most.
+
+    Works with any SDE that implements the standard interface (sde() and marginal_prob()),
+    which covers VPSDE, SubVPSDE, VESDE, and GBMLogSDE.
+
+    Args:
+        sde:          An instantiated SDE object (e.g. VPSDE, VESDE, GBMLogSDE).
+        N_timesteps:  Number of grid points to discretize [eps_time, T].
+        device:       Torch device.
+        eps_time:     Lower bound on t (same eps used in forward_process).
+
+    Returns:
+        probabilities: (N_timesteps,) normalized probability vector summing to 1.
+        t_grid:        (N_timesteps,) tensor of the corresponding t values.
     """
-    epsilon = 1e-5 # Per stabilità numerica (evitare divisioni per zero)
-    T_max = 1.0 - epsilon 
+    epsilon = 1e-8  # numerical safety for division
 
-    # 1. Crea il vettore di timestep continui da [eps, 1.0]
-    timesteps = torch.linspace(epsilon, T_max, N_timesteps, device=device)
-    
-    # 2. Calcola i pesi necessari (g(t)^2 e λ_orig(t))
-    g_squared = sde_model.get_g_squared(timesteps)
-    alpha_original = sde_model.get_alpha_original(timesteps) ** 2
-    
-    print(f"G-Squared Max: {torch.max(g_squared)}, Min g^2: {torch.min(g_squared)} Avg. g^2: {torch.mean(g_squared)}, Std. g^2: {torch.std(g_squared)}")
-    print(f"Alpha Squared Max: {torch.max(alpha_original)}, Min alpha: {torch.min(alpha_original)} Avg. alpha: {torch.mean(alpha_original)}, Std. alpha: {torch.std(alpha_original)}")
+    t_grid = torch.linspace(eps_time, sde.T - epsilon, N_timesteps, device=device)
 
-    # 3. Calcola il peso non normalizzato p(t) ∝ g(t)^2 / λ_orig(t)
-    # add epsilon to avoid 0 division
-    sampling_weights = g_squared / (alpha_original + epsilon)
-    
-    # 4. Converting to probabilities
-    probabilities = sampling_weights / torch.sum(sampling_weights)
-    
-    return probabilities
+    # Use a dummy x of shape (N_timesteps, 1, 1) so sde() and marginal_prob() can
+    # broadcast correctly — we only need the diffusion coefficient and std, not the
+    # data-dependent drift.
+    dummy_x = torch.zeros(N_timesteps, 1, 1, device=device)
 
+    with torch.no_grad():
+        _, g_t = sde.sde(dummy_x, t_grid)          # g_t: (N_timesteps,)
+        _, sigma_t = sde.marginal_prob(dummy_x, t_grid)  # sigma_t: (N_timesteps,)
+
+    g_sq = g_t ** 2
+    sigma_sq = sigma_t ** 2 + epsilon
+
+    weights = g_sq / sigma_sq
+    probabilities = weights / weights.sum()
+
+    return probabilities, t_grid

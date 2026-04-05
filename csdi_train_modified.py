@@ -154,6 +154,9 @@ def parse_args():
                         help="If true, apply Song's likelihood weighting λ(t)=g(t)²/σ²(t) to the MSE loss. If false, use plain MSE.")
     parser.add_argument("--debug", type=str2bool, default=None,
                         help="If true, print per-batch sigma / err / eps diagnostics. If false, only loss is printed.")
+    parser.add_argument("--importance_sampling", type=str2bool, default=None,
+                        help="If true, sample t ~ p(t) ∝ g(t)²/σ²(t) instead of uniform. "
+                             "Concentrates training on hard small-t timesteps; disables likelihood weighting.")
     parser.add_argument("--lr_cosine_annealing", type=str2bool, default=None,
                         help="If true, apply CosineAnnealingLR decaying from lr to lr_eta_min over the full run.")
     parser.add_argument("--lr_eta_min", type=float, default=None,
@@ -269,6 +272,8 @@ def build_cli_override_dict(args) -> Dict[str, Any]:
         override["train"]["likelihood_weighting"] = args.likelihood_weighting
     if args.debug is not None:
         override["train"]["debug"] = args.debug
+    if args.importance_sampling is not None:
+        override["train"]["importance_sampling"] = args.importance_sampling
     if args.lr_cosine_annealing is not None:
         override["train"]["lr_cosine_annealing"] = args.lr_cosine_annealing
     if args.lr_eta_min is not None:
@@ -720,6 +725,19 @@ def train(
     best_val_loss = float("inf")
     epochs_no_improve = 0
 
+    # Importance sampling setup (computed once before training)
+    use_is = bool(config["train"].get("importance_sampling", False))
+    t_probs, t_grid = None, None
+    if use_is:
+        from src.utils.sde_utils import calculate_importance_sampling_probabilities
+        t_probs, t_grid = calculate_importance_sampling_probabilities(
+            processes.sde,
+            N_timesteps=int(config["process"]["N"]),
+            device=device,
+            eps_time=processes.eps_time,
+        )
+        print(f"Importance sampling enabled: t_probs range [{t_probs.min():.2e}, {t_probs.max():.2e}]")
+
     for epoch in range(start_epoch, num_epochs):
         model.train()
 
@@ -761,7 +779,9 @@ def train(
             assert target_mask.sum() == observed_data.numel(), f"target_mask empty! sum={target_mask.sum().item()}"
 
             # forward diffusion
-            x_t, t_cont, eps, sigma_t = processes.forward_process(observed_data)
+            x_t, t_cont, eps, sigma_t = processes.forward_process(
+                observed_data, t_probs=t_probs, t_grid=t_grid
+            )
 
             # g(t) for Song's likelihood weighting λ(t) = g(t)^2 / σ(t)^2
             if use_lw:
@@ -882,7 +902,9 @@ def train(
 
                     target_mask = (observed_mask.float() * (1.0 - cond_mask.float())).float()
 
-                    x_t, t_cont, eps, sigma_t = processes.forward_process(observed_data)
+                    x_t, t_cont, eps, sigma_t = processes.forward_process(
+                        observed_data, t_probs=t_probs, t_grid=t_grid
+                    )
 
                     # g(t) for Song's likelihood weighting λ(t) = g(t)^2 / σ(t)^2
                     if use_lw:

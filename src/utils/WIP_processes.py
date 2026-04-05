@@ -100,24 +100,46 @@ class Diffusion_Processes:
         
 
     @torch.no_grad()
-    def forward_process(self, x0: torch.Tensor, t: torch.Tensor = None):
+    def forward_process(
+        self,
+        x0: torch.Tensor,
+        t: torch.Tensor = None,
+        t_probs: torch.Tensor = None,
+        t_grid: torch.Tensor = None,
+    ):
         """
         Forward diffusion: add noise to clean data z0 according to the chosen SDE.
         This uses the closed-form marginal p_t(z | z0):
             z_t = mean(z0, t) + std(t) * eps,  eps ~ N(0, I)
         Args:
-            z0: clean data, shape (B, C, H, W) or similar.
+            x0:      Clean data, shape (B, K, L).
+            t:       Optional pre-sampled time vector (B,). If provided, skips sampling.
+            t_probs: Optional (N_grid,) IS probability vector. When given together with
+                     t_grid, t is drawn from t_grid according to t_probs instead of
+                     uniformly. Compute once with sde_utils.calculate_importance_sampling_probabilities.
+            t_grid:  Optional (N_grid,) tensor of t values paired with t_probs.
         Returns:
-            z_t: noised data at random time t, same shape as z0
-            t:  time vector, shape (B,)
-            eps: the Gaussian noise used, same shape as z0
+            x_t:    Noised data at sampled time t, same shape as x0.
+            t:      Time vector, shape (B,).
+            eps:    The Gaussian noise used, same shape as x0.
+            std:    Per-sample noise std σ(t), shape (B,).
         """
         device = x0.device
         B = x0.size(0)
 
         if t is None:
-            # Sample a time for each example: t ~ Uniform(0, T)
-            t = self.eps_time + torch.rand(B, device=device) * (self.sde.T - self.eps_time)
+            if t_probs is not None and t_grid is not None:
+                # Importance sampling: draw one index per batch element from the IS
+                # distribution, then look up the corresponding t value.
+                indices = torch.multinomial(
+                    t_probs.unsqueeze(0).expand(B, -1),
+                    num_samples=1,
+                    replacement=True,
+                ).squeeze(-1)  # (B,)
+                t = t_grid[indices]
+            else:
+                # Default: uniform sampling over [eps_time, T]
+                t = self.eps_time + torch.rand(B, device=device) * (self.sde.T - self.eps_time)
 
 
         # Get closed-form mean and std of p_t(z | z0)
