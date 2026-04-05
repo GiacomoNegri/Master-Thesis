@@ -152,6 +152,8 @@ def parse_args():
                         help="Stop training if val loss does not improve for this many epochs. Requires val_split_ratio. 0 or omit to disable.")
     parser.add_argument("--likelihood_weighting", type=str2bool, default=None,
                         help="If true, weight the loss by 1/sigma^2(t) (likelihood weighting). If false, use plain MSE.")
+    parser.add_argument("--debug", type=str2bool, default=None,
+                        help="If true, print per-batch sigma / err / eps diagnostics. If false, only loss is printed.")
     parser.add_argument("--lr_cosine_annealing", type=str2bool, default=None,
                         help="If true, apply CosineAnnealingLR decaying from lr to lr_eta_min over the full run.")
     parser.add_argument("--lr_eta_min", type=float, default=None,
@@ -265,6 +267,8 @@ def build_cli_override_dict(args) -> Dict[str, Any]:
         override["train"]["mask_mode"] = args.mask_mode
     if args.likelihood_weighting is not None:
         override["train"]["likelihood_weighting"] = args.likelihood_weighting
+    if args.debug is not None:
+        override["train"]["debug"] = args.debug
     if args.lr_cosine_annealing is not None:
         override["train"]["lr_cosine_annealing"] = args.lr_cosine_annealing
     if args.lr_eta_min is not None:
@@ -375,7 +379,7 @@ def unpack_batch(batch: Any, device: torch.device) -> Tuple[torch.Tensor, torch.
 # ----------------------------
 # Loss: MSE on target (non-conditioned) entries
 # ----------------------------
-def masked_mse(eps_hat, eps, target_mask, sigma_t=None):
+def masked_mse(eps_hat, eps, target_mask, sigma_t=None, debug=False):
     """
     sigma_t: optional (B,) tensor of per-sample noise std from the forward process.
              When provided, applies likelihood weighting 1/sigma^2(t) to each position,
@@ -393,17 +397,17 @@ def masked_mse(eps_hat, eps, target_mask, sigma_t=None):
         denom = target_mask.sum().clamp(min=1.0)
         loss = (sq_err * target_mask).sum() / denom
 
-    # DEBUGGING: temporary debugging output to understand error distribution
-    masked = sq_err[target_mask.bool()]  # unweighted, for interpretable diagnostics
-    print(f"err     | mean={masked.mean():.4f}  std={masked.std():.4f}  "
-          f"p50={masked.median():.4f}  p95={masked.quantile(0.95):.4f}  "
-          f"p99={masked.quantile(0.99):.4f}  max={masked.max():.4f}")
+    if debug:
+        masked = sq_err[target_mask.bool()]  # unweighted, for interpretable diagnostics
+        print(f"err     | mean={masked.mean():.4f}  std={masked.std():.4f}  "
+              f"p50={masked.median():.4f}  p95={masked.quantile(0.95):.4f}  "
+              f"p99={masked.quantile(0.99):.4f}  max={masked.max():.4f}")
 
-    if sigma_t is not None:
-        w_masked = (sq_err * weight)[target_mask.bool()]
-        print(f"err(LW) | mean={w_masked.mean():.4f}  std={w_masked.std():.4f}  "
-              f"p50={w_masked.median():.4f}  p95={w_masked.quantile(0.95):.4f}  "
-              f"p99={w_masked.quantile(0.99):.4f}  max={w_masked.max():.4f}")
+        if sigma_t is not None:
+            w_masked = (sq_err * weight)[target_mask.bool()]
+            print(f"err(LW) | mean={w_masked.mean():.4f}  std={w_masked.std():.4f}  "
+                  f"p50={w_masked.median():.4f}  p95={w_masked.quantile(0.95):.4f}  "
+                  f"p99={w_masked.quantile(0.99):.4f}  max={w_masked.max():.4f}")
 
     return loss
 
@@ -724,12 +728,14 @@ def train(
         ema_loss = None
         ema_beta = float(config["train"].get("ema_beta", 0.98))
         use_lw = bool(config["train"].get("likelihood_weighting", False))
+        debug = bool(config["train"].get("debug", False))
         t0 = time.time()
 
         for batch_idx, batch in pbar:
             observed_data, observed_mask, observed_tp = unpack_batch(batch, device)
 
-            print(f"Data | mean={observed_data.mean():.4f}  std={observed_data.std():.4f} min={observed_data.min():.4f}  max={observed_data.max():.4f}")
+            if debug:
+                print(f"Data | mean={observed_data.mean():.4f}  std={observed_data.std():.4f} min={observed_data.min():.4f}  max={observed_data.max():.4f}")
 
             # conditioning mask
             mask_mode = config["train"].get("mask_mode", "random")
@@ -750,8 +756,8 @@ def train(
             # forward diffusion
             x_t, t_cont, eps, sigma_t = processes.forward_process(observed_data)
 
-            # DEBUGGING: check noise
-            print(f"sigma | min={sigma_t.min():.4f}  max={sigma_t.max():.4f}  mean={sigma_t.mean():.4f}  median={sigma_t.median():.4f}")
+            if debug:
+                print(f"sigma | min={sigma_t.min():.4f}  max={sigma_t.max():.4f}  mean={sigma_t.mean():.4f}  median={sigma_t.median():.4f}")
 
             # forward + loss
             with torch.amp.autocast("cuda", enabled=use_amp):
@@ -763,13 +769,13 @@ def train(
                     observed_tp=observed_tp,
                 )
                 if use_lw:
-                    loss = masked_mse(eps_hat, eps, target_mask, sigma_t=sigma_t)
+                    loss = masked_mse(eps_hat, eps, target_mask, sigma_t=sigma_t, debug=debug)
                 else:
-                    loss = masked_mse(eps_hat, eps, target_mask, None)
+                    loss = masked_mse(eps_hat, eps, target_mask, None, debug=debug)
 
-                #DEBUGGING: forward check
-                print(f"eps_hat | norm={eps_hat.norm().item():.4f}  mean={eps_hat.mean().item():.4f}  std={eps_hat.std().item():.4f}")
-                print(f"eps     | norm={eps.norm().item():.4f}  mean={eps.mean().item():.4f}  std={eps.std().item():.4f}")
+                if debug:
+                    print(f"eps_hat | norm={eps_hat.norm().item():.4f}  mean={eps_hat.mean().item():.4f}  std={eps_hat.std().item():.4f}")
+                    print(f"eps     | norm={eps.norm().item():.4f}  mean={eps.mean().item():.4f}  std={eps.std().item():.4f}")
 
             loss_val = float(loss.detach().item())
             epoch_loss_sum += loss_val
@@ -864,9 +870,8 @@ def train(
 
                     x_t, t_cont, eps, sigma_t = processes.forward_process(observed_data)
 
-                    # DEBUGGING: check noise
-                    print(f"sigma | min={sigma_t.min():.4f}  max={sigma_t.max():.4f}  mean={sigma_t.mean():.4f}  median={sigma_t.median():.4f}")
-
+                    if debug:
+                        print(f"sigma | min={sigma_t.min():.4f}  max={sigma_t.max():.4f}  mean={sigma_t.mean():.4f}  median={sigma_t.median():.4f}")
 
                     with torch.amp.autocast("cuda", enabled=use_amp):
                         eps_hat = model(
@@ -877,13 +882,13 @@ def train(
                             observed_tp=observed_tp,
                         )
                         if use_lw:
-                            val_loss = masked_mse(eps_hat, eps, target_mask, sigma_t=sigma_t)
+                            val_loss = masked_mse(eps_hat, eps, target_mask, sigma_t=sigma_t, debug=debug)
                         else:
-                            val_loss = masked_mse(eps_hat, eps, target_mask, None)
+                            val_loss = masked_mse(eps_hat, eps, target_mask, None, debug=debug)
 
-                        #DEBUGGING: forward check
-                        print(f"eps_hat | norm={eps_hat.norm().item():.4f}  mean={eps_hat.mean().item():.4f}  std={eps_hat.std().item():.4f}")
-                        print(f"eps     | norm={eps.norm().item():.4f}  mean={eps.mean().item():.4f}  std={eps.std().item():.4f}")
+                        if debug:
+                            print(f"eps_hat | norm={eps_hat.norm().item():.4f}  mean={eps_hat.mean().item():.4f}  std={eps_hat.std().item():.4f}")
+                            print(f"eps     | norm={eps.norm().item():.4f}  mean={eps.mean().item():.4f}  std={eps.std().item():.4f}")
 
 
                     val_loss_sum += float(val_loss.item())
