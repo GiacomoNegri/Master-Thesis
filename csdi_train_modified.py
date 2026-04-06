@@ -1047,7 +1047,7 @@ def train(
 
 # MAIN
 
-if __name__ == "__main__":
+def _real_main():
     config, args = get_final_config()
 
     print("Final merged config:")
@@ -1152,5 +1152,16 @@ if __name__ == "__main__":
     )
 
     print("Training is finished")
+
+if __name__ == "__main__":
+    import traceback as _tb, sys as _sys
+    try:
+        _real_main()
+    except SystemExit:
+        raise
+    except BaseException as _e:
+        print(f"\n[FATAL] Uncaught exception: {type(_e).__name__}: {_e}", flush=True)
+        _tb.print_exc()
+        _sys.exit(1)
 
 # python csdi_train_modified.py --config configs/replication.yaml --epochs 1 --train_subset_ratio 0.005 --val_split_ratio 0.005 --data_root "./data/replication" --noise_schedule exponential --sigma_min 0.01 --sigma_max 1.0 --beta_min 0.01 --beta_max 20.0
