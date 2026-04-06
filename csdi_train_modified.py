@@ -1039,11 +1039,16 @@ def train(
     final_filename = build_final_checkpoint_name(config=config, global_step=global_step, actual_epoch=epoch + 1)
     final_path = os.path.join(out_dir, final_filename)
 
+    print(f"[checkpoint] Saving final checkpoint to {final_path} ...", flush=True)
     torch.save(final_payload, final_path)
-    print(f"Training complete. Saved: {final_path}")
+    print(f"[checkpoint] Saved OK.", flush=True)
 
     if use_wandb:
+        print("[wandb] Calling wandb.finish() ...", flush=True)
         wandb.finish()
+        print("[wandb] wandb.finish() returned.", flush=True)
+
+    print("Training complete.", flush=True)
 
 # MAIN
 
@@ -1154,10 +1159,13 @@ def _real_main():
     print("Training is finished")
 
 if __name__ == "__main__":
-    import traceback as _tb, sys as _sys
+    import traceback as _tb, sys as _sys, faulthandler as _fh
+    _fh.enable()  # dumps C-level stack on SIGSEGV/SIGABRT
     try:
         _real_main()
-    except SystemExit:
+    except SystemExit as _e:
+        print(f"\n[FATAL] SystemExit({_e.code}) called — something called sys.exit()", flush=True)
+        _tb.print_exc()
         raise
     except BaseException as _e:
         print(f"\n[FATAL] Uncaught exception: {type(_e).__name__}: {_e}", flush=True)
