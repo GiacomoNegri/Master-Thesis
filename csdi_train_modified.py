@@ -779,8 +779,17 @@ def train(
                 )
 
             target_mask = (observed_mask.float() * (1.0 - cond_mask.float())).float()
-            assert target_mask.sum() == observed_data.numel(), f"target_mask empty! sum={target_mask.sum().item()}"
+            assert target_mask.sum() > 0, "No target entries selected! Check your conditioning mask logic."
 
+            #DEBUGGING
+            if epoch == 0 and batch_idx == 0:
+                # Conditioning mask should be 1 everywhere except for close (idx 3)
+                print("cond_mask per feature (mean over B,L):", cond_mask.float().mean(dim=(0,2)))
+                print("Expected tensor for cond_mask: [1.,1.,1.,0.]")
+                #Target_mask should be 0 everywehre except for close (idx 3) that should be 1
+                print("target_mask per feature (mean over B,L):", target_mask.float().mean(dim=(0,2)))
+                print("Expected tensor for target_mask: [0.,0.,0.,1.]")
+            
             # forward diffusion
             x_t, t_cont, eps, sigma_t = processes.forward_process(
                 observed_data, t_probs=t_probs, t_grid=t_grid
@@ -1047,6 +1056,7 @@ if __name__ == "__main__":
         num_workers=config["train"]["num_workers"],
         shuffle=config["train"]["shuffle"],
         pin_memory=config["train"]["pin_memory"],
+        columns=tuple(config["data"].get("columns", ("date", "log_adj_close"))),
     )
 
     dataset = train_loader.dataset

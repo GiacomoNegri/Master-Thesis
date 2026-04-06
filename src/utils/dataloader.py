@@ -151,13 +151,15 @@ def make_dataloader(
     num_workers: int = 4,
     shuffle: bool = True,
     pin_memory: bool = True,
+    columns: Tuple[str, ...] = ("date", "open", "high", "low", "close", "volume"),
 ) -> DataLoader:
     ds = SP500WindowDataset(
         root_dir=root_dir,
         seq_len=seq_len,
         stride=stride,
-        time_mode="index_norm",   # keep tp stable; Date feature still included in observed_data
-        cache_data=False,         # set True if you have enough RAM
+        columns=columns,
+        time_mode="index_norm",
+        cache_data=False,
         drop_incomplete=True,
     )
     return DataLoader(
