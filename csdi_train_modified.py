@@ -588,6 +588,10 @@ def build_final_checkpoint_name(
         data_root = "TOY_GBM"
     elif data_root == "./data/toy_gbm_norm":
         data_root = "TOY_GBM_NORM"
+    elif data_root == "./data/fake_fts":
+        data_root = "FAKE_FTS"
+    elif data_root == "./data/fake_fts_processed":
+        data_root = "FAKE_FTS_PROC"
     else:
         data_root = "REPL_"
     mask_mode = str(config['train']['mask_mode'])
@@ -602,7 +606,8 @@ def build_final_checkpoint_name(
     sde_type = str(config["process"]["sde_type"])
     lr = float(config["train"]["lr"])
     N = int(config["process"]["N"])
-    is_linear = "linear" if bool(config["diffusion"]["is_linear"]) else "notlinear"
+    channels = int(config["diffusion"]["channels"])
+    # is_linear = "linear" if bool(config["diffusion"]["is_linear"]) else "notlinear"
     layers = int(config["diffusion"]["layers"])
     nheads = int(config["diffusion"]["nheads"])
     diffusion_embedding_dim = int(config["diffusion"]["diffusion_embedding_dim"])
@@ -626,7 +631,7 @@ def build_final_checkpoint_name(
         f"noise-{noise_schedule}_"
         f"lr-{lr_str}_"
         f"N-{N}_"
-        f"{is_linear}_"
+        f"{channels}_"
         f"layers-{layers}_"
         f"nheads-{nheads}_"
         f"diffemb-{diffusion_embedding_dim}_"

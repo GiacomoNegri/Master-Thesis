@@ -64,7 +64,7 @@ train:
   data_root: ./data/fake_fts_processed
   out_dir: ./checkpoints/ohlc_conditional
 
-  val_split_ratio: 0.1
+  # val_split_ratio: 0.1
   early_stop_patience: 20
 
 wandb:
