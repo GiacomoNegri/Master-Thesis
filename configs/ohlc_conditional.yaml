@@ -57,7 +57,7 @@ train:
   seq_len: 64
   stride: 64
 
-  num_workers: 4
+  num_workers: 0
   shuffle: true
   pin_memory: false
 
