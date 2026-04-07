@@ -849,7 +849,7 @@ def train(
             scaler.scale(loss).backward()
             scaler.unscale_(optim)
             # IMPORTANT: we are doing gradient clipping, because of extreme gradient values
-            grad_norm = torch.nn.utils.clip_grad_norm_(model.parameters(), max_norm=1.0)
+            grad_norm = torch.nn.utils.clip_grad_norm_(model.parameters(), max_norm=5.0)
             scaler.step(optim)
             scaler.update()
 
@@ -1172,4 +1172,4 @@ if __name__ == "__main__":
         _tb.print_exc()
         _sys.exit(1)
 
-# python csdi_train_modified.py --config configs/replication.yaml --epochs 1 --train_subset_ratio 0.005 --val_split_ratio 0.005 --data_root "./data/replication" --noise_schedule exponential --sigma_min 0.01 --sigma_max 1.0 --beta_min 0.01 --beta_max 20.0
+#python csdi_train_modified.py --config configs/ohlc_conditional.yaml --epochs 300 --sde_type vp --noise_schedule linear --sigma_min 0.1 --sigma_max 5.0 --beta_min 0.1 --beta_max 5.0 --data_root ./data/fake_fts_processed --mask_mode predict_close --likelihood_weighting false --importance_sampling false --seq_len 64 --stride 64 --weight_decay 0.0 --channels 64 --layers 4 --nheads 4 --diffusion_embedding_dim 128 --train_subset_size 16 --batch_size 16 --lr 3e-4 --lr_cosine_annealing false --lr_eta_min 1e-6 --use_amp false --early_stop_patience 100 --debug false --wandb_project csdi-gbm --wandb_entity thesis-giacomo-negri
