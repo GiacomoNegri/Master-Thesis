@@ -495,3 +495,5 @@ def main():
 
 if __name__ == "__main__":
     main()
+
+#python generate_samples.py --checkpoint_folder ohlc_conditional --checkpoint_name NO_NO_FAKE_FTS_PROC_CLOS_ep-100_step-0_sde-vp_noise-linear_lr-1e-03_N-1000_64_layers-4_nheads-4_diffemb-128_20260407_192135.pt --num_csv 1 --num_samples 2 --seed 42
