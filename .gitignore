@@ -26,5 +26,6 @@ checkpoints/
 outputs/
 *.sh
 
+image/
 err/
 out/
