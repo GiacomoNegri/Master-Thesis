@@ -451,15 +451,6 @@ def main():
             out_dir        = out_dir,
         )
 
-    # ── Save any diagnostic figures produced by reverse_process ──────────────
-    wandb_images = {}
-    for fig_num in plt.get_fignums():
-        label    = f"diagnostic_{fig_num}"
-        fig_path = os.path.join(out_dir, f"{label}.png")
-        plt.figure(fig_num).savefig(fig_path, dpi=100, bbox_inches="tight")
-        print(f"Saved diagnostic figure → {fig_path}")
-        if use_wandb:
-            wandb_images[label] = wandb.Image(fig_path)
     plt.close("all")
 
     # ── W&B summary ───────────────────────────────────────────────────────────
@@ -485,7 +476,6 @@ def main():
                 "val/gen_max":  gen_val_np.max(),
             })
 
-        log_dict.update(wandb_images)
         wandb.log(log_dict)
         wandb.finish()
         print("W&B run finished.")
@@ -496,4 +486,4 @@ def main():
 if __name__ == "__main__":
     main()
 
-#python generate_samples.py --checkpoint_folder ohlc_conditional --checkpoint_name NO_NO_FAKE_FTS_PROC_CLOS_ep-100_step-0_sde-vp_noise-linear_lr-1e-03_N-1000_64_layers-4_nheads-4_diffemb-128_20260407_192135.pt --num_csv 1 --num_samples 2 --seed 42
+#python generate_samples.py --checkpoint_folder ohlc_conditional --checkpoint_name NO_NO_FAKE_FTS_PROC_CLOS_ep-100_step-0_sde-vp_noise-linear_lr-1e-03_N-1000_64_layers-4_nheads-4_diffemb-128_20260407_192135.pt --out_dir ./data/generated/conditional --num_csv 1 --num_samples 2 --seed 42
