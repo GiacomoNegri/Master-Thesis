@@ -592,6 +592,8 @@ def build_final_checkpoint_name(
         data_root = "FAKE_FTS"
     elif data_root == "./data/fake_fts_processed":
         data_root = "FAKE_FTS_PROC"
+    elif data_root == "./data/replication_processed":
+        data_root = "REPL_PROC"
     else:
         data_root = "REPL_"
     mask_mode = str(config['train']['mask_mode'])
