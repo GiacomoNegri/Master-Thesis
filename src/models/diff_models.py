@@ -76,9 +76,9 @@ class diff_CSDI(nn.Module):
         self.input_projection = Conv1d_with_init(inputdim, self.channels, 1)
         self.output_projection1 = Conv1d_with_init(self.channels, self.channels, 1)
         self.output_projection2 = Conv1d_with_init(self.channels, 1, 1)
-        # Original CSDI initialization
+        # This is the initalization in the original codebase, CSDI
         # nn.init.zeros_(self.output_projection2.weight)
-        # New initialization to try if it works better
+        # Replacing it with a normal initialization with small std to break symmetry allow faster learning, avoiding 0 initialization
         nn.init.normal_(self.output_projection2.weight, mean=0.0, std=0.01)
 
 
