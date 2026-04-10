@@ -53,7 +53,7 @@ train:
   pin_memory: false
   out_dir: ./checkpoints/replication
   data_root: ./data/replication
-  val_split_ratio: 0.1   # fraction of dataset held out for validation
+  #  val_split_ratio: 0.1   # fraction of dataset held out for validation
   # train_subset_ratio: 1.0  # fraction of dataset used for training (quick tFests)
   # train_subset_size: 1 # absolute number of training samples (alternative to ratio)
   #early_stop_patience: 10  # stop if val loss doesn't improve for this many epochs (null to disable)
