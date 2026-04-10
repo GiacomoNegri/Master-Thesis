@@ -835,7 +835,7 @@ def train(
             scaler.scale(loss).backward()
             scaler.unscale_(optim)
             # IMPORTANT: we are doing gradient clipping, because of extreme gradient values
-            grad_norm = torch.nn.utils.clip_grad_norm_(model.parameters(), max_norm=1.0)
+            grad_norm = torch.nn.utils.clip_grad_norm_(model.parameters(), max_norm=5.0)
             scaler.step(optim)
             scaler.update()
 
