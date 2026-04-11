@@ -76,7 +76,10 @@ class diff_CSDI(nn.Module):
         self.input_projection = Conv1d_with_init(inputdim, self.channels, 1)
         self.output_projection1 = Conv1d_with_init(self.channels, self.channels, 1)
         self.output_projection2 = Conv1d_with_init(self.channels, 1, 1)
+        # 0-initialization as in the papaer
         nn.init.zeros_(self.output_projection2.weight)
+        # Normal initalization
+        nn.init.normal_(self.output_projection2.bias, mean=0.0, std=0.01)
 
         # Stack of residual layers
         self.residual_layers = nn.ModuleList(
