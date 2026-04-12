@@ -33,7 +33,6 @@ import matplotlib.pyplot as plt  # noqa: E402
 warnings.filterwarnings("ignore")
 
 import numpy as np
-from dateutil.relativedelta import relativedelta
 import pandas as pd
 import torch
 import wandb
@@ -98,6 +97,13 @@ def parse_args():
 
 def main():
     args = parse_args()
+
+    # ── Seed (before any stochastic operation) ────────────────────────────────
+    if args.seed != -1:
+        torch.manual_seed(args.seed)
+        np.random.seed(args.seed)
+        if torch.cuda.is_available():
+            torch.cuda.manual_seed_all(args.seed)
 
     # ── Output dir = base_dir / checkpoint_stem ───────────────────────────────
     ckpt_stem = os.path.splitext(args.checkpoint_name)[0]
@@ -215,48 +221,40 @@ def main():
     plt.close("all")
 
     # ── Build date pool ───────────────────────────────────────────────────────
+    # Cutoff: latest start such that seq_len business days fit before end_date.
     all_bdays    = pd.bdate_range(start=args.start_date, end=args.end_date)
-    cutoff_date  = pd.Timestamp(args.end_date) - relativedelta(years=args.years_per_sample) #latest allowed start date
-    valid_starts = all_bdays[all_bdays <= cutoff_date]
+    valid_starts = all_bdays[:-seq_len + 1] if seq_len > 1 else all_bdays
     print(f"Number of valid starts: {len(valid_starts)} (from {valid_starts[0].date()} to {valid_starts[-1].date()})")
     if len(valid_starts) == 0:
         raise ValueError(
-            f"No valid start dates: end_date ({args.end_date}) minus "
-            f"{args.years_per_sample} year(s) is before start_date ({args.start_date}). "
-            "Widen the window or reduce --years_per_sample."
+            f"No valid start dates: the date range {args.start_date}–{args.end_date} "
+            f"is shorter than seq_len={seq_len} business days. Widen the range."
         )
-    # Add to address lack of seed in prior-sampling, to address diff. runs replicability
-    if args.seed != -1:
-        torch.manual_seed(args.seed)
-        if torch.cuda.is_available():
-            torch.cuda.manual_seed_all(args.seed)
-
     rng_seed      = None if args.seed == -1 else args.seed
     rng           = np.random.default_rng(rng_seed)
     start_indices = rng.integers(0, len(valid_starts), size=N_SAMPLES)
 
     samples_np = samples.detach().cpu().numpy()  # (N_SAMPLES, 1, L)
 
-    # ── Save CSVs ─────────────────────────────────────────────────────────────
+    # ── Save single wide-format CSV ───────────────────────────────────────────
+    step_cols = [f"step_{t:03d}" for t in range(seq_len)]
+    rows = []
     for i in range(N_SAMPLES):
-        series = samples_np[i, 0, :]  # (L,) — log_adj_close values
-
+        series       = samples_np[i, 0, :]  # (L,)
         sample_start = valid_starts[start_indices[i]]
         dates        = pd.bdate_range(start=sample_start, periods=seq_len)
+        row = {
+            "sample_idx": i,
+            "start_date": dates[0].strftime("%Y-%m-%d"),
+            "end_date":   dates[-1].strftime("%Y-%m-%d"),
+        }
+        row.update(zip(step_cols, series))
+        rows.append(row)
 
-        df = pd.DataFrame({
-            "date":          dates.strftime("%d/%m/%Y"),
-            "log_adj_close": series,
-        })
-
-        filename = (
-            f"FAKE_{i+1:04d}"
-            f"{dates[0].strftime('%Y%m%d')}_"
-            f"{dates[-1].strftime('%Y%m%d')}_generated.csv"
-        )
-        df.to_csv(os.path.join(out_dir, filename), index=False)
-
-    print(f"\nSaved {N_SAMPLES} CSV files → {out_dir}")
+    df_gen   = pd.DataFrame(rows)
+    csv_path = os.path.join(out_dir, "generated_samples.csv")
+    df_gen.to_csv(csv_path, index=False)
+    print(f"\nSaved {N_SAMPLES} samples → {csv_path}")
 
     # ── W&B — log summary metrics and diagnostic plots ────────────────────────
     if use_wandb:
@@ -275,3 +273,5 @@ def main():
 
 if __name__ == "__main__":
     main()
+
+#python generate_samples.py --checkpoint_folder replication --checkpoint_name NO_NO_REPL_PRIC_WIN_UNCO_ep-3000_sde-vp_noise-linear_lr-1e-04_NOAN_channels-64_layers-4_nheads-4_diffemb-128_seq-64_stride-64_20260412_185321.pt --n_samples 32 --seed 42
