@@ -411,7 +411,7 @@ def masked_mse(eps_hat, eps, target_mask, sigma_t=None, g_t=None, debug=False):
 
     if debug:
         masked = sq_err[target_mask.bool()]  # unweighted, for interpretable diagnostics
-        print(f"err     | mean={masked.mean():.4f}  std={masked.std():.4f}  "
+        print(f"err | mean={masked.mean():.4f}  std={masked.std():.4f}  "
               f"p50={masked.median():.4f}  p95={masked.quantile(0.95):.4f}  "
               f"p99={masked.quantile(0.99):.4f}  max={masked.max():.4f}")
 
@@ -607,6 +607,7 @@ def build_final_checkpoint_name(
     lr = float(config["train"]["lr"])
     # N = int(config["process"]["N"])
     # is_linear = "linear" if bool(config["diffusion"]["is_linear"]) else "notlinear"
+    channels = int(config["diffusion"]["channels"])
     layers = int(config["diffusion"]["layers"])
     nheads = int(config["diffusion"]["nheads"])
     diffusion_embedding_dim = int(config["diffusion"]["diffusion_embedding_dim"])
@@ -641,6 +642,7 @@ def build_final_checkpoint_name(
         f"{cosine_annealing}_"
         # f"N-{N}_"
         # f"{is_linear}_"
+        f"channels-{channels}_"
         f"layers-{layers}_"
         f"nheads-{nheads}_"
         f"diffemb-{diffusion_embedding_dim}_"
@@ -777,9 +779,11 @@ def train(
 
         for batch_idx, batch in pbar:
             observed_data, observed_mask, observed_tp = unpack_batch(batch, device)
+            log_this_batch = debug and (batch_idx == 0)
 
-            if debug:
-                print(f"Data | mean={observed_data.mean():.4f}  std={observed_data.std():.4f} min={observed_data.min():.4f}  max={observed_data.max():.4f}")
+            if log_this_batch:
+                print(f"\n[debug | epoch {epoch+1} | train | batch 0]")
+                print(f"  data  | mean={observed_data.mean():.4f}  std={observed_data.std():.4f}  min={observed_data.min():.4f}  max={observed_data.max():.4f}")
 
             # conditioning mask
             mask_mode = config["train"].get("mask_mode", "random")
@@ -809,8 +813,8 @@ def train(
             else:
                 g_t = None
 
-            if debug:
-                print(f"sigma | min={sigma_t.min():.4f}  max={sigma_t.max():.4f}  mean={sigma_t.mean():.4f}  median={sigma_t.median():.4f}")
+            if log_this_batch:
+                print(f"  sigma | min={sigma_t.min():.4f}  max={sigma_t.max():.4f}  mean={sigma_t.mean():.4f}  median={sigma_t.median():.4f}")
 
             # forward + loss
             with torch.amp.autocast("cuda", enabled=use_amp):
@@ -822,13 +826,13 @@ def train(
                     observed_tp=observed_tp,
                 )
                 if use_lw:
-                    loss = masked_mse(eps_hat, eps, target_mask, sigma_t=sigma_t, g_t=g_t, debug=debug)
+                    loss = masked_mse(eps_hat, eps, target_mask, sigma_t=sigma_t, g_t=g_t, debug=log_this_batch)
                 else:
-                    loss = masked_mse(eps_hat, eps, target_mask, None, debug=debug)
+                    loss = masked_mse(eps_hat, eps, target_mask, None, debug=log_this_batch)
 
-                if debug:
-                    print(f"eps_hat | norm={eps_hat.norm().item():.4f}  mean={eps_hat.mean().item():.4f}  std={eps_hat.std().item():.4f}")
-                    print(f"eps     | norm={eps.norm().item():.4f}  mean={eps.mean().item():.4f}  std={eps.std().item():.4f}")
+                if log_this_batch:
+                    print(f"  eps_hat | norm={eps_hat.norm().item():.4f}  mean={eps_hat.mean().item():.4f}  std={eps_hat.std().item():.4f}")
+                    print(f"  eps     | norm={eps.norm().item():.4f}  mean={eps.mean().item():.4f}  std={eps.std().item():.4f}")
 
             loss_val = float(loss.detach().item())
             epoch_loss_sum += loss_val
@@ -905,8 +909,13 @@ def train(
             val_loss_sum = 0.0
             val_loss_count = 0
             with torch.no_grad():
-                for val_batch in val_loader:
+                for val_batch_idx, val_batch in enumerate(val_loader):
                     observed_data, observed_mask, observed_tp = unpack_batch(val_batch, device)
+                    log_this_val_batch = debug and (val_batch_idx == 0)
+
+                    if log_this_val_batch:
+                        print(f"\n[debug | epoch {epoch+1} | val | batch 0]")
+                        print(f"  data  | mean={observed_data.mean():.4f}  std={observed_data.std():.4f}  min={observed_data.min():.4f}  max={observed_data.max():.4f}")
 
                     if config["model"]["is_unconditional"] or mask_mode == "unconditional":
                         cond_mask = torch.zeros_like(observed_mask)
@@ -931,8 +940,8 @@ def train(
                     else:
                         g_t = None
 
-                    if debug:
-                        print(f"sigma | min={sigma_t.min():.4f}  max={sigma_t.max():.4f}  mean={sigma_t.mean():.4f}  median={sigma_t.median():.4f}")
+                    if log_this_val_batch:
+                        print(f"  sigma | min={sigma_t.min():.4f}  max={sigma_t.max():.4f}  mean={sigma_t.mean():.4f}  median={sigma_t.median():.4f}")
 
                     with torch.amp.autocast("cuda", enabled=use_amp):
                         eps_hat = model(
@@ -943,13 +952,13 @@ def train(
                             observed_tp=observed_tp,
                         )
                         if use_lw:
-                            val_loss = masked_mse(eps_hat, eps, target_mask, sigma_t=sigma_t, g_t=g_t, debug=debug)
+                            val_loss = masked_mse(eps_hat, eps, target_mask, sigma_t=sigma_t, g_t=g_t, debug=log_this_val_batch)
                         else:
-                            val_loss = masked_mse(eps_hat, eps, target_mask, None, debug=debug)
+                            val_loss = masked_mse(eps_hat, eps, target_mask, None, debug=log_this_val_batch)
 
-                        if debug:
-                            print(f"eps_hat | norm={eps_hat.norm().item():.4f}  mean={eps_hat.mean().item():.4f}  std={eps_hat.std().item():.4f}")
-                            print(f"eps     | norm={eps.norm().item():.4f}  mean={eps.mean().item():.4f}  std={eps.std().item():.4f}")
+                        if log_this_val_batch:
+                            print(f"  eps_hat | norm={eps_hat.norm().item():.4f}  mean={eps_hat.mean().item():.4f}  std={eps_hat.std().item():.4f}")
+                            print(f"  eps     | norm={eps.norm().item():.4f}  mean={eps.mean().item():.4f}  std={eps.std().item():.4f}")
 
 
                     val_loss_sum += float(val_loss.item())
@@ -957,6 +966,7 @@ def train(
 
             val_avg = val_loss_sum / max(val_loss_count, 1)
             history["val_losses"].append({"epoch": epoch + 1, "avg_val_loss": val_avg})
+            model.train()
 
         history["epoch_losses"].append({
             "epoch": epoch + 1,

@@ -27,7 +27,7 @@ class SP500WindowDataset(Dataset):
         columns: Tuple[str, ...] = ("date", "log_adj_close"),
         date_format: str = "%d/%m/%Y",
         time_mode: str = "index_norm",  # "index", "index_norm", "date_ordinal"
-        cache_data: bool = False,
+        cache_data: bool = True, # set True if you have enough RAM to speed up loading (stores file data in self._cache), otherwise we trigger a reload and re-read of csv
         drop_incomplete: bool = True,
     ):
         self.root_dir = root_dir
