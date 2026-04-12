@@ -588,8 +588,12 @@ def build_final_checkpoint_name(
         data_root = "TOY_GBM"
     elif data_root == "./data/toy_gbm_norm":
         data_root = "TOY_GBM_NORM"
+    elif data_root == "./data/replication_prices_window":
+        data_root = "REPL_PRIC_WIN"
+    elif data_root == "./data/replication_returns_window":
+        data_root = "REPL_RET_WIN"
     else:
-        data_root = "REPL_"
+        data_root = "REPL"
     mask_mode = str(config['train']['mask_mode'])
     if mask_mode == "random":
         mask_mode = "RAND"
@@ -601,12 +605,21 @@ def build_final_checkpoint_name(
     epochs = actual_epoch if actual_epoch is not None else int(config["train"]["epochs"])
     sde_type = str(config["process"]["sde_type"])
     lr = float(config["train"]["lr"])
-    N = int(config["process"]["N"])
-    is_linear = "linear" if bool(config["diffusion"]["is_linear"]) else "notlinear"
+    # N = int(config["process"]["N"])
+    # is_linear = "linear" if bool(config["diffusion"]["is_linear"]) else "notlinear"
     layers = int(config["diffusion"]["layers"])
     nheads = int(config["diffusion"]["nheads"])
     diffusion_embedding_dim = int(config["diffusion"]["diffusion_embedding_dim"])
     noise_schedule = str(config["process"].get("noise_schedule", "linear"))
+
+    seq_len = int(config["train"].get("seq_len", 128))
+    stride = int(config["train"].get("stride", 128))
+
+    cosine_annealing = bool(config["train"].get("lr_cosine_annealing", False))
+    if cosine_annealing:
+        cosine_annealing = "COSAN"
+    else:
+        cosine_annealing = "NOAN"
 
     # safer string for learning rate, e.g. 1e-4 -> 1e-04
     lr_str = f"{lr:.0e}"
@@ -621,15 +634,18 @@ def build_final_checkpoint_name(
         f"{data_root}_"
         f"{mask_mode}_"
         f"ep-{epochs}_"
-        f"step-{global_step}_"
+        # f"step-{global_step}_"
         f"sde-{sde_type}_"
         f"noise-{noise_schedule}_"
         f"lr-{lr_str}_"
-        f"N-{N}_"
-        f"{is_linear}_"
+        f"{cosine_annealing}_"
+        # f"N-{N}_"
+        # f"{is_linear}_"
         f"layers-{layers}_"
         f"nheads-{nheads}_"
         f"diffemb-{diffusion_embedding_dim}_"
+        f"seq-{seq_len}_"
+        f"stride-{stride}_"
         f"{timestamp}.pt"
     )
     return filename
