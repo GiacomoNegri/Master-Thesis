@@ -5,9 +5,11 @@ import pandas as pd
 import requests
 import yfinance as yf
 
-OUTPUT_DIR = os.path.join(os.path.dirname(__file__), "../../data/replication/")
+OUTPUT_DIR_RAW = os.path.join(os.path.dirname(__file__), "../../data/raw_replication/")
+OUTPUT_DIR = os.path.join(os.path.dirname(__file__), "../../data/log_replication/")
 MIN_YEARS = 40
 
+os.makedirs(OUTPUT_DIR_RAW, exist_ok=True)
 os.makedirs(OUTPUT_DIR, exist_ok=True)
 
 
@@ -23,6 +25,8 @@ def get_sp500_tickers():
     response = requests.get(url, headers=headers)
     table = pd.read_html(pd.io.common.StringIO(response.text))
     df = table[0]
+    print(f"Table of companies:\n",df)
+
     tickers = df["Symbol"].astype(str).tolist()
     # Keep only clean tickers (no dots, dashes, slashes, etc.)
     tickers = [t for t in tickers if re.fullmatch(r"[A-Z0-9]+", t)]
@@ -32,6 +36,7 @@ def get_sp500_tickers():
 def main():
     tickers = get_sp500_tickers()
     print(f"Found {len(tickers)} clean tickers.")
+    print("Tickers list: ", tickers)
 
     for ticker in tickers:
         try:
@@ -62,8 +67,15 @@ def main():
                 span_years = (df.index[-1] - df.index[0]).days / 365.25
                 print(f"Skipping {ticker}: only {span_years:.1f} years of data.")
                 continue
+            
+            # Saving raw dataset
+            raw_result = pd.DataFrame({
+                "date": df.index,
+                "adj_close": df["Close"]
+            })
 
-            close = df["Close"].dropna()
+            # commented out to asses if missing values where present
+            close = df["Close"]#.dropna()
 
             # Log-transform the adjusted close price
             log_close = np.log(close)
@@ -75,8 +87,15 @@ def main():
 
             first_day = log_close.index[0].strftime("%Y-%m-%d")
             last_day = log_close.index[-1].strftime("%Y-%m-%d")
-            file_path = os.path.join(OUTPUT_DIR, f"{ticker}_{first_day}_{last_day}.csv")
+
+            file_path = os.path.join(OUTPUT_DIR_RAW, f"raw_{ticker}_{first_day}_{last_day}.csv")
+            raw_result.to_csv(file_path, index=False)
+
+            print(f"Saved raw {ticker}: {len(raw_result)} rows ({first_day} to {last_day}).")
+    
+            file_path = os.path.join(OUTPUT_DIR, f"log_{ticker}_{first_day}_{last_day}.csv")
             result.to_csv(file_path, index=False)
+
             print(f"Saved {ticker}: {len(result)} rows ({first_day} to {last_day}).")
 
         except Exception as e:
