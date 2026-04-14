@@ -578,6 +578,7 @@ def plot_and_save_diagnostics(
     # ---- tiny layout helpers ----------------------------------------
     def _save(fig, name: str) -> None:
         path = os.path.join(diag_dir, f"{name}.png")
+        os.makedirs(diag_dir, exist_ok=True)
         fig.tight_layout()
         fig.savefig(path, dpi=80, bbox_inches="tight")
         plt.close(fig)
