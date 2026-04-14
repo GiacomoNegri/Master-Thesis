@@ -155,9 +155,12 @@ def parse_args():
     parser.add_argument("--debug", type=str2bool, default=None,
                         help="If true, print per-batch sigma / err / eps diagnostics. If false, only loss is printed.")
     parser.add_argument("--print_plots", type=str2bool, default=None,
-                        help="If true, collect diagnostic statistics each epoch and save 11 PNG plots "
-                             "to <out_dir>/diagnostics/epoch_NNN/. Useful for preliminary model analysis. "
-                             "Default false (controlled by config).")
+                        help="If true, collect diagnostic statistics and save 11 PNG plots "
+                             "to <out_dir>/diagnostics/epoch_NNN/ every --plots_every epochs. "
+                             "Useful for preliminary model analysis. Default false (controlled by config).")
+    parser.add_argument("--plots_every", type=int, default=None,
+                        help="Generate diagnostic plots every N epochs (only active when --print_plots true). "
+                             "Default 1 — i.e. every epoch.")
     parser.add_argument("--importance_sampling", type=str2bool, default=None,
                         help="If true, sample t ~ p(t) ∝ g(t)²/σ²(t) instead of uniform. "
                              "Concentrates training on hard small-t timesteps; disables likelihood weighting.")
@@ -278,6 +281,8 @@ def build_cli_override_dict(args) -> Dict[str, Any]:
         override["train"]["debug"] = args.debug
     if args.print_plots is not None:
         override["train"]["print_plots"] = args.print_plots
+    if args.plots_every is not None:
+        override["train"]["plots_every"] = args.plots_every
     if args.importance_sampling is not None:
         override["train"]["importance_sampling"] = args.importance_sampling
     if args.lr_cosine_annealing is not None:
@@ -429,6 +434,254 @@ def masked_mse(eps_hat, eps, target_mask, sigma_t=None, g_t=None, debug=False):
 
     return loss
 
+
+# ----------------------------
+# Diagnostic collection & plotting
+# (HPC-safe — uses Agg backend, saves PNGs, no display needed)
+# Activated only when print_plots=true; zero overhead otherwise.
+# ----------------------------
+
+class DiagnosticsCollector:
+    """
+    Accumulates per-batch statistics over one epoch for diagnostic plots.
+    Every tensor is moved to CPU numpy immediately after each batch so GPU
+    memory is not held across the epoch.
+    """
+
+    def __init__(self):
+        # per-sample arrays (B,) per batch — concatenated at epoch end
+        self.t_batch:        list = []  # sampled continuous t per sample
+        self.err_batch:      list = []  # mean |ε̂ − ε| per sample (over target mask)
+        self.rel_err_batch:  list = []  # mean |ε̂−ε|/|ε| per sample
+        self.sigma_batch:    list = []  # σ(t) per sample
+        self.g_batch:        list = []  # g(t) per sample (empty when not available)
+        self.score_batch:    list = []  # mean −ε̂/σ(t) per sample (inferred score)
+        # per-step scalars (one value per optimisation step / batch)
+        self.grad_norms:     list = []  # gradient norm after clipping
+        self.batch_mean_t:   list = []  # mean t of the batch (for scatter vs grad norm)
+        self.batch_mean_err: list = []  # mean error of the batch (for correlation with grad)
+
+    def add(
+        self,
+        t_cont:      torch.Tensor,                   # (B,)
+        eps_hat:     torch.Tensor,                   # (B, K, L) — detached float32
+        eps:         torch.Tensor,                   # (B, K, L)
+        sigma_t:     torch.Tensor,                   # (B,)
+        target_mask: torch.Tensor,                   # (B, K, L) in {0, 1}
+        grad_norm:   float,
+        g_t:         Optional[torch.Tensor] = None,  # (B,) or None
+    ) -> None:
+        with torch.no_grad():
+            eps_hat_f = eps_hat.float().detach()
+            eps_f     = eps.float().detach()
+            sigma_f   = sigma_t.float().detach()
+            mask_f    = target_mask.float().detach()
+            t_f       = t_cont.float().detach()
+
+            # number of target entries per sample (guard against div-by-zero)
+            n = mask_f.sum(dim=(1, 2)).clamp(min=1.0)   # (B,)
+
+            # absolute error — zeroed outside target mask
+            diff         = (eps_hat_f - eps_f) * mask_f  # (B, K, L)
+            abs_diff     = diff.abs()
+            mean_abs_err = abs_diff.sum(dim=(1, 2)) / n  # (B,)
+
+            # relative error:  |Δ| / (|ε| + 1e-8)
+            rel_diff     = abs_diff / (eps_f.abs() + 1e-8) * mask_f
+            mean_rel_err = rel_diff.sum(dim=(1, 2)) / n  # (B,)
+
+            # inferred score = −ε̂ / σ(t)
+            score_map  = (-eps_hat_f / sigma_f[:, None, None].clamp(min=1e-8)) * mask_f
+            mean_score = score_map.sum(dim=(1, 2)) / n   # (B,)
+
+            self.t_batch.append(t_f.cpu().numpy())
+            self.err_batch.append(mean_abs_err.cpu().numpy())
+            self.rel_err_batch.append(mean_rel_err.cpu().numpy())
+            self.sigma_batch.append(sigma_f.cpu().numpy())
+            self.score_batch.append(mean_score.cpu().numpy())
+            self.grad_norms.append(float(grad_norm))
+            self.batch_mean_t.append(float(t_f.mean()))
+            self.batch_mean_err.append(float(mean_abs_err.mean()))
+
+            if g_t is not None:
+                self.g_batch.append(g_t.float().detach().cpu().numpy())
+
+    def arrays(self) -> dict:
+        """Return flat numpy arrays for every accumulated quantity."""
+        cat = lambda lst: np.concatenate(lst) if lst else np.array([])
+        return {
+            "t":        cat(self.t_batch),
+            "err":      cat(self.err_batch),
+            "rel_err":  cat(self.rel_err_batch),
+            "sigma":    cat(self.sigma_batch),
+            "g":        cat(self.g_batch),
+            "score":    cat(self.score_batch),
+            "grad":     np.array(self.grad_norms),
+            "t_mean":   np.array(self.batch_mean_t),
+            "err_mean": np.array(self.batch_mean_err),
+        }
+
+
+def plot_and_save_diagnostics(
+    collector:   "DiagnosticsCollector",
+    epoch:       int,
+    out_dir:     str,
+    use_wandb:   bool = False,
+    global_step: int  = 0,
+) -> None:
+    """
+    Produce all 11 diagnostic plots for one epoch and save them as PNGs.
+
+    Each figure is closed immediately after saving — no display is needed
+    (uses the Agg backend, safe on headless HPC nodes).
+
+    Output: <out_dir>/diagnostics/epoch_<NNN>/01_hist_t.png … 11_hist_score.png
+    If use_wandb=True the images are also uploaded to the active W&B run.
+
+    Plots generated
+    ---------------
+    01  Histogram of sampled continuous t
+    02  Histogram of per-sample mean abs error
+    03  Scatter  relative error vs t  (per sample)
+    04  Scatter  batch mean error vs grad norm  + Pearson r printed to log
+    05  Histogram of gradient norms (post-clipping, per step)
+    06  Scatter  gradient norm vs batch mean t
+    07  Histogram of σ(t)
+    08  Scatter  error vs σ(t)  (per sample)
+    09  Histogram of g(t)
+    10  Scatter  g(t) vs σ(t)  (per sample)
+    11  Histogram of inferred score  −ε̂ / σ(t)  (per-sample mean)
+    """
+    try:
+        import matplotlib
+        matplotlib.use("Agg")   # non-interactive — mandatory on headless nodes
+        import matplotlib.pyplot as plt
+    except ImportError:
+        print("[diagnostics] matplotlib not found — skipping plots (pip install matplotlib)")
+        return
+
+    d = collector.arrays()
+    t, err, rel_err        = d["t"],     d["err"],    d["rel_err"]
+    sigma, g, score        = d["sigma"], d["g"],      d["score"]
+    grad, t_mean, err_mean = d["grad"],  d["t_mean"], d["err_mean"]
+
+    diag_dir = os.path.join(out_dir, "diagnostics", f"epoch_{epoch:03d}")
+    os.makedirs(diag_dir, exist_ok=True)
+
+    saved: dict = {}   # name → file path, used for W&B upload
+
+    # ---- tiny layout helpers ----------------------------------------
+    def _save(fig, name: str) -> None:
+        path = os.path.join(diag_dir, f"{name}.png")
+        fig.tight_layout()
+        fig.savefig(path, dpi=80, bbox_inches="tight")
+        plt.close(fig)
+        saved[name] = path
+
+    def _hist(ax, data, xlabel: str, color: str = "steelblue", bins: int = 50) -> None:
+        ax.hist(data, bins=bins, color=color, edgecolor="none")
+        ax.set_xlabel(xlabel)
+        ax.set_ylabel("count")
+
+    def _scatter(ax, x, y, xlabel: str, ylabel: str,
+                 color: str = "steelblue", s: int = 3, alpha: float = 0.3) -> None:
+        ax.scatter(x, y, s=s, alpha=alpha, color=color, rasterized=True)
+        ax.set_xlabel(xlabel)
+        ax.set_ylabel(ylabel)
+
+    ep = f"Epoch {epoch}"
+
+    # ---- 1. Histogram of sampled continuous t -----------------------
+    fig, ax = plt.subplots(figsize=(6, 4))
+    _hist(ax, t, "t  (continuous)", color="steelblue")
+    ax.set_title(f"{ep} — Sampled t distribution")
+    _save(fig, f"{epoch}_01_hist_t")
+
+    # ---- 2. Histogram of abs errors (per-sample mean) ---------------
+    fig, ax = plt.subplots(figsize=(6, 4))
+    _hist(ax, err, "mean |ε̂ − ε|  per sample", color="darkorange")
+    ax.set_title(f"{ep} — Abs-error distribution")
+    _save(fig, f"{epoch}02_hist_err")
+
+    # ---- 3. Scatter: relative error vs t ----------------------------
+    fig, ax = plt.subplots(figsize=(6, 4))
+    _scatter(ax, t, rel_err, "t  (continuous)", "relative error  |ε̂−ε| / |ε|", color="purple")
+    ax.set_title(f"{ep} — Relative error vs t")
+    _save(fig, f"{epoch}03_scatter_rel_err_vs_t")
+
+    # ---- 4. Batch error vs grad norm: Pearson r + scatter -----------
+    if len(grad) > 1 and len(err_mean) == len(grad):
+        corr = float("nan")
+        if np.std(err_mean) > 1e-12 and np.std(grad) > 1e-12:
+            corr = float(np.corrcoef(err_mean, grad)[0, 1])
+        print(f"  [diagnostics] Pearson(batch_mean_err, grad_norm) = {corr:.4f}")
+        fig, ax = plt.subplots(figsize=(6, 4))
+        _scatter(ax, err_mean, grad, "batch mean |ε̂−ε|", "gradient norm (post-clip)",
+                 color="crimson", s=12, alpha=0.6)
+        ax.set_title(f"{ep} — Batch error vs gradient  (r = {corr:.3f})")
+        _save(fig, f"{epoch}_04_scatter_err_vs_grad")
+    else:
+        print("  [diagnostics] too few batches for error–gradient correlation")
+
+    # ---- 5. Histogram of gradient norms (per step) ------------------
+    fig, ax = plt.subplots(figsize=(6, 4))
+    _hist(ax, grad, "gradient norm (after clipping)", color="forestgreen")
+    ax.set_title(f"{ep} — Gradient norm distribution")
+    _save(fig,f"{epoch}_05_hist_grad")
+
+    # ---- 6. Scatter: gradient norm vs batch mean t ------------------
+    if len(grad) == len(t_mean):
+        fig, ax = plt.subplots(figsize=(6, 4))
+        _scatter(ax, t_mean, grad, "batch mean t", "gradient norm",
+                 color="teal", s=12, alpha=0.6)
+        ax.set_title(f"{ep} — Gradient norm vs t")
+        _save(fig, f"{epoch}_06_scatter_grad_vs_t")
+
+    # ---- 7. Histogram of σ(t) ---------------------------------------
+    if len(sigma) > 0:
+        fig, ax = plt.subplots(figsize=(6, 4))
+        _hist(ax, sigma, "σ(t)", color="navy")
+        ax.set_title(f"{ep} — σ(t) distribution")
+        _save(fig, f"{epoch}_07_hist_sigma")
+
+    # ---- 8. Scatter: error vs σ(t) ----------------------------------
+    if len(sigma) == len(err):
+        fig, ax = plt.subplots(figsize=(6, 4))
+        _scatter(ax, sigma, err, "σ(t)", "mean |ε̂ − ε|  per sample", color="chocolate")
+        ax.set_title(f"{ep} — Error vs σ(t)")
+        _save(fig, f"{epoch}_08_scatter_err_vs_sigma")
+
+    # ---- 9. Histogram of g(t) ---------------------------------------
+    if len(g) > 0:
+        fig, ax = plt.subplots(figsize=(6, 4))
+        _hist(ax, g, "g(t)", color="darkred")
+        ax.set_title(f"{ep} — g(t) distribution")
+        _save(fig, f"{epoch}_09_hist_g")
+
+    # ---- 10. Scatter: g(t) vs σ(t) ----------------------------------
+    if len(g) > 0 and len(sigma) == len(g):
+        fig, ax = plt.subplots(figsize=(6, 4))
+        _scatter(ax, sigma, g, "σ(t)", "g(t)", color="indigo")
+        ax.set_title(f"{ep} — g(t) vs σ(t)")
+        _save(fig, f"{epoch}_10_scatter_g_vs_sigma")
+
+    # ---- 11. Histogram of inferred score = −ε̂ / σ(t) ---------------
+    if len(score) > 0:
+        fig, ax = plt.subplots(figsize=(6, 4))
+        _hist(ax, score, "score = −ε̂ / σ(t)  (per-sample mean)", color="slategray", bins=60)
+        ax.set_title(f"{ep} — Inferred score distribution")
+        _save(fig, f"{epoch}_11_hist_score")
+
+    print(f"  [diagnostics] {len(saved)} plots saved → {diag_dir}")
+
+    # ---- optional W&B upload ----------------------------------------
+    if use_wandb:
+        try:
+            wb_imgs = {f"diagnostics/{k}": wandb.Image(v) for k, v in saved.items()}
+            wandb.log(wb_imgs, step=global_step)
+            print(f"  [diagnostics] {len(wb_imgs)} images uploaded to W&B")
+        except Exception as exc:
+            print(f"  [diagnostics] W&B image upload failed: {exc}")
 
 
 # ----------------------------
@@ -778,9 +1031,15 @@ def train(
         epoch_loss_sum = 0.0
         epoch_loss_count = 0
         ema_loss = None
-        ema_beta = float(config["train"].get("ema_beta", 0.98))
-        use_lw = bool(config["train"].get("likelihood_weighting", False))
-        debug = bool(config["train"].get("debug", False))
+        ema_beta    = float(config["train"].get("ema_beta", 0.98))
+        use_lw      = bool(config["train"].get("likelihood_weighting", False))
+        debug       = bool(config["train"].get("debug", False))
+        print_plots = bool(config["train"].get("print_plots", False))
+        plots_every = int(config["train"].get("plots_every", 1))
+        # collect diagnostics this epoch only when print_plots is on AND the cadence hits
+        collect_diag = print_plots and ((epoch + 1) % max(plots_every, 1) == 0)
+        if collect_diag:
+            diag = DiagnosticsCollector()
         t0 = time.time()
 
         for batch_idx, batch in pbar:
@@ -813,7 +1072,8 @@ def train(
             )
 
             # g(t) for Song's likelihood weighting λ(t) = g(t)^2 / σ(t)^2
-            if use_lw:
+            # Also computed when collect_diag=True so plots 09/10 are always available
+            if use_lw or collect_diag:
                 with torch.no_grad():
                     _, g_t = processes.sde.sde(x_t, t_cont)
             else:
@@ -839,6 +1099,9 @@ def train(
                 if log_this_batch:
                     print(f"  eps_hat | norm={eps_hat.norm().item():.4f}  mean={eps_hat.mean().item():.4f}  std={eps_hat.std().item():.4f}")
                     print(f"  eps     | norm={eps.norm().item():.4f}  mean={eps.mean().item():.4f}  std={eps.std().item():.4f}")
+
+            # capture eps_hat before backward releases the computation graph
+            _diag_eps_hat = eps_hat.detach().float() if collect_diag else None
 
             loss_val = float(loss.detach().item())
             epoch_loss_sum += loss_val
@@ -869,6 +1132,18 @@ def train(
             # scale = scaler.get_scale()
             # print(f"AMP scale: {scale}")   # if this keeps halving, NaN gradients are occurring
             # END DEBUGGING
+
+            # collect diagnostic statistics for this batch
+            if collect_diag:
+                diag.add(
+                    t_cont=t_cont,
+                    eps_hat=_diag_eps_hat,
+                    eps=eps,
+                    sigma_t=sigma_t,
+                    target_mask=target_mask,
+                    grad_norm=float(grad_norm),
+                    g_t=g_t,
+                )
 
             global_step += 1
 
@@ -973,6 +1248,16 @@ def train(
             val_avg = val_loss_sum / max(val_loss_count, 1)
             history["val_losses"].append({"epoch": epoch + 1, "avg_val_loss": val_avg})
             model.train()
+
+        # diagnostic plots (end of epoch, only when cadence hits)
+        if collect_diag:
+            plot_and_save_diagnostics(
+                collector=diag,
+                epoch=epoch + 1,
+                out_dir=out_dir,
+                use_wandb=use_wandb,
+                global_step=global_step,
+            )
 
         history["epoch_losses"].append({
             "epoch": epoch + 1,

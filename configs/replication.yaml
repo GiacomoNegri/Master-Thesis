@@ -46,6 +46,8 @@ train:
   ema_beta: 0.98           # smoothing factor for the step-level EMA loss display
   log_every_steps: 50
   save_every_steps: 1000
+  print_plots: false        # if true, save 11 diagnostic PNGs to out_dir/diagnostics/ every plots_every epochs
+  plots_every: 1            # generate diagnostic plots every N epochs (only active when print_plots: true)
   seq_len: 2048
   stride: 400
   num_workers: 4
