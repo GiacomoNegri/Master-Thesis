@@ -472,6 +472,7 @@ class DiagnosticsCollector:
         g_t:         Optional[torch.Tensor] = None,  # (B,) or None
     ) -> None:
         with torch.no_grad():
+            # the detachment is needed for functioning under the use of AMP
             eps_hat_f = eps_hat.float().detach()
             eps_f     = eps.float().detach()
             sigma_f   = sigma_t.float().detach()
@@ -494,11 +495,14 @@ class DiagnosticsCollector:
             score_map  = (-eps_hat_f / sigma_f[:, None, None].clamp(min=1e-8)) * mask_f
             mean_score = score_map.sum(dim=(1, 2)) / n   # (B,)
 
+            # the following have dimensions BN
             self.t_batch.append(t_f.cpu().numpy())
             self.err_batch.append(mean_abs_err.cpu().numpy())
             self.rel_err_batch.append(mean_rel_err.cpu().numpy())
             self.sigma_batch.append(sigma_f.cpu().numpy())
             self.score_batch.append(mean_score.cpu().numpy())
+
+            # the following three has length N
             self.grad_norms.append(float(grad_norm))
             self.batch_mean_t.append(float(t_f.mean()))
             self.batch_mean_err.append(float(mean_abs_err.mean()))
