@@ -955,12 +955,17 @@ def train(
     run_timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
 
     # Diagnostic images go to ./images/diagnostics/<run_name>/epoch_NNN/
-    # Build run_name once here so the folder is stable across all epochs.
-    # Uses the same descriptive fields as the final checkpoint filename, minus
-    # the epoch/step suffix (those are unknown at training start).
-    _run_name_for_diag = build_final_checkpoint_name(
-        config, global_step=0, timestamp=run_timestamp
-    ).replace(".pt", "")
+    # Short folder name: <lw>_<is>_<data>_<mask>_ep-<N>_sde-<type>_<timestamp>
+    _diag_lw   = "LW" if bool(config["train"].get("likelihood_weighting", False)) else "NO"
+    _diag_is   = "IS" if bool(config["train"].get("importance_sampling", False)) else "NO"
+    _diag_data = str(config["train"]["data_root"]).split("/")[-1]
+    _diag_mask = str(config["train"]["mask_mode"])[:4].upper()
+    _diag_ep   = int(config["train"]["epochs"])
+    _diag_sde  = str(config["process"]["sde_type"])
+    _run_name_for_diag = (
+        f"{_diag_lw}_{_diag_is}_{_diag_data}_{_diag_mask}_"
+        f"ep-{_diag_ep}_sde-{_diag_sde}_{run_timestamp}"
+    )
     diag_base_dir = os.path.join("./images/diagnostics", _run_name_for_diag)
 
     # Resume state
