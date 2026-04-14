@@ -1270,7 +1270,7 @@ def train(
                 collector=diag,
                 epoch=epoch + 1,
                 diag_base_dir=diag_base_dir,
-                use_wandb=use_wandb,
+                use_wandb=False,   # images saved locally only; export from HPC manually
                 global_step=global_step,
             )
 
