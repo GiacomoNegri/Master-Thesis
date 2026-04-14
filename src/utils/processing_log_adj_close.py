@@ -45,7 +45,7 @@ def process_files(
         filepath = os.path.join(folder_name, filename)
         df = pd.read_csv(filepath, parse_dates=["date"])
         if compute_returns:
-            df["log_adj_close"] = df["log_adj_close"].diff()
+            df["log_adj_close"] = np.log(df["adj_close"] / df["adj_close"].shift(1))
             df = df.dropna(subset=["log_adj_close"])
         file_data[filename] = df
 
@@ -139,7 +139,7 @@ if __name__ == "__main__":
     )
 
 # Usage examples:
-# python src.utils.processing_log_adj_close.py data/replication
+# python -m src.utils.processing_log_adj_close data/replication
 # python src.utils.processing_log_adj_close.py data/replication --compute_returns true --normalization global
 # python src.utils.processing_log_adj_close.py data/replication --compute_returns true --normalization window --seq_len 24
-# python src.utils.processing_log_adj_close.py data/replication --compute_returns false --normalization none
+# python -m src.utils.processing_log_adj_close data/replication --compute_returns true --normalization none

@@ -523,11 +523,11 @@ class DiagnosticsCollector:
 
 
 def plot_and_save_diagnostics(
-    collector:   "DiagnosticsCollector",
-    epoch:       int,
-    out_dir:     str,
-    use_wandb:   bool = False,
-    global_step: int  = 0,
+    collector:     "DiagnosticsCollector",
+    epoch:         int,
+    diag_base_dir: str,
+    use_wandb:     bool = False,
+    global_step:   int  = 0,
 ) -> None:
     """
     Produce all 11 diagnostic plots for one epoch and save them as PNGs.
@@ -535,7 +535,8 @@ def plot_and_save_diagnostics(
     Each figure is closed immediately after saving — no display is needed
     (uses the Agg backend, safe on headless HPC nodes).
 
-    Output: <out_dir>/diagnostics/epoch_<NNN>/01_hist_t.png … 11_hist_score.png
+    Output: <diag_base_dir>/epoch_<NNN>/01_hist_t.png … 11_hist_score.png
+            where diag_base_dir = ./images/diagnostics/<run_name>
     If use_wandb=True the images are also uploaded to the active W&B run.
 
     Plots generated
@@ -565,7 +566,7 @@ def plot_and_save_diagnostics(
     sigma, g, score        = d["sigma"], d["g"],      d["score"]
     grad, t_mean, err_mean = d["grad"],  d["t_mean"], d["err_mean"]
 
-    diag_dir = os.path.join(out_dir, "diagnostics", f"epoch_{epoch:03d}")
+    diag_dir = os.path.join(diag_base_dir, f"epoch_{epoch:03d}")
     os.makedirs(diag_dir, exist_ok=True)
 
     saved: dict = {}   # name → file path, used for W&B upload
@@ -601,13 +602,13 @@ def plot_and_save_diagnostics(
     fig, ax = plt.subplots(figsize=(6, 4))
     _hist(ax, err, "mean |ε̂ − ε|  per sample", color="darkorange")
     ax.set_title(f"{ep} — Abs-error distribution")
-    _save(fig, f"{epoch}02_hist_err")
+    _save(fig, f"{epoch}_02_hist_err")
 
     # ---- 3. Scatter: relative error vs t ----------------------------
     fig, ax = plt.subplots(figsize=(6, 4))
     _scatter(ax, t, rel_err, "t  (continuous)", "relative error  |ε̂−ε| / |ε|", color="purple")
     ax.set_title(f"{ep} — Relative error vs t")
-    _save(fig, f"{epoch}03_scatter_rel_err_vs_t")
+    _save(fig, f"{epoch}_03_scatter_rel_err_vs_t")
 
     # ---- 4. Batch error vs grad norm: Pearson r + scatter -----------
     if len(grad) > 1 and len(err_mean) == len(grad):
@@ -948,6 +949,15 @@ def train(
     ckpt_every_epochs = get_checkpoint_save_interval(num_epochs)
     run_timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
 
+    # Diagnostic images go to ./images/diagnostics/<run_name>/epoch_NNN/
+    # Build run_name once here so the folder is stable across all epochs.
+    # Uses the same descriptive fields as the final checkpoint filename, minus
+    # the epoch/step suffix (those are unknown at training start).
+    _run_name_for_diag = build_final_checkpoint_name(
+        config, global_step=0, timestamp=run_timestamp
+    ).replace(".pt", "")
+    diag_base_dir = os.path.join("./images/diagnostics", _run_name_for_diag)
+
     # Resume state
     start_epoch = 0
     global_step = 0
@@ -1254,7 +1264,7 @@ def train(
             plot_and_save_diagnostics(
                 collector=diag,
                 epoch=epoch + 1,
-                out_dir=out_dir,
+                diag_base_dir=diag_base_dir,
                 use_wandb=use_wandb,
                 global_step=global_step,
             )
