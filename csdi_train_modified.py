@@ -534,7 +534,7 @@ def plot_and_save_diagnostics(
     global_step:   int  = 0,
 ) -> None:
     """
-    Produce all 11 diagnostic plots for one epoch and save them as PNGs.
+    Produce all 12 diagnostic plots for one epoch and save them as PNGs.
 
     Each figure is closed immediately after saving — no display is needed
     (uses the Agg backend, safe on headless HPC nodes).
@@ -548,6 +548,7 @@ def plot_and_save_diagnostics(
     01  Histogram of sampled continuous t
     02  Histogram of per-sample mean abs error
     03  Scatter  relative error vs t  (per sample)
+    03b Scatter  absolute error vs t  (per sample)
     04  Scatter  batch mean error vs grad norm  + Pearson r printed to log
     05  Histogram of gradient norms (post-clipping, per step)
     06  Scatter  gradient norm vs batch mean t
@@ -614,6 +615,12 @@ def plot_and_save_diagnostics(
     _scatter(ax, t, rel_err, "t  (continuous)", "relative error  |ε̂−ε| / |ε|", color="purple")
     ax.set_title(f"{ep} — Relative error vs t")
     _save(fig, f"{epoch}_03_scatter_rel_err_vs_t")
+
+    # ---- 3b. Scatter: absolute error vs t ---------------------------
+    fig, ax = plt.subplots(figsize=(6, 4))
+    _scatter(ax, t, err, "t  (continuous)", "mean |ε̂ − ε|  per sample", color="darkorange")
+    ax.set_title(f"{ep} — Absolute error vs t")
+    _save(fig, f"{epoch}_03b_scatter_abs_err_vs_t")
 
     # ---- 4. Batch error vs grad norm: Pearson r + scatter -----------
     if len(grad) > 1 and len(err_mean) == len(grad):
