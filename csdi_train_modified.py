@@ -1015,7 +1015,8 @@ def train(
         if prior_run_id is not None:
             init_kwargs["id"] = prior_run_id
             init_kwargs["resume"] = "must"
-        wandb.init(**init_kwargs)
+        init_timeout = wandb_cfg.get("init_timeout", 300)
+        wandb.init(**init_kwargs, settings=wandb.Settings(init_timeout=init_timeout))
         history["wandb_run_id"] = wandb.run.id
 
     # Early stopping state
