@@ -410,8 +410,8 @@ def masked_mse(eps_hat, eps, target_mask, sigma_t=None, g_t=None, debug=False):
         # Song's likelihood weighting: λ(t) = g(t)^2 / σ(t)^2
         if g_t is not None:
             weight = (g_t.float().pow(2) / sigma_t.float().pow(2).clamp(min=1e-8))[:, None, None]
-        else:
-            weight = (1.0 / sigma_t.float().pow(2).clamp(min=1e-8))[:, None, None]
+        # else:
+        #     weight = (1.0 / sigma_t.float().pow(2).clamp(min=1e-8))[:, None, None]
             # TRYING TO ADD WEIGHT CLAMPING in order to address LW effects
             # weight = weight.clamp(max=25.0)  # min-SNR-5: cap at SNR=5 → max_weight ≈ 1/σ_threshold
         denom = (target_mask.float() * weight).sum().clamp(min=1e-10)
@@ -1209,7 +1209,30 @@ def train(
             device=device,
             eps_time=processes.eps_time,
         )
-        print(f"Importance sampling enabled: t_probs range [{t_probs.min():.2e}, {t_probs.max():.2e}]")
+        N_grid      = len(t_probs)
+        # Effective sample size: ESS = 1/Σp² — if ESS≈N IS is nearly uniform,
+        # if ESS≪N the distribution is highly concentrated on a few timesteps.
+        ess         = (1.0 / t_probs.pow(2).sum()).item()
+        ess_ratio   = ess / N_grid
+        # Timestep that receives the highest sampling weight
+        peak_idx    = int(t_probs.argmax().item())
+        peak_t      = float(t_grid[peak_idx].item())
+        # Split of probability mass below / above the midpoint of the t range
+        t_mid       = float((t_grid[0] + t_grid[-1]).item() / 2)
+        mass_low    = float(t_probs[t_grid <= t_mid].sum().item())
+        # How many times more likely is the most-sampled vs least-sampled timestep
+        concentration = float((t_probs.max() / t_probs.clamp(min=1e-12).min()).item())
+        print(
+            f"Importance sampling enabled:\n"
+            f"  t_grid   | range=[{t_grid[0].item():.4f}, {t_grid[-1].item():.4f}]  N={N_grid}\n"
+            f"  t_probs  | min={t_probs.min():.2e}  max={t_probs.max():.2e}"
+            f"  mean={t_probs.mean():.2e}  std={t_probs.std():.2e}\n"
+            f"  peak     | t={peak_t:.4f}  (grid idx={peak_idx})\n"
+            f"  ESS      | {ess:.1f} / {N_grid}  (ratio={ess_ratio:.3f})"
+            f"  —  concentration max/min={concentration:.1f}×\n"
+            f"  mass     | t ≤ {t_mid:.3f}: {100*mass_low:.1f}%"
+            f"  |  t > {t_mid:.3f}: {100*(1-mass_low):.1f}%"
+        )
 
     for epoch in range(start_epoch, num_epochs):
         model.train()
