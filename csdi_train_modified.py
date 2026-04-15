@@ -457,6 +457,9 @@ class DiagnosticsCollector:
         self.g_batch:        list = []  # g(t) per sample (empty when not available)
         self.score_batch:    list = []  # mean −ε̂/σ(t) per sample (inferred score)
         self.snr_batch:      list = []  # 1/σ²(t) per sample — higher = easier timestep
+        # raw signed values from target-masked entries (subsampled per batch)
+        self.eps_hat_vals:   list = []  # ε̂  values — for histogram and scatter
+        self.eps_vals:       list = []  # ε   values — for scatter (paired with eps_hat_vals)
         # per-step scalars (one value per optimisation step / batch)
         self.grad_norms:     list = []  # gradient norm after clipping
         self.batch_mean_t:   list = []  # mean t of the batch (for scatter vs grad norm)
@@ -507,6 +510,18 @@ class DiagnosticsCollector:
             snr = 1.0 / (sigma_f.pow(2) + 1e-8)   # (B,)
             self.snr_batch.append(snr.cpu().numpy())
 
+            # raw signed values inside the target mask — subsampled to 300 per batch
+            # so memory stays bounded regardless of B, K, L.  Paired so scatter is valid.
+            flat_hat = eps_hat_f[mask_f.bool()].cpu().numpy()
+            flat_eps = eps_f[mask_f.bool()].cpu().numpy()
+            _max_per_batch = 300
+            if len(flat_hat) > _max_per_batch:
+                idx = np.random.choice(len(flat_hat), _max_per_batch, replace=False)
+                flat_hat = flat_hat[idx]
+                flat_eps = flat_eps[idx]
+            self.eps_hat_vals.append(flat_hat)
+            self.eps_vals.append(flat_eps)
+
             # the following three has length N
             self.grad_norms.append(float(grad_norm))
             self.batch_mean_t.append(float(t_f.mean()))
@@ -525,7 +540,9 @@ class DiagnosticsCollector:
             "sigma":    cat(self.sigma_batch),
             "g":        cat(self.g_batch),
             "score":    cat(self.score_batch),
-            "snr":      cat(self.snr_batch),
+            "snr":          cat(self.snr_batch),
+            "eps_hat_vals": cat(self.eps_hat_vals),
+            "eps_vals":     cat(self.eps_vals),
             "grad":     np.array(self.grad_norms),
             "t_mean":   np.array(self.batch_mean_t),
             "err_mean": np.array(self.batch_mean_err),
@@ -595,6 +612,8 @@ def plot_and_save_diagnostics(
     12  Bar chart  mean abs error per uniform t-bin  (binned error summary)
     13  Histogram of SNR = 1/σ²(t)
     14  Scatter  error vs SNR  (per sample)
+    15  Scatter  ε̂ vs ε  (signed, target-masked, subsampled) — alignment check
+    16  Histogram of ε̂  (signed) — distribution check vs N(0,1)
     """
     try:
         import matplotlib
@@ -608,6 +627,8 @@ def plot_and_save_diagnostics(
     t, err, rel_err        = d["t"],     d["err"],    d["rel_err"]
     sigma, g, score        = d["sigma"], d["g"],      d["score"]
     snr                    = d["snr"]
+    eps_hat_vals           = d["eps_hat_vals"]
+    eps_vals               = d["eps_vals"]
     grad, t_mean, err_mean = d["grad"],  d["t_mean"], d["err_mean"]
 
     # pre-compute binned error — used for plot 12 and optional W&B table
@@ -765,6 +786,42 @@ def plot_and_save_diagnostics(
                  color="goldenrod")
         ax.set_title(f"{ep} — Error vs process SNR")
         _save(fig, f"{epoch}_14_scatter_err_vs_snr")
+
+    # ---- 15. Scatter: ε̂ vs ε  (signed, subsampled) ------------------
+    # Identity line y=x means perfect prediction; cloud width = residual noise.
+    # Systematic bias (cloud above/below y=x) reveals directional mis-prediction.
+    if len(eps_hat_vals) > 0 and len(eps_hat_vals) == len(eps_vals):
+        v_min = float(np.nanpercentile(eps_vals, 1))
+        v_max = float(np.nanpercentile(eps_vals, 99))
+        fig, ax = plt.subplots(figsize=(6, 6))
+        _scatter(ax, eps_vals, eps_hat_vals, "ε  (true noise)", "ε̂  (predicted noise)",
+                 color="steelblue", s=2, alpha=0.2)
+        ax.plot([v_min, v_max], [v_min, v_max], color="crimson", lw=1, linestyle="--",
+                label="y = x")
+        ax.set_xlim(v_min, v_max)
+        ax.set_ylim(v_min, v_max)
+        ax.legend(fontsize=8)
+        ax.set_title(f"{ep} — ε̂ vs ε  (signed, subsampled)")
+        ax.set_aspect("equal", adjustable="box")
+        _save(fig, f"{epoch}_15_scatter_eps_hat_vs_eps")
+
+    # ---- 16. Histogram of ε̂  (signed) -------------------------------
+    # Should look like N(0,1) for a well-trained model.
+    # Collapse toward 0, heavy tails, or asymmetry all signal training issues.
+    if len(eps_hat_vals) > 0:
+        fig, ax = plt.subplots(figsize=(6, 4))
+        _hist(ax, eps_hat_vals, "ε̂  (predicted noise, signed)", color="darkorange", bins=80)
+        # overlay reference N(0,1) curve
+        x_ref = np.linspace(eps_hat_vals.min(), eps_hat_vals.max(), 300)
+        n_total = len(eps_hat_vals)
+        bin_width = (eps_hat_vals.max() - eps_hat_vals.min()) / 80
+        ref_density = (n_total * bin_width *
+                       np.exp(-0.5 * x_ref ** 2) / np.sqrt(2 * np.pi))
+        ax.plot(x_ref, ref_density, color="crimson", lw=1.5, linestyle="--",
+                label="N(0,1) ref")
+        ax.legend(fontsize=8)
+        ax.set_title(f"{ep} — ε̂ distribution  (vs N(0,1) reference)")
+        _save(fig, f"{epoch}_16_hist_eps_hat")
 
     print(f"  [diagnostics] {len(saved)} plots saved → {diag_dir}")
 
@@ -1230,8 +1287,8 @@ def train(
                     loss = masked_mse(eps_hat, eps, target_mask, None, debug=log_this_batch)
 
                 if log_this_batch:
-                    print(f"  eps_hat | norm={eps_hat.norm().item():.4f}  mean={eps_hat.mean().item():.4f}  std={eps_hat.std().item():.4f}")
-                    print(f"  eps     | norm={eps.norm().item():.4f}  mean={eps.mean().item():.4f}  std={eps.std().item():.4f}")
+                    print(f"  eps_hat | norm={eps_hat.norm().item():.4f}  mean={eps_hat.mean().item():.4f}  std={eps_hat.std().item():.4f}  min={eps_hat.min().item():.4f}  max={eps_hat.max().item():.4f}  median={eps_hat.median().item():.4f}")
+                    print(f"  eps     | norm={eps.norm().item():.4f}  mean={eps.mean().item():.4f}  std={eps.std().item():.4f}  min={eps.min().item():.4f}  max={eps.max().item():.4f}  median={eps.median().item():.4f}")
 
             # capture eps_hat before backward releases the computation graph
             _diag_eps_hat = eps_hat.detach().float() if collect_diag else None
@@ -1371,8 +1428,8 @@ def train(
                             val_loss = masked_mse(eps_hat, eps, target_mask, None, debug=log_this_val_batch)
 
                         if log_this_val_batch:
-                            print(f"  eps_hat | norm={eps_hat.norm().item():.4f}  mean={eps_hat.mean().item():.4f}  std={eps_hat.std().item():.4f}")
-                            print(f"  eps     | norm={eps.norm().item():.4f}  mean={eps.mean().item():.4f}  std={eps.std().item():.4f}")
+                            print(f"  eps_hat | norm={eps_hat.norm().item():.4f}  mean={eps_hat.mean().item():.4f}  std={eps_hat.std().item():.4f}  min={eps_hat.min().item():.4f}  max={eps_hat.max().item():.4f}  median={eps_hat.median().item():.4f}")
+                            print(f"  eps     | norm={eps.norm().item():.4f}  mean={eps.mean().item():.4f}  std={eps.std().item():.4f}  min={eps.min().item():.4f}  max={eps.max().item():.4f}  median={eps.median().item():.4f}")
 
 
                     val_loss_sum += float(val_loss.item())
@@ -1388,7 +1445,7 @@ def train(
                 collector=diag,
                 epoch=epoch + 1,
                 diag_base_dir=diag_base_dir,
-                use_wandb=False,   # images saved locally only; export from HPC manually
+                use_wandb=use_wandb,   # images saved locally only; export from HPC manually
                 global_step=global_step,
             )
 
