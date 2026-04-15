@@ -832,10 +832,13 @@ def plot_and_save_diagnostics(
             # image lands under the *same* W&B key (e.g. "diagnostics/01_hist_t").
             # W&B then groups all logged values for that key into one media panel
             # with a step slider, letting you scroll across epochs without clutter.
+            from PIL import Image as _PILImage   # add at top of file with other imports
+
             wb_imgs = {
-                f"diagnostics/{k.split('_', 1)[1]}": wandb.Image(v)
+                f"diagnostics/{k.split('_', 1)[1]}": wandb.Image(_PILImage.open(v))
                 for k, v in saved.items()
             }
+
             wandb.log(wb_imgs, step=global_step)
             print(f"  [diagnostics] {len(wb_imgs)} images uploaded to W&B")
         except Exception as exc:
