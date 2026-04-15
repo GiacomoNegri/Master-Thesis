@@ -142,4 +142,4 @@ if __name__ == "__main__":
 # python -m src.utils.processing_log_adj_close data/replication
 # python src.utils.processing_log_adj_close.py data/replication --compute_returns true --normalization global
 # python src.utils.processing_log_adj_close.py data/replication --compute_returns true --normalization window --seq_len 24
-# python -m src.utils.processing_log_adj_close data/replication --compute_returns true --normalization none
+# python -m src.utils.processing_log_adj_close data/raw_replication --compute_returns true --normalization none 

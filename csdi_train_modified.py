@@ -688,32 +688,32 @@ def plot_and_save_diagnostics(
     _save(fig, f"{epoch}_03b_scatter_abs_err_vs_t")
 
     # ---- 4. Batch error vs grad norm: Pearson r + scatter -----------
-    if len(grad) > 1 and len(err_mean) == len(grad):
-        corr = float("nan")
-        if np.std(err_mean) > 1e-12 and np.std(grad) > 1e-12:
-            corr = float(np.corrcoef(err_mean, grad)[0, 1])
-        print(f"  [diagnostics] Pearson(batch_mean_err, grad_norm) = {corr:.4f}")
-        fig, ax = plt.subplots(figsize=(6, 4))
-        _scatter(ax, err_mean, grad, "batch mean |ε̂−ε|", "gradient norm (post-clip)",
-                 color="crimson", s=12, alpha=0.6)
-        ax.set_title(f"{ep} — Batch error vs gradient  (r = {corr:.3f})")
-        _save(fig, f"{epoch}_04_scatter_err_vs_grad")
-    else:
-        print("  [diagnostics] too few batches for error–gradient correlation")
+    # if len(grad) > 1 and len(err_mean) == len(grad):
+    #     corr = float("nan")
+    #     if np.std(err_mean) > 1e-12 and np.std(grad) > 1e-12:
+    #         corr = float(np.corrcoef(err_mean, grad)[0, 1])
+    #     print(f"  [diagnostics] Pearson(batch_mean_err, grad_norm) = {corr:.4f}")
+    #     fig, ax = plt.subplots(figsize=(6, 4))
+    #     _scatter(ax, err_mean, grad, "batch mean |ε̂−ε|", "gradient norm (post-clip)",
+    #              color="crimson", s=12, alpha=0.6)
+    #     ax.set_title(f"{ep} — Batch error vs gradient  (r = {corr:.3f})")
+    #     _save(fig, f"{epoch}_04_scatter_err_vs_grad")
+    # else:
+    #     print("  [diagnostics] too few batches for error–gradient correlation")
 
     # ---- 5. Histogram of gradient norms (per step) ------------------
-    fig, ax = plt.subplots(figsize=(6, 4))
-    _hist(ax, grad, "gradient norm (after clipping)", color="forestgreen")
-    ax.set_title(f"{ep} — Gradient norm distribution")
-    _save(fig,f"{epoch}_05_hist_grad")
+    # fig, ax = plt.subplots(figsize=(6, 4))
+    # _hist(ax, grad, "gradient norm (after clipping)", color="forestgreen")
+    # ax.set_title(f"{ep} — Gradient norm distribution")
+    # _save(fig,f"{epoch}_05_hist_grad")
 
     # ---- 6. Scatter: gradient norm vs batch mean t ------------------
-    if len(grad) == len(t_mean):
-        fig, ax = plt.subplots(figsize=(6, 4))
-        _scatter(ax, t_mean, grad, "batch mean t", "gradient norm",
-                 color="teal", s=12, alpha=0.6)
-        ax.set_title(f"{ep} — Gradient norm vs t")
-        _save(fig, f"{epoch}_06_scatter_grad_vs_t")
+    # if len(grad) == len(t_mean):
+    #     fig, ax = plt.subplots(figsize=(6, 4))
+    #     _scatter(ax, t_mean, grad, "batch mean t", "gradient norm",
+    #              color="teal", s=12, alpha=0.6)
+    #     ax.set_title(f"{ep} — Gradient norm vs t")
+    #     _save(fig, f"{epoch}_06_scatter_grad_vs_t")
 
     # ---- 7. Histogram of σ(t) ---------------------------------------
     if len(sigma) > 0:
