@@ -456,6 +456,7 @@ class DiagnosticsCollector:
         self.sigma_batch:    list = []  # σ(t) per sample
         self.g_batch:        list = []  # g(t) per sample (empty when not available)
         self.score_batch:    list = []  # mean −ε̂/σ(t) per sample (inferred score)
+        self.snr_batch:      list = []  # 1/σ²(t) per sample — higher = easier timestep
         # per-step scalars (one value per optimisation step / batch)
         self.grad_norms:     list = []  # gradient norm after clipping
         self.batch_mean_t:   list = []  # mean t of the batch (for scatter vs grad norm)
@@ -502,6 +503,10 @@ class DiagnosticsCollector:
             self.sigma_batch.append(sigma_f.cpu().numpy())
             self.score_batch.append(mean_score.cpu().numpy())
 
+            # SNR = 1 / σ²(t): high SNR = small noise = easy for data structure, hard for score
+            snr = 1.0 / (sigma_f.pow(2) + 1e-8)   # (B,)
+            self.snr_batch.append(snr.cpu().numpy())
+
             # the following three has length N
             self.grad_norms.append(float(grad_norm))
             self.batch_mean_t.append(float(t_f.mean()))
@@ -520,10 +525,40 @@ class DiagnosticsCollector:
             "sigma":    cat(self.sigma_batch),
             "g":        cat(self.g_batch),
             "score":    cat(self.score_batch),
+            "snr":      cat(self.snr_batch),
             "grad":     np.array(self.grad_norms),
             "t_mean":   np.array(self.batch_mean_t),
             "err_mean": np.array(self.batch_mean_err),
         }
+
+
+def error_by_t_bins(
+    t:      "np.ndarray",
+    err:    "np.ndarray",
+    n_bins: int   = 10,
+    t_max:  float = 1.0,
+) -> tuple:
+    """
+    Compute mean absolute error per uniform t-bin over [0, t_max].
+
+    Parameters
+    ----------
+    t       : (N,) array of continuous time values
+    err     : (N,) array of per-sample mean absolute errors
+    n_bins  : number of equal-width bins
+    t_max   : upper edge of the last bin (set to t.max() when calling)
+
+    Returns
+    -------
+    edges     : (n_bins+1,) array of bin boundaries
+    bin_means : (n_bins,)   array of per-bin mean error (NaN for empty bins)
+    """
+    edges = np.linspace(0.0, t_max, n_bins + 1)
+    means = []
+    for lo, hi in zip(edges[:-1], edges[1:]):
+        in_bin = (t >= lo) & (t < hi)
+        means.append(float(err[in_bin].mean()) if in_bin.any() else float("nan"))
+    return edges, np.array(means)
 
 
 def plot_and_save_diagnostics(
@@ -534,12 +569,12 @@ def plot_and_save_diagnostics(
     global_step:   int  = 0,
 ) -> None:
     """
-    Produce all 12 diagnostic plots for one epoch and save them as PNGs.
+    Produce all 14 diagnostic plots for one epoch and save them as PNGs.
 
     Each figure is closed immediately after saving — no display is needed
     (uses the Agg backend, safe on headless HPC nodes).
 
-    Output: <diag_base_dir>/epoch_<NNN>/01_hist_t.png … 11_hist_score.png
+    Output: <diag_base_dir>/epoch_<NNN>/01_hist_t.png … 14_scatter_err_vs_snr.png
             where diag_base_dir = ./images/diagnostics/<run_name>
     If use_wandb=True the images are also uploaded to the active W&B run.
 
@@ -557,6 +592,9 @@ def plot_and_save_diagnostics(
     09  Histogram of g(t)
     10  Scatter  g(t) vs σ(t)  (per sample)
     11  Histogram of inferred score  −ε̂ / σ(t)  (per-sample mean)
+    12  Bar chart  mean abs error per uniform t-bin  (binned error summary)
+    13  Histogram of SNR = 1/σ²(t)
+    14  Scatter  error vs SNR  (per sample)
     """
     try:
         import matplotlib
@@ -569,7 +607,13 @@ def plot_and_save_diagnostics(
     d = collector.arrays()
     t, err, rel_err        = d["t"],     d["err"],    d["rel_err"]
     sigma, g, score        = d["sigma"], d["g"],      d["score"]
+    snr                    = d["snr"]
     grad, t_mean, err_mean = d["grad"],  d["t_mean"], d["err_mean"]
+
+    # pre-compute binned error — used for plot 12 and optional W&B table
+    t_max_val = float(t.max()) if len(t) > 0 else 1.0
+    bin_edges, bin_means = error_by_t_bins(t, err, n_bins=10, t_max=t_max_val)
+    bin_centers = 0.5 * (bin_edges[:-1] + bin_edges[1:])
 
     diag_dir = os.path.join(diag_base_dir, f"epoch_{epoch:03d}")
     os.makedirs(diag_dir, exist_ok=True)
@@ -685,6 +729,43 @@ def plot_and_save_diagnostics(
         ax.set_title(f"{ep} — Inferred score distribution")
         _save(fig, f"{epoch}_11_hist_score")
 
+    # ---- 12. Bar chart: mean abs error per uniform t-bin -------------
+    # Gives a numerical summary of where in [0, T] the model is failing,
+    # complementing the scatter in 03b.
+    if len(t) > 0:
+        fig, ax = plt.subplots(figsize=(7, 4))
+        bar_width = (bin_edges[1] - bin_edges[0]) * 0.85
+        bars = ax.bar(bin_centers, bin_means, width=bar_width,
+                      color="steelblue", edgecolor="none")
+        # mark empty bins so they don't silently disappear
+        for bar, val in zip(bars, bin_means):
+            if np.isnan(val):
+                ax.text(bar.get_x() + bar.get_width() / 2, 0,
+                        "∅", ha="center", va="bottom", fontsize=8, color="gray")
+        ax.set_xlabel("t  (bin centre)")
+        ax.set_ylabel("mean |ε̂ − ε|  per bin")
+        ax.set_title(f"{ep} — Binned error by t")
+        _save(fig, f"{epoch}_12_bar_binned_err_vs_t")
+
+    # ---- 13. Histogram of process SNR = 1 / σ²(t) -------------------
+    # Process SNR is monotone in t for all SDEs; high SNR = small noise = easy
+    # timestep for score estimation, hard for reconstructing fine structure.
+    # Note: this is the SDE-parameter-level SNR (data-scale-independent).
+    # Per-sample data SNR would be ||x0||²/σ²(t), requiring x0 in the collector.
+    if len(snr) > 0:
+        fig, ax = plt.subplots(figsize=(6, 4))
+        _hist(ax, snr, "process SNR = 1/σ²(t)", color="goldenrod")
+        ax.set_title(f"{ep} — Process SNR distribution")
+        _save(fig, f"{epoch}_13_hist_snr")
+
+    # ---- 14. Scatter: error vs process SNR ---------------------------
+    if len(snr) > 0 and len(snr) == len(err):
+        fig, ax = plt.subplots(figsize=(6, 4))
+        _scatter(ax, snr, err, "process SNR = 1/σ²(t)", "mean |ε̂ − ε|  per sample",
+                 color="goldenrod")
+        ax.set_title(f"{ep} — Error vs process SNR")
+        _save(fig, f"{epoch}_14_scatter_err_vs_snr")
+
     print(f"  [diagnostics] {len(saved)} plots saved → {diag_dir}")
 
     # ---- optional W&B upload ----------------------------------------
@@ -695,6 +776,23 @@ def plot_and_save_diagnostics(
             print(f"  [diagnostics] {len(wb_imgs)} images uploaded to W&B")
         except Exception as exc:
             print(f"  [diagnostics] W&B image upload failed: {exc}")
+
+        # binned error table — logged separately so it's queryable in W&B
+        try:
+            valid_rows = [
+                [float(c), float(m)]
+                for c, m in zip(bin_centers, bin_means)
+                if not np.isnan(m)
+            ]
+            if valid_rows:
+                tbl = wandb.Table(
+                    columns=["t_bin_center", "mean_abs_error"],
+                    data=valid_rows,
+                )
+                wandb.log({"diagnostics/binned_err_vs_t": tbl}, step=global_step)
+                print(f"  [diagnostics] binned-error table ({len(valid_rows)} bins) uploaded to W&B")
+        except Exception as exc:
+            print(f"  [diagnostics] W&B binned-error table upload failed: {exc}")
 
 
 # ----------------------------

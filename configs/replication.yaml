@@ -18,7 +18,7 @@ process:
   N: 2000
   sde_type: ve
   noise_schedule: exponential
-  sigma_min: 0.01
+  sigma_min: 0.1
   sigma_max: 50.0
   beta_min: 0.01
   beta_max: 20.0
