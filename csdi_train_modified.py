@@ -1306,6 +1306,8 @@ def train(
         epoch_loss_sum = 0.0
         epoch_loss_count = 0
         ema_loss = None
+        _grad_buf = []   # grad norm per batch — epoch-end stats (replaces plots 05/06)
+        _loss_buf = []   # step loss per batch — for Pearson r with grad norm (replaces plot 04)
         ema_beta    = float(config["train"].get("ema_beta", 0.98))
         use_lw      = bool(config["train"].get("likelihood_weighting", False))
         debug       = bool(config["train"].get("debug", False))
@@ -1399,7 +1401,8 @@ def train(
             scaler.scale(loss).backward()
             scaler.unscale_(optim)
             # IMPORTANT: we are doing gradient clipping, because of extreme gradient values
-            grad_norm = torch.nn.utils.clip_grad_norm_(model.parameters(), max_norm=5.0)
+            max_norm = 5.0
+            grad_norm = torch.nn.utils.clip_grad_norm_(model.parameters(), max_norm=max_norm)
             scaler.step(optim)
             scaler.update()
 
@@ -1427,6 +1430,12 @@ def train(
             it_per_s = steps_done / max(elapsed, 1e-9)
 
             grad_norm_val = float(grad_norm)
+            _grad_buf.append(grad_norm_val)
+            _loss_buf.append(loss_val)
+
+            if log_this_batch:
+                _clip_flag = "CLIPPED" if grad_norm_val >= max_norm - 0.01 else "ok"
+                print(f"  grad_norm | {grad_norm_val:.4f}  ({_clip_flag})")
 
             pbar.set_postfix({
                 "step": global_step,
@@ -1457,6 +1466,22 @@ def train(
 
         # end of epoch
         epoch_avg = epoch_loss_sum / max(epoch_loss_count, 1)
+
+        # --- Epoch-level gradient stats (text replacement for plots 04/05/06) ---
+        if _grad_buf:
+            _gn = np.array(_grad_buf)
+            _lb = np.array(_loss_buf)
+            _clip_pct = (_gn >= 4.99).mean() * 100
+            _r_str = ""
+            if len(_gn) > 1 and _gn.std() > 1e-12 and _lb.std() > 1e-12:
+                _r = float(np.corrcoef(_lb, _gn)[0, 1])
+                _warn = "  ← decoupled, check LW weights" if abs(_r) < 0.1 else ""
+                _r_str = f"  Pearson r(loss, grad_norm)={_r:.3f}{_warn}"
+            print(
+                f"  [grad] mean={_gn.mean():.4f}  std={_gn.std():.4f}  "
+                f"p50={np.median(_gn):.4f}  p95={np.percentile(_gn, 95):.4f}  "
+                f"max={_gn.max():.4f}  clipped={_clip_pct:.1f}%{_r_str}"
+            )
 
         # validation
         val_avg = None
