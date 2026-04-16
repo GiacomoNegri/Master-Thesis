@@ -30,6 +30,11 @@ class CSDIModel(nn.Module):
 
         config_diff = dict(config["diffusion"])
         config_diff["side_dim"] = self.emb_total_dim
+        # [CHANGE 4] Disable the feature-axis Transformer when target_dim == 1.
+        # With a single feature K is always 1, so forward_feature is a guaranteed no-op;
+        # instantiating feature_layer wastes ~99K params per block with zero compute.
+        # Setting use_feature_layer=False prevents those weights from being created.
+        config_diff["use_feature_layer"] = (target_dim > 1)
         input_dim = 1 if self.is_unconditional else 2
         self.diffmodel = diff_CSDI(config_diff, input_dim)
 
@@ -53,7 +58,7 @@ class CSDIModel(nn.Module):
 
         # Time embedding: sinusoidal basis → learnable projection (absolute temporal positions)
         time_embed = self.time_embedding(observed_tp, self.emb_time_dim)  # (B,L,E)
-        time_embed = self.time_embed_proj(time_embed)                      # (B,L,E) learnable
+        time_embed = self.time_embed_proj(time_embed)                      # (B,L,E) learnable on top of the sinusoidal
         time_embed = time_embed.unsqueeze(2).expand(-1, -1, K, -1)        # (B,L,K,E)
 
         if feature_id is None:  # learned embedding for each feature index

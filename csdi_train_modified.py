@@ -448,15 +448,19 @@ class DiagnosticsCollector:
     memory is not held across the epoch.
     """
 
-    def __init__(self):
+    def __init__(self, delta_t: float = 0.0):
+        # Δt used to compute reverse-step error metrics (pass (T - eps) / N)
+        self.delta_t = delta_t
         # per-sample arrays (B,) per batch — concatenated at epoch end
-        self.t_batch:        list = []  # sampled continuous t per sample
-        self.err_batch:      list = []  # mean |ε̂ − ε| per sample (over target mask)
-        self.rel_err_batch:  list = []  # mean |ε̂−ε|/|ε| per sample
-        self.sigma_batch:    list = []  # σ(t) per sample
-        self.g_batch:        list = []  # g(t) per sample (empty when not available)
-        self.score_batch:    list = []  # mean −ε̂/σ(t) per sample (inferred score)
-        self.snr_batch:      list = []  # 1/σ²(t) per sample — higher = easier timestep
+        self.t_batch:           list = []  # sampled continuous t per sample
+        self.err_batch:         list = []  # mean |ε̂ − ε| per sample (over target mask)
+        self.rel_err_batch:     list = []  # mean |ε̂−ε|/|ε| per sample
+        self.sigma_batch:       list = []  # σ(t) per sample
+        self.g_batch:           list = []  # g(t) per sample (empty when not available)
+        self.score_batch:       list = []  # mean −ε̂/σ(t) per sample (inferred score)
+        self.snr_batch:         list = []  # 1/σ²(t) per sample — higher = easier timestep
+        self.err_rev_batch:     list = []  # per-element reverse-step drift error (B,)
+        self.rel_stoch_batch:   list = []  # dimensionless ratio: drift err / diffusion noise (B,)
         # raw signed values from target-masked entries (subsampled per batch)
         self.eps_hat_vals:   list = []  # ε̂  values — for histogram and scatter
         self.eps_vals:       list = []  # ε   values — for scatter (paired with eps_hat_vals)
@@ -510,6 +514,24 @@ class DiagnosticsCollector:
             snr = 1.0 / (sigma_f.pow(2) + 1e-8)   # (B,)
             self.snr_batch.append(snr.cpu().numpy())
 
+            # Reverse-step drift error and relative stochastic error.
+            # Both are computable only when g(t) is available (collect_diag=True ensures it).
+            # err_rev  = g²/σ · mean_abs_err · Δt
+            #            = per-element RMS of the drift correction error per reverse step.
+            # R        = err_rev / (g · √Δt)
+            #            = dimensionless ratio of drift error to Brownian diffusion per step.
+            #            R ≪ 1 → score errors dominated by noise (sampling is safe).
+            #            R ≥ 1 → score errors comparable to diffusion (sampling may diverge).
+            if g_t is not None and self.delta_t > 0:
+                g_f   = g_t.float().detach()             # (B,)
+                dt    = self.delta_t
+                # err_rev (B,): g²/σ · mean_abs_err · Δt
+                err_rev = (g_f.pow(2) / sigma_f.clamp(min=1e-8)) * mean_abs_err * dt
+                # R (B,): err_rev / (g · √Δt)
+                rel_stoch = err_rev / (g_f.clamp(min=1e-8) * (dt ** 0.5))
+                self.err_rev_batch.append(err_rev.cpu().numpy())
+                self.rel_stoch_batch.append(rel_stoch.cpu().numpy())
+
             # raw signed values inside the target mask — subsampled to 300 per batch
             # so memory stays bounded regardless of B, K, L.  Paired so scatter is valid.
             flat_hat = eps_hat_f[mask_f.bool()].cpu().numpy()
@@ -541,6 +563,8 @@ class DiagnosticsCollector:
             "g":        cat(self.g_batch),
             "score":    cat(self.score_batch),
             "snr":          cat(self.snr_batch),
+            "err_rev":      cat(self.err_rev_batch),
+            "rel_stoch":    cat(self.rel_stoch_batch),
             "eps_hat_vals": cat(self.eps_hat_vals),
             "eps_vals":     cat(self.eps_vals),
             "grad":     np.array(self.grad_norms),
@@ -614,6 +638,7 @@ def plot_and_save_diagnostics(
     14  Scatter  error vs SNR  (per sample)
     15  Scatter  ε̂ vs ε  (signed, target-masked, subsampled) — alignment check
     16  Histogram of ε̂  (signed) — distribution check vs N(0,1)
+    17  Scatter  reverse-step drift error  err_rev = g²/σ · mean_abs_err · Δt  vs t
     """
     try:
         import matplotlib
@@ -627,6 +652,8 @@ def plot_and_save_diagnostics(
     t, err, rel_err        = d["t"],     d["err"],    d["rel_err"]
     sigma, g, score        = d["sigma"], d["g"],      d["score"]
     snr                    = d["snr"]
+    err_rev                = d["err_rev"]
+    rel_stoch              = d["rel_stoch"]
     eps_hat_vals           = d["eps_hat_vals"]
     eps_vals               = d["eps_vals"]
     grad, t_mean, err_mean = d["grad"],  d["t_mean"], d["err_mean"]
@@ -822,6 +849,31 @@ def plot_and_save_diagnostics(
         ax.legend(fontsize=8)
         ax.set_title(f"{ep} — ε̂ distribution  (vs N(0,1) reference)")
         _save(fig, f"{epoch}_16_hist_eps_hat")
+
+    # ---- 17. Scatter: reverse-step drift error vs t ------------------
+    # err_rev(t) = g²(t)/σ(t) · mean_abs_err · Δt
+    # = per-element RMS displacement error in one Euler-Maruyama reverse step.
+    # Steep rise at large t → coarse-scale reconstruction is unreliable.
+    # Steep rise at small t → fine-structure prediction is unreliable.
+    if len(err_rev) > 0 and len(err_rev) == len(t):
+        fig, ax = plt.subplots(figsize=(6, 4))
+        _scatter(ax, t, err_rev,
+                 "t  (continuous)", "err_rev = g²/σ · mean|ε̂−ε| · Δt  per sample",
+                 color="mediumorchid")
+        ax.set_title(f"{ep} — Reverse-step drift error vs t")
+        _save(fig, f"{epoch}_17_scatter_err_rev_vs_t")
+        # print a concise numerical summary so the log captures R statistics
+        # even without opening the plot
+        if len(rel_stoch) > 0:
+            print(
+                f"  [rev-err] err_rev | mean={err_rev.mean():.3e}  "
+                f"p50={np.median(err_rev):.3e}  p95={np.percentile(err_rev, 95):.3e}  "
+                f"max={err_rev.max():.3e}\n"
+                f"  [rev-err] R=err_rev/(g√Δt) | mean={rel_stoch.mean():.3e}  "
+                f"p50={np.median(rel_stoch):.3e}  p95={np.percentile(rel_stoch, 95):.3e}  "
+                f"max={rel_stoch.max():.3e}  "
+                f"— fraction R≥1: {(rel_stoch >= 1.0).mean()*100:.1f}%"
+            )
 
     print(f"  [diagnostics] {len(saved)} plots saved → {diag_dir}")
 
@@ -1198,6 +1250,9 @@ def train(
     best_val_loss = float("inf")
     epochs_no_improve = 0
 
+    # Δt for reverse-step error metrics: (T − eps) / N  (Euler-Maruyama step size)
+    _delta_t = (processes.sde.T - processes.eps_time) / float(config["process"]["N"])
+
     # Importance sampling setup (computed once before training)
     use_is = bool(config["train"].get("importance_sampling", False))
     t_probs, t_grid = None, None
@@ -1255,7 +1310,7 @@ def train(
         # collect diagnostics this epoch only when print_plots is on AND the cadence hits
         collect_diag = print_plots and ((epoch + 1) % max(plots_every, 1) == 0)
         if collect_diag:
-            diag = DiagnosticsCollector()
+            diag = DiagnosticsCollector(delta_t=_delta_t)
         t0 = time.time()
 
         for batch_idx, batch in pbar:

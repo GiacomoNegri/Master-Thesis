@@ -11,7 +11,13 @@ from linear_attention_transformer import LinearAttentionTransformer
 
 def get_torch_trans(heads=8, layers=1, channels=64):
     encoder_layer = nn.TransformerEncoderLayer(
-        d_model=channels, nhead=heads, dim_feedforward=channels, activation="gelu"
+        d_model=channels, nhead=heads,
+        # [CHANGE 3] dim_feedforward raised from channels (1×) to 4×channels.
+        # Original CSDI used 1×, making the FFN atypically narrow (33% of layer params).
+        # Standard Transformer convention is 4×d_model; this restores that proportion
+        # and accounts for the parameter budget freed by removing the dormant feature_layer.
+        dim_feedforward=4 * channels,
+        activation="gelu",
     )
     return nn.TransformerEncoder(encoder_layer, num_layers=layers)
 
@@ -74,12 +80,15 @@ class diff_CSDI(nn.Module):
         )
 
         self.input_projection = Conv1d_with_init(inputdim, self.channels, 1)
-        self.output_projection1 = Conv1d_with_init(self.channels, self.channels, 1)
-        self.output_projection2 = Conv1d_with_init(self.channels, 1, 1)
-        # This is the initalization in the original codebase, CSDI
-        # nn.init.zeros_(self.output_projection2.weight)
-        # Replacing it with a normal initialization with small std to break symmetry allow faster learning, avoiding 0 initialization
-        nn.init.normal_(self.output_projection2.weight, mean=0.0, std=0.01)
+        # [CHANGE 1] Removed output_projection1 Conv1d(128→128) to match the paper's single final
+        # projection. Paper text: "a final 1D convolutional layer"; figure labels the output step
+        # as (C,L)→(1,L) in one step. Two sequential linear convs without a non-linearity are
+        # equivalent to one; the ReLU that sat between them was the true mismatch (now gone).
+        self.output_projection = Conv1d_with_init(self.channels, 1, 1)
+        # Small-normal init retained from the original two-stage head: avoids the zero-output
+        # trap of the vanilla CSDI initialisation (nn.init.zeros_) while keeping early
+        # predictions near zero to prevent large initial loss spikes.
+        nn.init.normal_(self.output_projection.weight, mean=0.0, std=0.01)
 
 
         # Stack of residual layers
@@ -91,6 +100,9 @@ class diff_CSDI(nn.Module):
                     diffusion_embedding_dim=config["diffusion_embedding_dim"],
                     nheads=config["nheads"],
                     is_linear=config["is_linear"],
+                    # [CHANGE 4] Propagate flag from config; defaults True so existing
+                    # callers that do not set the key retain original behaviour.
+                    use_feature_layer=config.get("use_feature_layer", True),
                 )
                 for _ in range(config["layers"])
             ]
@@ -101,7 +113,11 @@ class diff_CSDI(nn.Module):
 
         x = x.reshape(B, inputdim, K * L)
         x = self.input_projection(x)
-        x = F.relu(x)
+        # [CHANGE 2] Removed F.relu here: paper figure shows Conv1d → ⊕ with no intermediate
+        # activation. A ReLU at this point asymmetrically clips the latent representation before
+        # any diffusion-step information is injected, biasing the signal away from zero despite
+        # the target noise ε being zero-mean. Non-linearity enters naturally through the gated
+        # activation (sigmoid * tanh) inside each ResidualBlock.
         x = x.reshape(B, self.channels, K, L)
 
         diffusion_emb = self.diffusion_embedding(diffusion_step)
@@ -112,17 +128,23 @@ class diff_CSDI(nn.Module):
             x, skip_connection = layer(x, cond_info, diffusion_emb)
             skip.append(skip_connection)
 
-        x = torch.sum(torch.stack(skip), dim=0) / math.sqrt(len(self.residual_layers))
+        x = torch.sum(torch.stack(skip), dim=0) / math.sqrt(len(self.residual_layers)) # this division is used to keep the variance of the sum constant regardless of depth
         x = x.reshape(B, self.channels, K * L)
-        x = self.output_projection1(x)  # (B,channel,K*L)
-        x = F.relu(x)
-        x = self.output_projection2(x)  # (B,1,K*L)
+        # [CHANGE 1] Single output projection replacing the former two-stage head
+        # (output_projection1 Conv1d(128→128) + ReLU + output_projection2 Conv1d(128→1)).
+        # Removes 16,512 parameters and the intermediate non-linearity.
+        x = self.output_projection(x)   # (B,1,K*L)
         x = x.reshape(B, K, L)
         return x
 
 
 class ResidualBlock(nn.Module):
-    def __init__(self, side_dim, channels, diffusion_embedding_dim, nheads, is_linear=False):
+    # [CHANGE 4] Added use_feature_layer flag (default True for backward compatibility).
+    # When False the feature_layer Transformer is never instantiated, saving ~99K params
+    # per block. Set to False by CSDIModel when target_dim == 1, since forward_feature
+    # returns immediately at K=1 and the weights are otherwise loaded but never executed.
+    def __init__(self, side_dim, channels, diffusion_embedding_dim, nheads, is_linear=False,
+                 use_feature_layer=True):
         super().__init__()
         self.diffusion_projection = nn.Linear(diffusion_embedding_dim, channels)
         self.cond_projection = Conv1d_with_init(side_dim, 2 * channels, 1)
@@ -130,12 +152,15 @@ class ResidualBlock(nn.Module):
         self.output_projection = Conv1d_with_init(channels, 2 * channels, 1)
 
         self.is_linear = is_linear
+        self.use_feature_layer = use_feature_layer  # False → feature_layer not created
         if is_linear:
-            self.time_layer = get_linear_trans(heads=nheads,layers=1,channels=channels)
-            self.feature_layer = get_linear_trans(heads=nheads,layers=1,channels=channels)
+            self.time_layer = get_linear_trans(heads=nheads, layers=1, channels=channels)
+            if use_feature_layer:
+                self.feature_layer = get_linear_trans(heads=nheads, layers=1, channels=channels)
         else:
             self.time_layer = get_torch_trans(heads=nheads, layers=1, channels=channels)
-            self.feature_layer = get_torch_trans(heads=nheads, layers=1, channels=channels)
+            if use_feature_layer:
+                self.feature_layer = get_torch_trans(heads=nheads, layers=1, channels=channels)
 
 
     @staticmethod
@@ -155,6 +180,7 @@ class ResidualBlock(nn.Module):
         B, channel, K, L = base_shape
         if L == 1:
             return y
+        # y: (B, channel, K*L) → (B, channel, K, L) → (B, K, channel, L) → (B*K, channel, L)
         y = y.reshape(B, channel, K, L).permute(0, 2, 1, 3).reshape(B * K, channel, L)
 
         # Positional encoding injected prior to the Transformer (relative sequence position)
@@ -169,7 +195,10 @@ class ResidualBlock(nn.Module):
 
     def forward_feature(self, y, base_shape):
         B, channel, K, L = base_shape
-        if K == 1:
+        # [CHANGE 4] Guard replaced: was a runtime K==1 check; now uses the static
+        # use_feature_layer flag set at construction time from target_dim. When False,
+        # feature_layer was never instantiated so we must return before accessing it.
+        if not self.use_feature_layer:
             return y
         y = y.reshape(B, channel, K, L).permute(0, 3, 1, 2).reshape(B * L, channel, K)
 
@@ -200,9 +229,9 @@ class ResidualBlock(nn.Module):
         cond_info = self.cond_projection(cond_info)  # (B,2*channel,K*L)
         y = y + cond_info
 
-        gate, filter = torch.chunk(y, 2, dim=1)
+        gate, filter = torch.chunk(y, 2, dim=1) # slipt into two parts for gated activation, each of shape (B,channel,K*L)
         y = torch.sigmoid(gate) * torch.tanh(filter)  # (B,channel,K*L)
-        y = self.output_projection(y) #mapping back to two channels, before chunking
+        y = self.output_projection(y) #mapping back to two channels, before chunking (B,2*channel,K*L)
 
         residual, skip = torch.chunk(y, 2, dim=1)
         x = x.reshape(base_shape)
