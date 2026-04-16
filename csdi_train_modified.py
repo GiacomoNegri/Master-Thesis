@@ -1081,6 +1081,10 @@ def build_final_checkpoint_name(
         data_root = "REPL_PRIC_WIN"
     elif data_root == "./data/replication_returns_window":
         data_root = "REPL_RET_WIN"
+    elif data_root == "./data/replication_returns_other":
+        data_root = "REPL_RET_OTHER"
+    elif data_root == "./data/log_replication":
+        data_root = "REPL_LOG"
     else:
         data_root = "REPL"
     mask_mode = str(config['train']['mask_mode'])
