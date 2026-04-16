@@ -461,6 +461,7 @@ class DiagnosticsCollector:
         self.snr_batch:         list = []  # 1/σ²(t) per sample — higher = easier timestep
         self.err_rev_batch:     list = []  # per-element reverse-step drift error (B,)
         self.rel_stoch_batch:   list = []  # dimensionless ratio: drift err / diffusion noise (B,)
+        self.x0_mse_batch:      list = []  # per-sample mean ||hat_x0 - x0||^2 over target mask (B,)
         # raw signed values from target-masked entries (subsampled per batch)
         self.eps_hat_vals:   list = []  # ε̂  values — for histogram and scatter
         self.eps_vals:       list = []  # ε   values — for scatter (paired with eps_hat_vals)
@@ -471,13 +472,14 @@ class DiagnosticsCollector:
 
     def add(
         self,
-        t_cont:      torch.Tensor,                   # (B,)
-        eps_hat:     torch.Tensor,                   # (B, K, L) — detached float32
-        eps:         torch.Tensor,                   # (B, K, L)
-        sigma_t:     torch.Tensor,                   # (B,)
-        target_mask: torch.Tensor,                   # (B, K, L) in {0, 1}
-        grad_norm:   float,
-        g_t:         Optional[torch.Tensor] = None,  # (B,) or None
+        t_cont:       torch.Tensor,                   # (B,)
+        eps_hat:      torch.Tensor,                   # (B, K, L) — detached float32
+        eps:          torch.Tensor,                   # (B, K, L)
+        sigma_t:      torch.Tensor,                   # (B,)
+        target_mask:  torch.Tensor,                   # (B, K, L) in {0, 1}
+        grad_norm:    float,
+        g_t:          Optional[torch.Tensor] = None,  # (B,) or None
+        mean_coeff_t: Optional[torch.Tensor] = None,  # (B,) or None; 1.0 for VE/GBM SDEs
     ) -> None:
         with torch.no_grad():
             # the detachment is needed for functioning under the use of AMP
@@ -532,6 +534,20 @@ class DiagnosticsCollector:
                 self.err_rev_batch.append(err_rev.cpu().numpy())
                 self.rel_stoch_batch.append(rel_stoch.cpu().numpy())
 
+            # x0 reconstruction MSE: ||hat_x0 - x0||^2 per sample (over target mask).
+            # Algebraic identity: hat_x0 - x0 = (σ / mean_coeff) * (ε - ε̂),
+            # so MSE_x0 = (σ / mean_coeff)^2 * mean sq-err of ε.
+            # For VE/GBM mean_coeff = 1 (identity); for VP/SubVP pass the actual coeff.
+            # When mean_coeff_t is None we fall back to mean_coeff = 1.
+            if mean_coeff_t is not None:
+                mc_f = mean_coeff_t.float().detach().clamp(min=1e-8)  # (B,)
+            else:
+                mc_f = torch.ones_like(sigma_f)
+            scale_sq = (sigma_f / mc_f).pow(2)  # (B,)
+            x0_sq_err = (eps_hat_f - eps_f).pow(2) * mask_f  # (B, K, L)
+            mean_x0_mse = (x0_sq_err * scale_sq[:, None, None]).sum(dim=(1, 2)) / n  # (B,)
+            self.x0_mse_batch.append(mean_x0_mse.cpu().numpy())
+
             # raw signed values inside the target mask — subsampled to 300 per batch
             # so memory stays bounded regardless of B, K, L.  Paired so scatter is valid.
             flat_hat = eps_hat_f[mask_f.bool()].cpu().numpy()
@@ -565,6 +581,7 @@ class DiagnosticsCollector:
             "snr":          cat(self.snr_batch),
             "err_rev":      cat(self.err_rev_batch),
             "rel_stoch":    cat(self.rel_stoch_batch),
+            "x0_mse":       cat(self.x0_mse_batch),
             "eps_hat_vals": cat(self.eps_hat_vals),
             "eps_vals":     cat(self.eps_vals),
             "grad":     np.array(self.grad_norms),
@@ -608,6 +625,7 @@ def plot_and_save_diagnostics(
     diag_base_dir: str,
     use_wandb:     bool = False,
     global_step:   int  = 0,
+    sde_type:      str  = "ve",
 ) -> None:
     """
     Produce all 14 diagnostic plots for one epoch and save them as PNGs.
@@ -623,22 +641,22 @@ def plot_and_save_diagnostics(
     ---------------
     01  Histogram of sampled continuous t
     02  Histogram of per-sample mean abs error
-    03  Scatter  relative error vs t  (per sample)
-    03b Scatter  absolute error vs t  (per sample)
+    03  [COMMENTED OUT] relative error vs t — inflated by near-zero ε; 03b is cleaner
+    03b Scatter  absolute error vs noise-level axis (log σ or log-SNR)
     04  Scatter  batch mean error vs grad norm  + Pearson r printed to log
     05  Histogram of gradient norms (post-clipping, per step)
     06  Scatter  gradient norm vs batch mean t
     07  Histogram of σ(t)
-    08  Scatter  error vs σ(t)  (per sample)
+    08  [COMMENTED OUT] error vs σ(t) — monotone in t, duplicates transformed 03b
     09  Histogram of g(t)
     10  Scatter  g(t) vs σ(t)  (per sample)
     11  Histogram of inferred score  −ε̂ / σ(t)  (per-sample mean)
     12  Bar chart  mean abs error per uniform t-bin  (binned error summary)
-    13  Histogram of SNR = 1/σ²(t)
-    14  Scatter  error vs SNR  (per sample)
+    13  [COMMENTED OUT] histogram of SNR — monotone transform of t, duplicates plot 01
+    14  [COMMENTED OUT] error vs SNR — same as transformed 03b (log-SNR axis), redundant
     15  Scatter  ε̂ vs ε  (signed, target-masked, subsampled) — alignment check
     16  Histogram of ε̂  (signed) — distribution check vs N(0,1)
-    17  Scatter  reverse-step drift error  err_rev = g²/σ · mean_abs_err · Δt  vs t
+    17  Scatter  reverse-step drift error  err_rev = g²/σ · mean_abs_err · Δt  vs noise-level axis
     """
     try:
         import matplotlib
@@ -654,6 +672,7 @@ def plot_and_save_diagnostics(
     snr                    = d["snr"]
     err_rev                = d["err_rev"]
     rel_stoch              = d["rel_stoch"]
+    x0_mse                 = d["x0_mse"]
     eps_hat_vals           = d["eps_hat_vals"]
     eps_vals               = d["eps_vals"]
     grad, t_mean, err_mean = d["grad"],  d["t_mean"], d["err_mean"]
@@ -662,6 +681,16 @@ def plot_and_save_diagnostics(
     t_max_val = float(t.max()) if len(t) > 0 else 1.0
     bin_edges, bin_means = error_by_t_bins(t, err, n_bins=10, t_max=t_max_val)
     bin_centers = 0.5 * (bin_edges[:-1] + bin_edges[1:])
+
+    # Interpretable x-axis for per-sample scatter plots (03b, 17).
+    # log σ(t) / log-SNR are more informative than raw t because they directly
+    # reflect the noise level rather than an abstract time index.
+    if sde_type in ("ve", "gbm"):
+        x_interp = np.log(sigma + 1e-8)    # log σ(t): ranges from log σ_min to log σ_max
+        x_label  = "log σ(t)"
+    else:                                   # vp, subvp
+        x_interp = np.log(snr + 1e-8)      # log(1/σ²) ≡ log-SNR
+        x_label  = "log-SNR  [log(1/σ²(t))]"
 
     diag_dir = os.path.join(diag_base_dir, f"epoch_{epoch:03d}")
     os.makedirs(diag_dir, exist_ok=True)
@@ -703,16 +732,19 @@ def plot_and_save_diagnostics(
     _save(fig, f"{epoch}_02_hist_err")
 
     # ---- 3. Scatter: relative error vs t ----------------------------
-    fig, ax = plt.subplots(figsize=(6, 4))
-    _scatter(ax, t, rel_err, "t  (continuous)", "relative error  |ε̂−ε| / |ε|", color="purple")
-    ax.set_title(f"{ep} — Relative error vs t")
-    _save(fig, f"{epoch}_03_scatter_rel_err_vs_t")
+    # REDUNDANT: relative error is dominated by near-zero ε values, making it
+    # misleading.  Plot 03b (absolute error) conveys the same signal more cleanly.
+    # fig, ax = plt.subplots(figsize=(6, 4))
+    # _scatter(ax, t, rel_err, "t  (continuous)", "relative error  |ε̂−ε| / |ε|", color="purple")
+    # ax.set_title(f"{ep} — Relative error vs t")
+    # _save(fig, f"{epoch}_03_scatter_rel_err_vs_t")
 
-    # ---- 3b. Scatter: absolute error vs t ---------------------------
-    fig, ax = plt.subplots(figsize=(6, 4))
-    _scatter(ax, t, err, "t  (continuous)", "mean |ε̂ − ε|  per sample", color="darkorange")
-    ax.set_title(f"{ep} — Absolute error vs t")
-    _save(fig, f"{epoch}_03b_scatter_abs_err_vs_t")
+    # ---- 3b. Scatter: absolute error vs noise-level axis ------------
+    if len(x_interp) == len(err):
+        fig, ax = plt.subplots(figsize=(6, 4))
+        _scatter(ax, x_interp, err, x_label, "mean |ε̂ − ε|  per sample", color="darkorange")
+        ax.set_title(f"{ep} — Absolute error vs {x_label}")
+        _save(fig, f"{epoch}_03b_scatter_abs_err_vs_noise_level")
 
     # ---- 4. Batch error vs grad norm: Pearson r + scatter -----------
     # if len(grad) > 1 and len(err_mean) == len(grad):
@@ -742,33 +774,35 @@ def plot_and_save_diagnostics(
     #     ax.set_title(f"{ep} — Gradient norm vs t")
     #     _save(fig, f"{epoch}_06_scatter_grad_vs_t")
 
-    # ---- 7. Histogram of σ(t) ---------------------------------------
-    if len(sigma) > 0:
-        fig, ax = plt.subplots(figsize=(6, 4))
-        _hist(ax, sigma, "σ(t)", color="navy")
-        ax.set_title(f"{ep} — σ(t) distribution")
-        _save(fig, f"{epoch}_07_hist_sigma")
+    # # ---- 7. Histogram of σ(t) ---------------------------------------
+    # if len(sigma) > 0:
+    #     fig, ax = plt.subplots(figsize=(6, 4))
+    #     _hist(ax, sigma, "σ(t)", color="navy")
+    #     ax.set_title(f"{ep} — σ(t) distribution")
+    #     _save(fig, f"{epoch}_07_hist_sigma")
 
     # ---- 8. Scatter: error vs σ(t) ----------------------------------
-    if len(sigma) == len(err):
-        fig, ax = plt.subplots(figsize=(6, 4))
-        _scatter(ax, sigma, err, "σ(t)", "mean |ε̂ − ε|  per sample", color="chocolate")
-        ax.set_title(f"{ep} — Error vs σ(t)")
-        _save(fig, f"{epoch}_08_scatter_err_vs_sigma")
+    # REDUNDANT: σ(t) is a monotone function of t, so this duplicates plot 03b
+    # (which now uses log σ / log-SNR directly).  Kept for reference only.
+    # if len(sigma) == len(err):
+    #     fig, ax = plt.subplots(figsize=(6, 4))
+    #     _scatter(ax, sigma, err, "σ(t)", "mean |ε̂ − ε|  per sample", color="chocolate")
+    #     ax.set_title(f"{ep} — Error vs σ(t)")
+    #     _save(fig, f"{epoch}_08_scatter_err_vs_sigma")
 
     # ---- 9. Histogram of g(t) ---------------------------------------
-    if len(g) > 0:
-        fig, ax = plt.subplots(figsize=(6, 4))
-        _hist(ax, g, "g(t)", color="darkred")
-        ax.set_title(f"{ep} — g(t) distribution")
-        _save(fig, f"{epoch}_09_hist_g")
+    # if len(g) > 0:
+    #     fig, ax = plt.subplots(figsize=(6, 4))
+    #     _hist(ax, g, "g(t)", color="darkred")
+    #     ax.set_title(f"{ep} — g(t) distribution")
+    #     _save(fig, f"{epoch}_09_hist_g")
 
-    # ---- 10. Scatter: g(t) vs σ(t) ----------------------------------
-    if len(g) > 0 and len(sigma) == len(g):
-        fig, ax = plt.subplots(figsize=(6, 4))
-        _scatter(ax, sigma, g, "σ(t)", "g(t)", color="indigo")
-        ax.set_title(f"{ep} — g(t) vs σ(t)")
-        _save(fig, f"{epoch}_10_scatter_g_vs_sigma")
+    # # ---- 10. Scatter: g(t) vs σ(t) ----------------------------------
+    # if len(g) > 0 and len(sigma) == len(g):
+    #     fig, ax = plt.subplots(figsize=(6, 4))
+    #     _scatter(ax, sigma, g, "σ(t)", "g(t)", color="indigo")
+    #     ax.set_title(f"{ep} — g(t) vs σ(t)")
+    #     _save(fig, f"{epoch}_10_scatter_g_vs_sigma")
 
     # ---- 11. Histogram of inferred score = −ε̂ / σ(t) ---------------
     if len(score) > 0:
@@ -796,23 +830,24 @@ def plot_and_save_diagnostics(
         _save(fig, f"{epoch}_12_bar_binned_err_vs_t")
 
     # ---- 13. Histogram of process SNR = 1 / σ²(t) -------------------
-    # Process SNR is monotone in t for all SDEs; high SNR = small noise = easy
-    # timestep for score estimation, hard for reconstructing fine structure.
-    # Note: this is the SDE-parameter-level SNR (data-scale-independent).
-    # Per-sample data SNR would be ||x0||²/σ²(t), requiring x0 in the collector.
-    if len(snr) > 0:
-        fig, ax = plt.subplots(figsize=(6, 4))
-        _hist(ax, snr, "process SNR = 1/σ²(t)", color="goldenrod")
-        ax.set_title(f"{ep} — Process SNR distribution")
-        _save(fig, f"{epoch}_13_hist_snr")
+    # REDUNDANT: SNR = 1/σ²(t) is a monotone function of t, so this histogram
+    # carries the same information as plot 01 (t distribution), just rescaled.
+    # if len(snr) > 0:
+    #     fig, ax = plt.subplots(figsize=(6, 4))
+    #     _hist(ax, snr, "process SNR = 1/σ²(t)", color="goldenrod")
+    #     ax.set_title(f"{ep} — Process SNR distribution")
+    #     _save(fig, f"{epoch}_13_hist_snr")
 
     # ---- 14. Scatter: error vs process SNR ---------------------------
-    if len(snr) > 0 and len(snr) == len(err):
-        fig, ax = plt.subplots(figsize=(6, 4))
-        _scatter(ax, snr, err, "process SNR = 1/σ²(t)", "mean |ε̂ − ε|  per sample",
-                 color="goldenrod")
-        ax.set_title(f"{ep} — Error vs process SNR")
-        _save(fig, f"{epoch}_14_scatter_err_vs_snr")
+    # REDUNDANT: log-SNR is used as the x-axis of plot 03b for VP/subVP SDEs,
+    # and SNR = e^{-2 log σ} is a monotone function of log σ used for VE/GBM.
+    # Either way, 03b captures the same error-vs-noise-level relationship.
+    # if len(snr) > 0 and len(snr) == len(err):
+    #     fig, ax = plt.subplots(figsize=(6, 4))
+    #     _scatter(ax, snr, err, "process SNR = 1/σ²(t)", "mean |ε̂ − ε|  per sample",
+    #              color="goldenrod")
+    #     ax.set_title(f"{ep} — Error vs process SNR")
+    #     _save(fig, f"{epoch}_14_scatter_err_vs_snr")
 
     # ---- 15. Scatter: ε̂ vs ε  (signed, subsampled) ------------------
     # Identity line y=x means perfect prediction; cloud width = residual noise.
@@ -855,13 +890,13 @@ def plot_and_save_diagnostics(
     # = per-element RMS displacement error in one Euler-Maruyama reverse step.
     # Steep rise at large t → coarse-scale reconstruction is unreliable.
     # Steep rise at small t → fine-structure prediction is unreliable.
-    if len(err_rev) > 0 and len(err_rev) == len(t):
+    if len(err_rev) > 0 and len(err_rev) == len(t) and len(x_interp) == len(err_rev):
         fig, ax = plt.subplots(figsize=(6, 4))
-        _scatter(ax, t, err_rev,
-                 "t  (continuous)", "err_rev = g²/σ · mean|ε̂−ε| · Δt  per sample",
+        _scatter(ax, x_interp, err_rev,
+                 x_label, "err_rev = g²/σ · mean|ε̂−ε| · Δt  per sample",
                  color="mediumorchid")
-        ax.set_title(f"{ep} — Reverse-step drift error vs t")
-        _save(fig, f"{epoch}_17_scatter_err_rev_vs_t")
+        ax.set_title(f"{ep} — Reverse-step drift error vs {x_label}")
+        _save(fig, f"{epoch}_17_scatter_err_rev_vs_noise_level")
         # print a concise numerical summary so the log captures R statistics
         # even without opening the plot
         if len(rel_stoch) > 0:
@@ -874,6 +909,40 @@ def plot_and_save_diagnostics(
                 f"max={rel_stoch.max():.3e}  "
                 f"— fraction R≥1: {(rel_stoch >= 1.0).mean()*100:.1f}%"
             )
+
+    # ---- 18. Bar chart: x0 reconstruction MSE per σ(t) bin ----------
+    # Uses ||hat_x0 - x0||^2 = (σ/mean_coeff)^2 · ||ε - ε̂||^2 (algebraic identity).
+    # Bins by actual σ(t) value rather than by t, so the x-axis directly shows
+    # the noise level at which the model struggles to reconstruct x0.
+    if len(x0_mse) > 0 and len(sigma) == len(x0_mse):
+        _s_min = float(sigma.min())
+        _s_max = float(sigma.max())
+        _n_bins = 10
+        _edges = np.linspace(_s_min, _s_max, _n_bins + 1)
+        _centers = 0.5 * (_edges[:-1] + _edges[1:])
+        _bin_mse = []
+        for _lo, _hi in zip(_edges[:-1], _edges[1:]):
+            _in = (sigma >= _lo) & (sigma < _hi)
+            _bin_mse.append(float(x0_mse[_in].mean()) if _in.any() else float("nan"))
+        _bin_mse = np.array(_bin_mse)
+
+        fig, ax = plt.subplots(figsize=(7, 4))
+        _bw = (_edges[1] - _edges[0]) * 0.85
+        _bars = ax.bar(_centers, _bin_mse, width=_bw, color="teal", edgecolor="none")
+        for _bar, _val in zip(_bars, _bin_mse):
+            if np.isnan(_val):
+                ax.text(_bar.get_x() + _bar.get_width() / 2, 0,
+                        "∅", ha="center", va="bottom", fontsize=8, color="gray")
+        ax.set_xlabel("σ(t)  (bin centre)")
+        ax.set_ylabel("mean ||x̂₀ − x₀||²  per bin")
+        ax.set_title(f"{ep} — x₀ reconstruction MSE by σ(t)")
+        _save(fig, f"{epoch}_18_bar_x0_mse_vs_sigma")
+
+        # text summary — printed even without opening the PNG
+        _valid = [(c, m) for c, m in zip(_centers, _bin_mse) if not np.isnan(m)]
+        if _valid:
+            _parts = "  ".join(f"σ≈{c:.3f}:{m:.3e}" for c, m in _valid)
+            print(f"  [x0-mse] per-σ bin: {_parts}")
 
     print(f"  [diagnostics] {len(saved)} plots saved → {diag_dir}")
 
@@ -1376,9 +1445,34 @@ def train(
                 if log_this_batch:
                     print(f"  eps_hat | norm={eps_hat.norm().item():.4f}  mean={eps_hat.mean().item():.4f}  std={eps_hat.std().item():.4f}  min={eps_hat.min().item():.4f}  max={eps_hat.max().item():.4f}  median={eps_hat.median().item():.4f}")
                     print(f"  eps     | norm={eps.norm().item():.4f}  mean={eps.mean().item():.4f}  std={eps.std().item():.4f}  min={eps.min().item():.4f}  max={eps.max().item():.4f}  median={eps.median().item():.4f}")
+                    _a = eps.detach().float().view(-1);  _a = _a - _a.mean()
+                    _b = eps_hat.detach().float().view(-1);  _b = _b - _b.mean()
+                    print(f"  corr(ε, ε̂) = {float((_a * _b).sum() / (_a.norm() * _b.norm() + 1e-8)):.4f}")
 
             # capture eps_hat before backward releases the computation graph
             _diag_eps_hat = eps_hat.detach().float() if collect_diag else None
+
+            # Collapse detection — every batch, regardless of debug mode.
+            # Fires when std(ε̂) < 10 % of std(ε): model is hedging toward zero
+            # rather than predicting the noise distribution.
+            with torch.no_grad():
+                _std_hat = eps_hat.detach().float().std().item()
+                _std_eps = eps.float().std().item()
+                if _std_hat < 0.1 * (_std_eps + 1e-8):
+                    print(f"  [COLLAPSE step={global_step}]  std(ε̂)={_std_hat:.4f}  "
+                          f"std(ε)={_std_eps:.4f}  ratio={_std_hat / (_std_eps + 1e-8):.3f}")
+
+            # mean_coeff(t): needed for x0 reconstruction MSE diagnostic.
+            # VP/SubVP SDEs expose .mean_coeff(t); VE/GBM have mean_coeff = 1.
+            if collect_diag:
+                with torch.no_grad():
+                    _mean_coeff_t = (
+                        processes.sde.mean_coeff(t_cont)
+                        if hasattr(processes.sde, "mean_coeff")
+                        else torch.ones_like(sigma_t)
+                    )
+            else:
+                _mean_coeff_t = None
 
             loss_val = float(loss.detach().item())
             epoch_loss_sum += loss_val
@@ -1421,6 +1515,7 @@ def train(
                     target_mask=target_mask,
                     grad_norm=float(grad_norm),
                     g_t=g_t,
+                    mean_coeff_t=_mean_coeff_t,
                 )
 
             global_step += 1
@@ -1540,7 +1635,16 @@ def train(
                         if log_this_val_batch:
                             print(f"  eps_hat | norm={eps_hat.norm().item():.4f}  mean={eps_hat.mean().item():.4f}  std={eps_hat.std().item():.4f}  min={eps_hat.min().item():.4f}  max={eps_hat.max().item():.4f}  median={eps_hat.median().item():.4f}")
                             print(f"  eps     | norm={eps.norm().item():.4f}  mean={eps.mean().item():.4f}  std={eps.std().item():.4f}  min={eps.min().item():.4f}  max={eps.max().item():.4f}  median={eps.median().item():.4f}")
+                            _va = eps.float().view(-1);        _va = _va - _va.mean()
+                            _vb = eps_hat.float().view(-1);    _vb = _vb - _vb.mean()
+                            print(f"  corr(ε, ε̂) = {float((_va * _vb).sum() / (_va.norm() * _vb.norm() + 1e-8)):.4f}")
 
+                    # Collapse detection — every val batch, regardless of debug mode.
+                    _std_hat_v = eps_hat.float().std().item()
+                    _std_eps_v = eps.float().std().item()
+                    if _std_hat_v < 0.1 * (_std_eps_v + 1e-8):
+                        print(f"  [COLLAPSE val step={val_batch_idx}]  std(ε̂)={_std_hat_v:.4f}  "
+                              f"std(ε)={_std_eps_v:.4f}  ratio={_std_hat_v / (_std_eps_v + 1e-8):.3f}")
 
                     val_loss_sum += float(val_loss.item())
                     val_loss_count += 1
@@ -1557,6 +1661,7 @@ def train(
                 diag_base_dir=diag_base_dir,
                 use_wandb=use_wandb,   # images saved locally only; export from HPC manually
                 global_step=global_step,
+                sde_type=config["process"]["sde_type"],
             )
 
         history["epoch_losses"].append({
