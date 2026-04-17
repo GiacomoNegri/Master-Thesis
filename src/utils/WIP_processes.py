@@ -80,26 +80,26 @@ def _expand_batch_vector_to(x: torch.Tensor, vec: torch.Tensor) -> torch.Tensor:
 # TimeMapper to combine the discrete expecatation from the model
 # with the continuous of the model
 ###########################################
-class TimeMapper:
-    """
-    Defines the bijection between:
-      - continuous SDE time t_cont in [0, T]
-      - discrete model timestep t_idx in {0, ..., S-1}
-    """
-    def __init__(self, T: float, S: int):
-        self.T = float(T)
-        self.S = int(S)
+# class TimeMapper:
+#     """
+#     Defines the bijection between:
+#       - continuous SDE time t_cont in [0, T]
+#       - discrete model timestep t_idx in {0, ..., S-1}
+#     """
+#     def __init__(self, T: float, S: int):
+#         self.T = float(T)
+#         self.S = int(S)
 
-    def cont_to_idx(self, t_cont: torch.Tensor) -> torch.Tensor:
-        # t_cont: (B,) float in [0, T]
-        t01 = (t_cont / self.T).clamp(0.0, 1.0)
-        idx = torch.round(t01 * (self.S - 1)).long()
-        return idx.clamp(0, self.S - 1)
+#     def cont_to_idx(self, t_cont: torch.Tensor) -> torch.Tensor:
+#         # t_cont: (B,) float in [0, T]
+#         t01 = (t_cont / self.T).clamp(0.0, 1.0)
+#         idx = torch.round(t01 * (self.S - 1)).long()
+#         return idx.clamp(0, self.S - 1)
 
-    def idx_to_cont(self, t_idx: torch.Tensor) -> torch.Tensor:
-        # t_idx: (B,) long in [0, S-1]
-        t01 = t_idx.float() / (self.S - 1)
-        return t01 * self.T
+#     def idx_to_cont(self, t_idx: torch.Tensor) -> torch.Tensor:
+#         # t_idx: (B,) long in [0, S-1]
+#         t01 = t_idx.float() / (self.S - 1)
+#         return t01 * self.T
 
 
 class Diffusion_Processes:
@@ -341,7 +341,7 @@ class Diffusion_Processes:
         _run_consistency = debug and probability_flow and (disc_out is not None)
 
         # Time discretization from T -> 0
-        for i in range(num_steps):
+        for i in range(num_steps-1):
             t_i = ts[i].expand(B)
             f, G = rsde.discretize(x, t_i, labels=None)  # f: (B, ...), G: (B,)
 
@@ -358,7 +358,7 @@ class Diffusion_Processes:
 
             G_b = _expand_batch_vector_to(x, G)
 
-            if probability_flow or i == 0:
+            if probability_flow:# or i == 0:
                 noise = 0.0
             else:
                 noise = torch.randn_like(x)
