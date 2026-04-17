@@ -31,7 +31,7 @@ def process_files(
     folder_name: str,
     compute_returns: bool = False,
     normalization: str = "none",
-    seq_len: int = 24,
+    seq_len: int = 2048,
 ) -> None:
     out_folder = build_out_folder(folder_name, compute_returns, normalization)
     os.makedirs(out_folder, exist_ok=True)
@@ -47,6 +47,7 @@ def process_files(
         if compute_returns:
             df["log_adj_close"] = np.log(df["adj_close"] / df["adj_close"].shift(1))
             df = df.dropna(subset=["log_adj_close"])
+            df = df.drop(columns=["adj_close"])
         file_data[filename] = df
 
     # Normalization

@@ -1170,6 +1170,14 @@ def build_final_checkpoint_name(
         data_root = "REPL_RET_OTHER"
     elif data_root == "./data/log_replication":
         data_root = "REPL_LOG"
+    elif data_root == "./data/filtered_windows/low_zero_windows":
+        data_root = "REPL_LOW_ZERO"
+    elif data_root == "./data/filtered_windows/high_zero_windows":
+        data_root = "REPL_HIGH_ZERO"
+    elif data_root == "./data/filtered_windows/moderate_variance_windows":
+        data_root = "REPL_LOW_VAR"
+    elif data_root == "./data/filtered_windows/high_variance_windows":
+        data_root = "REPL_HIGH_VAR"
     else:
         data_root = "REPL"
     mask_mode = str(config['train']['mask_mode'])
@@ -1412,7 +1420,17 @@ def train(
 
             if log_this_batch:
                 print(f"\n[debug | epoch {epoch+1} | train | batch 0]")
-                print(f"  data  | mean={observed_data.mean():.4f}  std={observed_data.std():.4f}  min={observed_data.min():.4f}  max={observed_data.max():.4f}")
+                _d    = observed_data.float()
+                _flat = _d.flatten()
+                print(f"  data  | mean={_flat.mean():.4f}  std={_flat.std():.4f}  "
+                      f"min={_flat.min():.4f}  max={_flat.max():.4f}  "
+                      f"p5={_flat.quantile(0.05):.4f}  p50={_flat.quantile(0.50):.4f}  p95={_flat.quantile(0.95):.4f}")
+                _win_mean = _d.mean(dim=-1).flatten()   # (B*K,) — per-window mean over L timesteps
+                _win_std  = _d.std(dim=-1).flatten()    # (B*K,) — per-window std  over L timesteps
+                print(f"  win μ | mean={_win_mean.mean():.4f}  std={_win_mean.std():.4f}  "
+                      f"p5={_win_mean.quantile(0.05):.4f}  p50={_win_mean.quantile(0.50):.4f}  p95={_win_mean.quantile(0.95):.4f}")
+                print(f"  win σ | mean={_win_std.mean():.4f}  std={_win_std.std():.4f}  "
+                      f"p5={_win_std.quantile(0.05):.4f}  p50={_win_std.quantile(0.50):.4f}  p95={_win_std.quantile(0.95):.4f}")
 
             # conditioning mask
             mask_mode = config["train"].get("mask_mode", "random")
@@ -1611,7 +1629,17 @@ def train(
 
                     if log_this_val_batch:
                         print(f"\n[debug | epoch {epoch+1} | val | batch 0]")
-                        print(f"  data  | mean={observed_data.mean():.4f}  std={observed_data.std():.4f}  min={observed_data.min():.4f}  max={observed_data.max():.4f}")
+                        _d    = observed_data.float()
+                        _flat = _d.flatten()
+                        print(f"  data  | mean={_flat.mean():.4f}  std={_flat.std():.4f}  "
+                              f"min={_flat.min():.4f}  max={_flat.max():.4f}  "
+                              f"p5={_flat.quantile(0.05):.4f}  p50={_flat.quantile(0.50):.4f}  p95={_flat.quantile(0.95):.4f}")
+                        _win_mean = _d.mean(dim=-1).flatten()
+                        _win_std  = _d.std(dim=-1).flatten()
+                        print(f"  win μ | mean={_win_mean.mean():.4f}  std={_win_mean.std():.4f}  "
+                              f"p5={_win_mean.quantile(0.05):.4f}  p50={_win_mean.quantile(0.50):.4f}  p95={_win_mean.quantile(0.95):.4f}")
+                        print(f"  win σ | mean={_win_std.mean():.4f}  std={_win_std.std():.4f}  "
+                              f"p5={_win_std.quantile(0.05):.4f}  p50={_win_std.quantile(0.50):.4f}  p95={_win_std.quantile(0.95):.4f}")
 
                     if config["model"]["is_unconditional"] or mask_mode == "unconditional":
                         cond_mask = torch.zeros_like(observed_mask)
