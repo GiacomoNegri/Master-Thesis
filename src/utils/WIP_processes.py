@@ -7,6 +7,61 @@ import matplotlib.pyplot as plt
 from src.utils.WIP_SDE import SDE, BetaScheduleSDE, SigmaSchedule, SubVPSDE, VESDE, VPSDE, GBMLogSDE
 
 
+# ---------------------------------------------------------------------------
+# Reverse-step consistency diagnostic
+# ---------------------------------------------------------------------------
+
+@torch.no_grad()
+def _ode_consistency_discrepancy(
+    rsde,
+    x: torch.Tensor,
+    t_i: torch.Tensor,
+    f_full: torch.Tensor,
+    dt_actual: float,
+) -> dict:
+    """
+    Local reverse-step consistency check for deterministic ODE sampling.
+
+    Compares two ways of advancing from state *x* at time *t_i*:
+      (1) One full Euler step:
+              x_full = x - f_full
+      (2) Two consecutive half-steps:
+              x_mid  = x - f_full * 0.5                   (no extra model call)
+              f2, _  = rsde.discretize(x_mid, t_mid)      (one extra model call)
+              x_2h   = x_mid - f2 * 0.5
+
+    For a first-order ODE integrator the discrepancy |x_full - x_2h| is O(dt^2)
+    and acts as a proxy for local truncation error.
+
+    Args:
+        rsde:       Reverse SDE (must expose .discretize(x, t, labels=None)).
+        x:          Current state, shape (B, K, L).
+        t_i:        Current time vector, shape (B,).
+        f_full:     Pre-computed full-step drift f = drift(x, t) * dt_sde, same shape as x.
+        dt_actual:  Actual time-grid step size (T → eps direction) used to place t_mid.
+
+    Returns:
+        dict with float keys "l2", "mae", "max_ae".
+    """
+    # Full step (reuse already-computed f)
+    x_full = x - f_full
+
+    # First half step — scale f_full, no model call
+    x_mid = x - f_full * 0.5
+
+    # Second half step — one extra model call at the midpoint time
+    t_mid = (t_i - dt_actual * 0.5).clamp(min=0.0)
+    f2, _ = rsde.discretize(x_mid, t_mid, labels=None)
+    x_2h = x_mid - f2 * 0.5
+
+    diff = (x_full - x_2h).float()
+    return {
+        "l2":     diff.norm().item(),
+        "mae":    diff.abs().mean().item(),
+        "max_ae": diff.abs().max().item(),
+    }
+
+
 def _expand_batch_vector_to(x: torch.Tensor, vec: torch.Tensor) -> torch.Tensor:
     """
     Expand a (B,) vector to match the shape of x (B, C, H, W, ...).
@@ -167,6 +222,8 @@ class Diffusion_Processes:
         num_steps: int = None,
         probability_flow: bool = False,
         device: torch.device = None,
+        debug: bool = False,
+        disc_out: list = None,
         # labels: torch.Tensor = None,
     ):
         """
@@ -271,16 +328,33 @@ class Diffusion_Processes:
         print(f"Check prior {self.sde_type}: Mean = {x.mean()}, Std = {x.std()}")
         ts = torch.linspace(T,self.eps_time, num_steps, device = device)
 
+        # Step size for the actual time grid (used by the consistency diagnostic)
+        dt_actual = float((T - self.eps_time) / max(num_steps - 1, 1))
+
         k = max(num_steps//10, 1)
         start_time = time.time()
 
         # Tracks (t_value, global_std, dx_norm) at each logging checkpoint
         std_trajectory = []
 
+        # Whether to run the ODE consistency check this run
+        _run_consistency = debug and probability_flow and (disc_out is not None)
+
         # Time discretization from T -> 0
         for i in range(num_steps):
             t_i = ts[i].expand(B)
             f, G = rsde.discretize(x, t_i, labels=None)  # f: (B, ...), G: (B,)
+
+            # ---- ODE consistency diagnostic (debug + probability_flow only) ----
+            if _run_consistency and (i % k == 0):
+                disc = _ode_consistency_discrepancy(rsde, x, t_i, f, dt_actual)
+                disc["step"] = i
+                disc["t"]    = t_i[0].item()
+                disc_out.append(disc)
+                print(
+                    f"  [consistency | step {i+1:4d}/{num_steps} | t={disc['t']:.4f}]"
+                    f"  L2={disc['l2']:.4e}  MAE={disc['mae']:.4e}  max_AE={disc['max_ae']:.4e}"
+                )
 
             G_b = _expand_batch_vector_to(x, G)
 

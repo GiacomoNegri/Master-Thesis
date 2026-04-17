@@ -6,7 +6,7 @@ Run:
         --checkpoint_folder replication \
         --checkpoint_name   MY.pt \
         --n_samples         250 \
-        --years_per_sample  39 \
+        # --years_per_sample  39 \
         --seed              42
 
 Output CSVs land in:
@@ -69,8 +69,8 @@ def parse_args():
     # Date range for output CSVs
     p.add_argument("--start_date", type=str, default="1986-01-01")
     p.add_argument("--end_date",   type=str, default="2025-12-31")
-    p.add_argument("--years_per_sample", type=int, default=1,
-                   help="Number of years of business days each sample covers.")
+    # p.add_argument("--years_per_sample", type=int, default=1,
+    #                help="Number of years of business days each sample covers.")
     p.add_argument("--seed", type=int, default=42,
                    help="Random seed for start-date sampling (-1 for a random seed).")
 
@@ -87,6 +87,12 @@ def parse_args():
     p.add_argument("--wandb_project",  type=str, default=None)
     p.add_argument("--wandb_entity",   type=str, default=None)
     p.add_argument("--wandb_run_name", type=str, default=None)
+
+    # Debug mode: enables ODE reverse-step consistency diagnostic
+    p.add_argument("--debug", action="store_true", default=False,
+                   help="Run ODE reverse-step consistency diagnostic and log to W&B.")
+    p.add_argument("--probability_flow", action="store_true", default=False,
+                   help="Use probability-flow ODE sampler (required for consistency diagnostic).")
 
     return p.parse_args()
 
@@ -186,6 +192,10 @@ def main():
              .expand(N_SAMPLES, -1)
     )
 
+    use_ode   = args.probability_flow
+    run_debug = args.debug and use_ode
+    disc_out  = [] if run_debug else None
+
     samples = processes.reverse_process(
         model            = model,
         shape            = (N_SAMPLES, target_dim, seq_len),
@@ -193,11 +203,52 @@ def main():
         cond_mask        = cond_mask,
         observed_tp      = observed_tp,
         num_steps        = num_reverse_steps,
-        probability_flow = False,
+        probability_flow = use_ode,
         device           = device,
+        debug            = run_debug,
+        disc_out         = disc_out,
     )  # → (N_SAMPLES, 1, L)
     print("Reverse diffusion completed. Samples shape:", samples.shape)
     print('Samples head:\n', samples[:2, 0, :5])  # print first 5 values of first 2 samples
+
+    # ── ODE consistency diagnostic summary ───────────────────────────────────
+    if run_debug and disc_out:
+        l2s     = np.array([d["l2"]     for d in disc_out])
+        maes    = np.array([d["mae"]    for d in disc_out])
+        max_aes = np.array([d["max_ae"] for d in disc_out])
+
+        summary = {
+            "consistency/l2_mean":     float(l2s.mean()),
+            "consistency/l2_p50":      float(np.percentile(l2s,  50)),
+            "consistency/l2_p95":      float(np.percentile(l2s,  95)),
+            "consistency/l2_max":      float(l2s.max()),
+            "consistency/mae_mean":    float(maes.mean()),
+            "consistency/mae_p50":     float(np.percentile(maes, 50)),
+            "consistency/mae_p95":     float(np.percentile(maes, 95)),
+            "consistency/mae_max":     float(maes.max()),
+            "consistency/max_ae_mean": float(max_aes.mean()),
+            "consistency/max_ae_p50":  float(np.percentile(max_aes, 50)),
+            "consistency/max_ae_p95":  float(np.percentile(max_aes, 95)),
+            "consistency/max_ae_max":  float(max_aes.max()),
+        }
+
+        print("\n=== Reverse-step ODE consistency summary ===")
+        for metric, val in summary.items():
+            print(f"  {metric}: {val:.4e}")
+
+        # Per-step trajectory logged as wandb metrics (step = reverse step index)
+        for d in disc_out:
+            if wandb.run is not None:
+                wandb.log({
+                    "consistency/step_l2":     d["l2"],
+                    "consistency/step_mae":    d["mae"],
+                    "consistency/step_max_ae": d["max_ae"],
+                    "consistency/t":           d["t"],
+                }, step=d["step"])
+
+        # Summary scalars
+        if wandb.run is not None:
+            wandb.log(summary)
 
     samples_global_mean = samples.mean().item()
     samples_global_std  = samples.std().item()
