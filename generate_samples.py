@@ -213,42 +213,83 @@ def main():
 
     # ── ODE consistency diagnostic summary ───────────────────────────────────
     if run_debug and disc_out:
-        l2s     = np.array([d["l2"]     for d in disc_out])
-        maes    = np.array([d["mae"]    for d in disc_out])
-        max_aes = np.array([d["max_ae"] for d in disc_out])
+        steps    = np.array([d["step"]       for d in disc_out])
+        ts_diag  = np.array([d["t"]          for d in disc_out])
+        l2s      = np.array([d["l2"]         for d in disc_out])
+        maes     = np.array([d["mae"]        for d in disc_out])
+        max_aes  = np.array([d["max_ae"]     for d in disc_out])
+        cum_l2s  = np.array([d["cum_l2_sum"] for d in disc_out])  # Σ L2_i up to each check
+        cum_rmss = np.array([d["cum_rms"]    for d in disc_out])  # running RMS of L2s
 
         summary = {
-            "consistency/l2_mean":     float(l2s.mean()),
-            "consistency/l2_p50":      float(np.percentile(l2s,  50)),
-            "consistency/l2_p95":      float(np.percentile(l2s,  95)),
-            "consistency/l2_max":      float(l2s.max()),
-            "consistency/mae_mean":    float(maes.mean()),
-            "consistency/mae_p50":     float(np.percentile(maes, 50)),
-            "consistency/mae_p95":     float(np.percentile(maes, 95)),
-            "consistency/mae_max":     float(maes.max()),
-            "consistency/max_ae_mean": float(max_aes.mean()),
-            "consistency/max_ae_p50":  float(np.percentile(max_aes, 50)),
-            "consistency/max_ae_p95":  float(np.percentile(max_aes, 95)),
-            "consistency/max_ae_max":  float(max_aes.max()),
+            "consistency/l2_mean":         float(l2s.mean()),
+            "consistency/l2_p50":          float(np.percentile(l2s,  50)),
+            "consistency/l2_p95":          float(np.percentile(l2s,  95)),
+            "consistency/l2_max":          float(l2s.max()),
+            "consistency/mae_mean":        float(maes.mean()),
+            "consistency/mae_p50":         float(np.percentile(maes, 50)),
+            "consistency/mae_p95":         float(np.percentile(maes, 95)),
+            "consistency/mae_max":         float(maes.max()),
+            "consistency/max_ae_mean":     float(max_aes.mean()),
+            "consistency/max_ae_p50":      float(np.percentile(max_aes, 50)),
+            "consistency/max_ae_p95":      float(np.percentile(max_aes, 95)),
+            "consistency/max_ae_max":      float(max_aes.max()),
+            # Cumulative trajectory stability
+            "consistency/cum_l2_final":    float(cum_l2s[-1]),   # total accumulated L2
+            "consistency/cum_rms_final":   float(cum_rmss[-1]),  # RMS of L2s at end of path
         }
 
         print("\n=== Reverse-step ODE consistency summary ===")
         for metric, val in summary.items():
             print(f"  {metric}: {val:.4e}")
 
-        # Per-step trajectory logged as wandb metrics (step = reverse step index)
+        # Per-step trajectory: local + cumulative metrics (step = reverse step index)
         for d in disc_out:
             if wandb.run is not None:
                 wandb.log({
-                    "consistency/step_l2":     d["l2"],
-                    "consistency/step_mae":    d["mae"],
-                    "consistency/step_max_ae": d["max_ae"],
-                    "consistency/t":           d["t"],
+                    "consistency/step_l2":       d["l2"],
+                    "consistency/step_mae":      d["mae"],
+                    "consistency/step_max_ae":   d["max_ae"],
+                    "consistency/step_cum_l2":   d["cum_l2_sum"],
+                    "consistency/step_cum_rms":  d["cum_rms"],
+                    "consistency/t":             d["t"],
                 }, step=d["step"])
 
         # Summary scalars
         if wandb.run is not None:
             wandb.log(summary)
+
+        # ── Cumulative trajectory stability plot ─────────────────────────────
+        # Two panels: (top) cumulative L2 sum, (bottom) running RMS.
+        # A bounded/flat curve → local errors stay controlled across the path.
+        # A steadily rising curve → errors accumulate and may corrupt the sample.
+        fig_ct, (ax_top, ax_bot) = plt.subplots(2, 1, figsize=(10, 5), sharex=True)
+
+        ax_top.plot(steps, cum_l2s, marker="o", markersize=3, color="steelblue")
+        ax_top.set_ylabel("Cumulative L2 sum  Σ L2_i")
+        ax_top.set_title("ODE reverse-step trajectory stability")
+        ax_top.grid(True, linewidth=0.4)
+
+        ax_bot.plot(steps, cum_rmss, marker="o", markersize=3, color="darkorange")
+        ax_bot.set_ylabel("Running RMS of L2")
+        ax_bot.set_xlabel("Reverse step index  (0 = start at T)")
+        ax_bot.grid(True, linewidth=0.4)
+
+        # Secondary x-axis showing diffusion time t (decreasing)
+        ax_top2 = ax_top.twiny()
+        ax_top2.set_xlim(ax_top.get_xlim())
+        tick_idx = np.linspace(0, len(steps) - 1, min(6, len(steps)), dtype=int)
+        ax_top2.set_xticks(steps[tick_idx])
+        ax_top2.set_xticklabels([f"{ts_diag[j]:.3f}" for j in tick_idx], fontsize=7)
+        ax_top2.set_xlabel("Diffusion time t  (T → ε)", fontsize=8)
+
+        plt.tight_layout()
+        traj_path = os.path.join(out_dir, "consistency_trajectory.png")
+        fig_ct.savefig(traj_path, dpi=120)
+        print(f"  [consistency] Trajectory plot saved to {traj_path}")
+        if wandb.run is not None:
+            wandb.log({"consistency/trajectory_plot": wandb.Image(traj_path)})
+        plt.close(fig_ct)
 
     samples_global_mean = samples.mean().item()
     samples_global_std  = samples.std().item()

@@ -340,6 +340,15 @@ class Diffusion_Processes:
         # Whether to run the ODE consistency check this run
         _run_consistency = debug and probability_flow and (disc_out is not None)
 
+        # Running accumulators for cumulative trajectory diagnostics.
+        # Updated at every consistency-check step:
+        #   _cum_l2_sum : Σ L2_i   — total accumulated local error
+        #   _cum_sq_sum : Σ L2_i²  — used to derive running RMS
+        #   _n_disc     : number of checks seen so far
+        _cum_l2_sum: float = 0.0
+        _cum_sq_sum: float = 0.0
+        _n_disc:     int   = 0
+
         # Time discretization from T -> 0
         for i in range(num_steps-1):
             t_i = ts[i].expand(B)
@@ -350,10 +359,19 @@ class Diffusion_Processes:
                 disc = _ode_consistency_discrepancy(rsde, x, t_i, f, dt_actual)
                 disc["step"] = i
                 disc["t"]    = t_i[0].item()
+
+                # Cumulative trajectory stability metrics
+                _cum_l2_sum += disc["l2"]
+                _cum_sq_sum += disc["l2"] ** 2
+                _n_disc     += 1
+                disc["cum_l2_sum"] = _cum_l2_sum                        # Σ L2_i
+                disc["cum_rms"]    = (_cum_sq_sum / _n_disc) ** 0.5     # RMS of L2s seen so far
+
                 disc_out.append(disc)
                 print(
                     f"  [consistency | step {i+1:4d}/{num_steps} | t={disc['t']:.4f}]"
                     f"  L2={disc['l2']:.4e}  MAE={disc['mae']:.4e}  max_AE={disc['max_ae']:.4e}"
+                    f"  cum_L2={disc['cum_l2_sum']:.4e}  cum_RMS={disc['cum_rms']:.4e}"
                 )
 
             G_b = _expand_batch_vector_to(x, G)

@@ -152,6 +152,8 @@ def parse_args():
                         help="Stop training if val loss does not improve for this many epochs. Requires val_split_ratio. 0 or omit to disable.")
     parser.add_argument("--likelihood_weighting", type=str2bool, default=None,
                         help="If true, apply Song's likelihood weighting λ(t)=g(t)²/σ²(t) to the MSE loss. If false, use plain MSE.")
+    parser.add_argument("--normalization", type=str2bool, default=None,
+                        help="If true, z-score normalize each window per feature before training (mean=0, std=1 per (K,) channel across the L time steps).")
     parser.add_argument("--debug", type=str2bool, default=None,
                         help="If true, print per-batch sigma / err / eps diagnostics. If false, only loss is printed.")
     parser.add_argument("--print_plots", type=str2bool, default=None,
@@ -277,6 +279,8 @@ def build_cli_override_dict(args) -> Dict[str, Any]:
         override["train"]["mask_mode"] = args.mask_mode
     if args.likelihood_weighting is not None:
         override["train"]["likelihood_weighting"] = args.likelihood_weighting
+    if args.normalization is not None:
+        override["train"]["normalization"] = args.normalization
     if args.debug is not None:
         override["train"]["debug"] = args.debug
     if args.print_plots is not None:
@@ -390,6 +394,18 @@ def unpack_batch(batch: Any, device: torch.device) -> Tuple[torch.Tensor, torch.
         observed_mask.to(device),
         observed_tp.to(device),
     )
+
+
+def zscore_normalize_windows(observed_data: torch.Tensor) -> torch.Tensor:
+    """
+    Z-score normalize each window independently per feature channel.
+
+    observed_data: (B, K, L)
+    Returns:       (B, K, L)  with mean≈0, std≈1 along the L dimension for each (b, k).
+    """
+    mu  = observed_data.mean(dim=2, keepdim=True)          # (B, K, 1)
+    std = observed_data.std(dim=2, keepdim=True).clamp(min=1e-8)  # (B, K, 1)
+    return (observed_data - mu) / std
 
 
 # ----------------------------
@@ -1390,6 +1406,8 @@ def train(
 
         for batch_idx, batch in pbar:
             observed_data, observed_mask, observed_tp = unpack_batch(batch, device)
+            if config["train"].get("normalization", False):
+                observed_data = zscore_normalize_windows(observed_data)
             log_this_batch = debug and (batch_idx == 0)
 
             if log_this_batch:
@@ -1587,6 +1605,8 @@ def train(
             with torch.no_grad():
                 for val_batch_idx, val_batch in enumerate(val_loader):
                     observed_data, observed_mask, observed_tp = unpack_batch(val_batch, device)
+                    if config["train"].get("normalization", False):
+                        observed_data = zscore_normalize_windows(observed_data)
                     log_this_val_batch = debug and (val_batch_idx == 0)
 
                     if log_this_val_batch:
