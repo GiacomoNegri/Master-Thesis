@@ -27,6 +27,16 @@ import numpy as np
 import pandas as pd
 
 # ---------------------------------------------------------------------------
+# Quantile configuration for central-band ("low") subsets
+# Adjust these to change what counts as "low variance" / "low kurtosis".
+# ---------------------------------------------------------------------------
+MID_LOWER_Q: float = 0.40   # lower bound (as a fraction, 0–1)
+MID_UPPER_Q: float = 0.60   # upper bound (as a fraction, 0–1)
+
+# Boundary date for post/pre-2001 splits (ISO string, inclusive upper bound for pre).
+SPLIT_DATE: str = "2001-12-31"
+
+# ---------------------------------------------------------------------------
 # Path setup
 # The script lives at src/utils/, so we go two levels up to reach the
 # project root, which makes "from src.utils.dataloader import ..." work
@@ -123,12 +133,40 @@ def collect_windows(dataset: SP500WindowDataset) -> list[dict]:
     return records
 
 
+def _excess_kurtosis(x: np.ndarray) -> float:
+    """
+    Excess kurtosis (Fisher definition): 0 for a normal distribution, positive
+    for fat-tailed distributions.  Uses the population formula (ddof=0) to stay
+    consistent with np.var used for variance.
+    """
+    sigma = float(x.std())
+    if sigma == 0.0:
+        return 0.0
+    return float((((x - x.mean()) / sigma) ** 4).mean() - 3.0)
+
+
 def add_stats(records: list[dict]) -> list[dict]:
-    """Augment each record with zero_ratio and variance."""
+    """Augment each record with zero_ratio, variance, and excess kurtosis."""
     for r in records:
         vals = r["values"]
         r["zero_ratio"] = float(np.mean(vals == 0.0))
         r["variance"]   = float(np.var(vals))
+        r["kurtosis"]   = _excess_kurtosis(vals)
+    return records
+
+
+def add_dates(records: list[dict], data_folder: str) -> list[dict]:
+    """
+    Augment each record with start_date and end_date (ISO strings, e.g. '2002-01-15').
+
+    Uses the same date cache as save_windows_as_csv so no extra CSV parsing is
+    needed beyond loading the 'date' column once per source file.
+    """
+    date_cache = _build_date_cache(records, data_folder)
+    for r in records:
+        dates = date_cache[r["source_file"]]
+        r["start_date"] = str(dates[r["start_idx"]])
+        r["end_date"]   = str(dates[r["end_idx"] - 1])
     return records
 
 
@@ -205,8 +243,11 @@ def save_general_table(records: list[dict], seq_len: int) -> None:
             "window_id":   r["window_id"],
             "start_idx":   r["start_idx"],
             "end_idx":     r["end_idx"],
+            "start_date":  r.get("start_date", ""),
+            "end_date":    r.get("end_date", ""),
             "zero_ratio":  r["zero_ratio"],
             "variance":    r["variance"],
+            "kurtosis":    r["kurtosis"],
         }
         for j, v in enumerate(r["values"]):
             row[f"v_{j}"] = v
@@ -237,7 +278,7 @@ def main() -> None:
     # ------------------------------------------------------------------
     # 1. Build dataset using the project's SP500WindowDataset
     # ------------------------------------------------------------------
-    print("[1/5] Initialising SP500WindowDataset ...")
+    print("[1/7] Initialising SP500WindowDataset ...")
     dataset = SP500WindowDataset(
         root_dir=args.data_folder,
         seq_len=args.seq_length,
@@ -253,60 +294,110 @@ def main() -> None:
     # ------------------------------------------------------------------
     # 2. Collect every window into a list of plain dicts
     # ------------------------------------------------------------------
-    print("\n[2/5] Collecting windows ...")
+    print("\n[2/7] Collecting windows ...")
     records = collect_windows(dataset)
 
     # ------------------------------------------------------------------
     # 3. Compute per-window statistics
     # ------------------------------------------------------------------
-    print("\n[3/5] Computing statistics (zero_ratio, variance) ...")
+    print("\n[3/7] Computing statistics (zero_ratio, variance, kurtosis) ...")
     records = add_stats(records)
 
     variances   = np.array([r["variance"]   for r in records])
     zero_ratios = np.array([r["zero_ratio"] for r in records])
+    kurtoses    = np.array([r["kurtosis"]   for r in records])
+
+    # ------------------------------------------------------------------
+    # 3.5. Attach start/end dates to each record (needed for date filters)
+    # ------------------------------------------------------------------
+    print("\n[4/7] Loading window dates ...")
+    records = add_dates(records, args.data_folder)
 
     # ------------------------------------------------------------------
     # 4. Derive filtering thresholds
     # ------------------------------------------------------------------
-    var_p40  = float(np.percentile(variances, 40))
-    var_p60  = float(np.percentile(variances, 60))
+    mid_lo_pct = MID_LOWER_Q * 100.0   # e.g. 40.0
+    mid_hi_pct = MID_UPPER_Q * 100.0   # e.g. 60.0
+
+    var_p_lo = float(np.percentile(variances, mid_lo_pct))
+    var_p_hi = float(np.percentile(variances, mid_hi_pct))
     var_p90  = float(np.percentile(variances, 90))
+
+    kurt_p_lo = float(np.percentile(kurtoses, mid_lo_pct))
+    kurt_p_hi = float(np.percentile(kurtoses, mid_hi_pct))
+    kurt_p90  = float(np.percentile(kurtoses, 90))
 
     # high_zero: top <percentage_zero> fraction → percentile = (1 - pct) * 100
     zero_high_pct_rank   = (1.0 - args.percentage_zero) * 100.0
     zero_high_threshold  = float(np.percentile(zero_ratios, zero_high_pct_rank))
 
     print()
-    print(f"  Variance   – 40th pct  : {var_p40:.8f}")
-    print(f"  Variance   – 60th pct  : {var_p60:.8f}")
-    print(f"  Variance   – 90th pct  : {var_p90:.8f}")
+    print(f"  Variance  – {mid_lo_pct:.0f}th pct : {var_p_lo:.8f}")
+    print(f"  Variance  – {mid_hi_pct:.0f}th pct : {var_p_hi:.8f}")
+    print(f"  Variance  – 90th pct : {var_p90:.8f}")
+    print(f"  Kurtosis  – {mid_lo_pct:.0f}th pct : {kurt_p_lo:.8f}")
+    print(f"  Kurtosis  – {mid_hi_pct:.0f}th pct : {kurt_p_hi:.8f}")
+    print(f"  Kurtosis  – 90th pct : {kurt_p90:.8f}")
     print(f"  Zero-ratio – high threshold (top {args.percentage_zero*100:.1f}%): {zero_high_threshold:.8f}")
+    print(f"  Date split : post_2001 = start_date > '{SPLIT_DATE}' / "
+          f"pre_2001 = end_date <= '{SPLIT_DATE}'")
 
     # ------------------------------------------------------------------
     # 5. Apply filters
     # ------------------------------------------------------------------
-    print("\n[4/5] Filtering subsets ...")
+    print("\n[5/7] Filtering subsets ...")
 
+    # --- existing subsets (unchanged) ---
     low_zero     = [r for r in records if r["zero_ratio"] < args.percentage_zero]
     high_zero    = [r for r in records if r["zero_ratio"] >= zero_high_threshold]
-    moderate_var = [r for r in records if var_p40 <= r["variance"] <= var_p60]
+    moderate_var = [r for r in records if var_p_lo  <= r["variance"] <= var_p_hi]
     high_var     = [r for r in records if r["variance"] >= var_p90]
 
+    # --- new subsets ---
+    post_2001 = [r for r in records if r["start_date"] > SPLIT_DATE]
+    pre_2001  = [r for r in records if r["end_date"]   <= SPLIT_DATE]
+
+    high_kurt = [r for r in records if r["kurtosis"] >= kurt_p90]
+    low_kurt  = [r for r in records if kurt_p_lo <= r["kurtosis"] <= kurt_p_hi]
+
+    post_high_var  = [r for r in post_2001 if r["variance"] >= var_p90]
+    post_low_var   = [r for r in post_2001 if var_p_lo  <= r["variance"] <= var_p_hi]
+    post_high_kurt = [r for r in post_2001 if r["kurtosis"] >= kurt_p90]
+    post_low_kurt  = [r for r in post_2001 if kurt_p_lo <= r["kurtosis"] <= kurt_p_hi]
+
     total = len(records)
-    print(f"  Total windows            : {total}")
-    print(f"  low_zero_windows         : {len(low_zero):>7}  ({len(low_zero)/total*100:.1f}%)")
-    print(f"  high_zero_windows        : {len(high_zero):>7}  ({len(high_zero)/total*100:.1f}%)")
-    print(f"  moderate_variance_windows: {len(moderate_var):>7}  ({len(moderate_var)/total*100:.1f}%)")
-    print(f"  high_variance_windows    : {len(high_var):>7}  ({len(high_var)/total*100:.1f}%)")
+    print(f"  Total windows                   : {total}")
+    print(f"  low_zero_windows                : {len(low_zero):>7}  ({len(low_zero)/total*100:.1f}%)")
+    print(f"  high_zero_windows               : {len(high_zero):>7}  ({len(high_zero)/total*100:.1f}%)")
+    print(f"  moderate_variance_windows       : {len(moderate_var):>7}  ({len(moderate_var)/total*100:.1f}%)")
+    print(f"  high_variance_windows           : {len(high_var):>7}  ({len(high_var)/total*100:.1f}%)")
+    print(f"  post_2001                       : {len(post_2001):>7}  ({len(post_2001)/total*100:.1f}%)")
+    print(f"  pre_2001                        : {len(pre_2001):>7}  ({len(pre_2001)/total*100:.1f}%)")
+    print(f"  high_kurtosis                   : {len(high_kurt):>7}  ({len(high_kurt)/total*100:.1f}%)")
+    print(f"  low_kurtosis                    : {len(low_kurt):>7}  ({len(low_kurt)/total*100:.1f}%)")
+    print(f"  post_2001_high_variance         : {len(post_high_var):>7}  ({len(post_high_var)/total*100:.1f}%)")
+    print(f"  post_2001_low_variance          : {len(post_low_var):>7}  ({len(post_low_var)/total*100:.1f}%)")
+    print(f"  post_2001_high_kurtosis         : {len(post_high_kurt):>7}  ({len(post_high_kurt)/total*100:.1f}%)")
+    print(f"  post_2001_low_kurtosis          : {len(post_low_kurt):>7}  ({len(post_low_kurt)/total*100:.1f}%)")
 
     # ------------------------------------------------------------------
     # 6. Save individual window CSVs
     # ------------------------------------------------------------------
-    print("\n[5/5] Saving output files ...")
+    print("\n[6/7] Saving output files ...")
+    # existing subsets
     save_windows_as_csv(low_zero,     args.data_folder, args.output_folder, "low_zero_windows")
     save_windows_as_csv(high_zero,    args.data_folder, args.output_folder, "high_zero_windows")
     save_windows_as_csv(moderate_var, args.data_folder, args.output_folder, "moderate_variance_windows")
     save_windows_as_csv(high_var,     args.data_folder, args.output_folder, "high_variance_windows")
+    # new subsets
+    save_windows_as_csv(post_2001,      args.data_folder, args.output_folder, "post_2001")
+    save_windows_as_csv(pre_2001,       args.data_folder, args.output_folder, "pre_2001")
+    save_windows_as_csv(high_kurt,      args.data_folder, args.output_folder, "high_kurtosis")
+    save_windows_as_csv(low_kurt,       args.data_folder, args.output_folder, "low_kurtosis")
+    save_windows_as_csv(post_high_var,  args.data_folder, args.output_folder, "post_2001_high_variance")
+    save_windows_as_csv(post_low_var,   args.data_folder, args.output_folder, "post_2001_low_variance")
+    save_windows_as_csv(post_high_kurt, args.data_folder, args.output_folder, "post_2001_high_kurtosis")
+    save_windows_as_csv(post_low_kurt,  args.data_folder, args.output_folder, "post_2001_low_kurtosis")
 
     # ------------------------------------------------------------------
     # 7. Save the general traceability table

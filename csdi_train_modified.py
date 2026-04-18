@@ -1178,6 +1178,22 @@ def build_final_checkpoint_name(
         data_root = "REPL_LOW_VAR"
     elif data_root == "./data/filtered_windows/high_variance_windows":
         data_root = "REPL_HIGH_VAR"
+    elif data_root == "./data/filtered_windows/post_2001":
+        data_root = "REPL_POST_2001"
+    elif data_root == "./data/filtered_windows/pre_2001":
+        data_root = "REPL_PRE_2001"
+    elif data_root == "./data/filtered_windows/low_kurtosis":
+        data_root = "REPL_LOW_KURT"
+    elif data_root == "./data/filtered_windows/high_kurtosis":
+        data_root = "REPL_HIGH_KURT"
+    elif data_root == "./data/filtered_windows/post_2001_high_variance":
+        data_root = "REPL_POST_2001_HIGH_VAR"
+    elif data_root == "./data/filtered_windows/post_2001_low_variance":
+        data_root = "REPL_POST_2001_LOW_VAR"
+    elif data_root == "./data/filtered_windows/post_2001_high_kurtosis":
+        data_root = "REPL_POST_2001_HIGH_KURT"
+    elif data_root == "./data/filtered_windows/post_2001_low_kurtosis":
+        data_root = "REPL_POST_2001_LOW_KURT"
     else:
         data_root = "REPL"
     mask_mode = str(config['train']['mask_mode'])
