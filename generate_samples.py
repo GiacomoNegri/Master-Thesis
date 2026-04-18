@@ -112,8 +112,11 @@ def main():
             torch.cuda.manual_seed_all(args.seed)
 
     # ── Output dir = base_dir / checkpoint_stem ───────────────────────────────
-    ckpt_stem = os.path.splitext(args.checkpoint_name)[0]
-    out_dir   = os.path.join(args.out_dir, ckpt_stem)
+    ckpt_stem  = os.path.splitext(args.checkpoint_name)[0]
+    _parts     = ckpt_stem.split("_")
+    _noise_idx = next((i for i, p in enumerate(_parts) if p.startswith("noise-")), len(_parts) - 3)
+    _short_stem = "_".join(_parts[:_noise_idx + 1]) + "_" + "_".join(_parts[-2:])
+    out_dir   = os.path.join(args.out_dir, _short_stem)
     os.makedirs(out_dir, exist_ok=True)
 
     # ── Device ────────────────────────────────────────────────────────────────
