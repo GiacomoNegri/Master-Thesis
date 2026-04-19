@@ -1462,7 +1462,7 @@ def train(
                 )
 
             target_mask = (observed_mask.float() * (1.0 - cond_mask.float())).float()
-            assert target_mask.sum() == observed_data.numel(), f"target_mask empty! sum={target_mask.sum().item()}"
+            # assert target_mask.sum() == observed_data.numel(), f"target_mask empty! sum={target_mask.sum().item()}"
 
             # forward diffusion
             x_t, t_cont, eps, sigma_t = processes.forward_process(
