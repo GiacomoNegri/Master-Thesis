@@ -224,6 +224,7 @@ class Diffusion_Processes:
         device: torch.device = None,
         debug: bool = False,
         disc_out: list = None,
+        use_heun: bool = False,
         # labels: torch.Tensor = None,
     ):
         """
@@ -244,6 +245,9 @@ class Diffusion_Processes:
         """
         if num_steps is None:
             num_steps = self.N
+
+        if use_heun:
+            assert probability_flow, "use_heun requires probability_flow=True"
         
         if device is None:
             device = next(model.parameters()).device
@@ -376,12 +380,19 @@ class Diffusion_Processes:
 
             G_b = _expand_batch_vector_to(x, G)
 
-            if probability_flow:# or i == 0:
+            if probability_flow:
                 noise = 0.0
             else:
                 noise = torch.randn_like(x)
 
-            dx = -f + G_b * noise
+            if use_heun and i < num_steps - 2:
+                x_pred = x - f
+                t_next = ts[i + 1].expand(B)
+                f2, _  = rsde.discretize(x_pred, t_next, labels=None)
+                dx     = -0.5 * (f + f2)
+            else:
+                dx = -f + G_b * noise
+
             x  = x + dx
 
             # ---- log stats every 10% of steps (and the first 15) ----

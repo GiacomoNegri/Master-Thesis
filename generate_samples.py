@@ -93,6 +93,8 @@ def parse_args():
                    help="Run ODE reverse-step consistency diagnostic and log to W&B.")
     p.add_argument("--probability_flow", action="store_true", default=False,
                    help="Use probability-flow ODE sampler (required for consistency diagnostic).")
+    p.add_argument("--use_heun_ode", action="store_true", default=False,
+                   help="Use Heun's method ODE sampler (automatically implies --probability_flow).")
 
     return p.parse_args()
 
@@ -196,7 +198,8 @@ def main():
     )
 
     use_ode   = args.probability_flow
-    run_debug = args.debug and use_ode
+    use_heun  = args.use_heun_ode
+    run_debug = args.debug and (use_ode or use_heun)
     disc_out  = [] if run_debug else None
 
     samples = processes.reverse_process(
@@ -206,10 +209,11 @@ def main():
         cond_mask        = cond_mask,
         observed_tp      = observed_tp,
         num_steps        = num_reverse_steps,
-        probability_flow = use_ode,
+        probability_flow = use_ode or use_heun,
         device           = device,
         debug            = run_debug,
         disc_out         = disc_out,
+        use_heun         = use_heun,
     )  # → (N_SAMPLES, 1, L)
     print("Reverse diffusion completed. Samples shape:", samples.shape)
     print('Samples head:\n', samples[:2, 0, :5])  # print first 5 values of first 2 samples

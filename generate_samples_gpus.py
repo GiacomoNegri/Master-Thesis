@@ -81,6 +81,8 @@ def parse_args():
     # Debug / ODE
     p.add_argument("--debug", action="store_true", default=False)
     p.add_argument("--probability_flow", action="store_true", default=False)
+    p.add_argument("--use_heun_ode", action="store_true", default=False,
+                   help="Use Heun's method ODE sampler (automatically implies --probability_flow).")
 
     return p.parse_args()
 
@@ -211,8 +213,9 @@ def main():
 
     # ── Run reverse diffusion ─────────────────────────────────────────────────
     use_ode   = args.probability_flow
+    use_heun  = args.use_heun_ode
     # ODE consistency diagnostic only on rank 0 (same behaviour as original)
-    run_debug = args.debug and use_ode and is_main
+    run_debug = args.debug and (use_ode or use_heun) and is_main
     disc_out  = [] if run_debug else None
 
     samples = processes.reverse_process(
@@ -222,10 +225,11 @@ def main():
         cond_mask        = cond_mask,
         observed_tp      = observed_tp,
         num_steps        = num_reverse_steps,
-        probability_flow = use_ode,
+        probability_flow = use_ode or use_heun,
         device           = device,
         debug            = run_debug,
         disc_out         = disc_out,
+        use_heun         = use_heun,
     )  # → (rank_n_samples, 1, L)
 
     print(f"[rank {local_rank}] generation done. shape={samples.shape}")
