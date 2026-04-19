@@ -78,6 +78,8 @@ def parse_args():
     )
 
     # train overrides
+    parser.add_argument("--seed", type=int, default=None,
+                        help="Global random seed (overrides config train.seed)")
     parser.add_argument("--epochs", type=int, default=None)
     parser.add_argument("--batch_size", type=int, default=None)
     parser.add_argument("--lr", type=float, default=None)
@@ -249,6 +251,8 @@ def build_cli_override_dict(args) -> Dict[str, Any]:
         override["process"]["beta_max"] = args.beta_max
 
     # train
+    if args.seed is not None:
+        override["train"]["seed"] = args.seed
     if args.epochs is not None:
         override["train"]["epochs"] = args.epochs
     if args.batch_size is not None:
