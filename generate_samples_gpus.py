@@ -100,6 +100,13 @@ def main():
 
     args = parse_args()
 
+    if args.use_heun_ode:
+        _sampler_label = "HEUN_ODE"
+    elif args.probability_flow:
+        _sampler_label = "ODE"
+    else:
+        _sampler_label = "SDE"
+
     # ── Per-rank seed so each GPU draws different initial noise ───────────────
     # Date sampling still uses the original seed (deterministic, rank-independent).
     if args.seed != -1:
@@ -114,7 +121,7 @@ def main():
     _parts      = ckpt_stem.split("_")
     _noise_idx  = next((i for i, p in enumerate(_parts) if p.startswith("noise-")), len(_parts) - 3)
     _short_stem = "_".join(_parts[:_noise_idx + 1]) + "_" + "_".join(_parts[-2:])
-    out_dir     = os.path.join(args.out_dir, _short_stem)
+    out_dir     = os.path.join(args.out_dir, f"{_sampler_label}_{_short_stem}")
     if is_main:
         os.makedirs(out_dir, exist_ok=True)
     dist.barrier()
