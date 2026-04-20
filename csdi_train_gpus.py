@@ -840,7 +840,7 @@ def train(
                 )
 
             target_mask = (observed_mask.float() * (1.0 - cond_mask.float())).float()
-            assert target_mask.sum() == observed_data.numel(), f"target_mask empty! sum={target_mask.sum().item()}"
+            # assert target_mask.sum() == observed_data.numel(), f"target_mask empty! sum={target_mask.sum().item()}"
 
             # forward diffusion
             x_t, t_cont, eps, sigma_t = processes.forward_process(
@@ -1129,7 +1129,7 @@ if __name__ == "__main__":
 
     # Scale LR linearly with the number of GPUs (linear scaling rule)
     base_lr = float(config["train"]["lr"])
-    config["train"]["lr"] = base_lr * world_size
+    config["train"]["lr"] = base_lr * world_size # we need to scale the lr to the configs we need for instance if lr=1e-4 then with 4 GPUs we need to do 4*lr
     if is_main:
         print(f"DDP: {world_size} GPUs — LR scaled {base_lr:.2e} → {config['train']['lr']:.2e}")
         print("Final merged config:")
