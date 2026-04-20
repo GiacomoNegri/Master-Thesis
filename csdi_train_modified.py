@@ -169,9 +169,23 @@ def parse_args():
                         help="If true, sample t ~ p(t) ∝ g(t)²/σ²(t) instead of uniform. "
                              "Concentrates training on hard small-t timesteps; disables likelihood weighting.")
     parser.add_argument("--lr_cosine_annealing", type=str2bool, default=None,
-                        help="If true, apply CosineAnnealingLR decaying from lr to lr_eta_min over the full run.")
+                        help="[Legacy] If true, equivalent to --lr_scheduler cosine-annealing. "
+                             "Ignored when --lr_scheduler is set explicitly.")
     parser.add_argument("--lr_eta_min", type=float, default=None,
                         help="Minimum LR at the end of the cosine annealing cycle (default 1e-6).")
+    parser.add_argument("--lr_scheduler",
+                        type=str,
+                        default=None,
+                        choices=["cosine-annealing", "reduce-on-plateau", "none"],
+                        help="LR scheduler. Takes precedence over --lr_cosine_annealing. "
+                             "'cosine-annealing': decay from lr to lr_eta_min over the full run; "
+                             "'reduce-on-plateau': multiply lr by lr_gamma when val loss stalls "
+                             "(requires val_split_ratio and lr_patience); "
+                             "'none': constant LR.")
+    parser.add_argument("--lr_patience", type=int, default=None,
+                        help="Patience epochs for reduce-on-plateau: reduce LR after this many "
+                             "epochs with no val-loss improvement. Only used when "
+                             "--lr_scheduler=reduce-on-plateau.")
     parser.add_argument(
         "--mask_mode",
         type=str,
@@ -297,6 +311,10 @@ def build_cli_override_dict(args) -> Dict[str, Any]:
         override["train"]["lr_cosine_annealing"] = args.lr_cosine_annealing
     if args.lr_eta_min is not None:
         override["train"]["lr_eta_min"] = args.lr_eta_min
+    if args.lr_scheduler is not None:
+        override["train"]["lr_scheduler"] = args.lr_scheduler
+    if args.lr_patience is not None:
+        override["train"]["lr_patience"] = args.lr_patience
     if args.seq_len is not None:
         override["train"]["seq_len"] = args.seq_len
     if args.stride is not None:
@@ -1222,9 +1240,14 @@ def build_final_checkpoint_name(
     seq_len = int(config["train"].get("seq_len", 128))
     stride = int(config["train"].get("stride", 128))
 
-    cosine_annealing = bool(config["train"].get("lr_cosine_annealing", False))
-    if cosine_annealing:
+    _sched_key = config["train"].get("lr_scheduler", None)
+    if _sched_key is None:
+        # legacy fallback
+        _sched_key = "cosine-annealing" if bool(config["train"].get("lr_cosine_annealing", False)) else "none"
+    if _sched_key == "cosine-annealing":
         cosine_annealing = "COSAN"
+    elif _sched_key == "reduce-on-plateau":
+        cosine_annealing = "ROP"
     else:
         cosine_annealing = "NOAN"
 
@@ -1314,18 +1337,44 @@ def train(
     global_step = 0
     history = {"epoch_losses": [], "val_losses": []}
 
-    # 5) LR scheduler (optional)
-    use_cosine = bool(config["train"].get("lr_cosine_annealing", False))
+    # 5) LR scheduler
+    # Resolve scheduler: new lr_scheduler key takes precedence over legacy lr_cosine_annealing.
+    _lr_sched = config["train"].get("lr_scheduler", None)
+    if _lr_sched is None:
+        _lr_sched = "cosine-annealing" if bool(config["train"].get("lr_cosine_annealing", False)) else "none"
+
     eta_min = float(config["train"].get("lr_eta_min", 1e-6))
-    if use_cosine:
+
+    if _lr_sched == "cosine-annealing":
         scheduler = torch.optim.lr_scheduler.CosineAnnealingLR(
             optim,
             T_max=num_epochs,
             eta_min=eta_min,
             last_epoch=-1,   # will be overridden by scheduler.load_state_dict if resuming
         )
-        print(f"CosineAnnealingLR enabled: lr={config['train']['lr']:.2e} → eta_min={eta_min:.2e} over {num_epochs} epochs")
-    else:
+        print(f"CosineAnnealingLR: lr={config['train']['lr']:.2e} → eta_min={eta_min:.2e} over {num_epochs} epochs")
+    elif _lr_sched == "reduce-on-plateau":
+        if val_loader is None:
+            raise ValueError(
+                "lr_scheduler='reduce-on-plateau' requires a validation set. "
+                "Set train.val_split_ratio in config or pass --val_split_ratio."
+            )
+        _lr_patience = config["train"].get("lr_patience", None)
+        if _lr_patience is None or int(_lr_patience) <= 0:
+            raise ValueError(
+                "lr_scheduler='reduce-on-plateau' requires lr_patience > 0. "
+                "Set train.lr_patience in config or pass --lr_patience."
+            )
+        lr_gamma = float(config["train"].get("lr_gamma", 0.5))
+        scheduler = torch.optim.lr_scheduler.ReduceLROnPlateau(
+            optim,
+            mode="min",
+            factor=lr_gamma,
+            patience=int(_lr_patience),
+            min_lr=eta_min,
+        )
+        print(f"ReduceLROnPlateau: patience={_lr_patience} epochs, factor={lr_gamma}, min_lr={eta_min:.2e}")
+    else:  # "none"
         scheduler = None
 
     if resume_checkpoint is not None:
@@ -1334,7 +1383,7 @@ def train(
             resume_checkpoint, model, optim, scaler, device, scheduler=scheduler
         )
         print(f"Resumed at epoch={start_epoch}, global_step={global_step}")
-        if use_cosine and "scheduler" not in torch.load(resume_checkpoint, map_location="cpu"):
+        if _lr_sched == "cosine-annealing" and "scheduler" not in torch.load(resume_checkpoint, map_location="cpu"):
             # Checkpoint pre-dates scheduler support: fast-forward the cosine position manually
             for _ in range(start_epoch):
                 scheduler.step()
@@ -1753,13 +1802,23 @@ def train(
                 epoch_metrics["epoch/val_loss"] = val_avg
             wandb.log(epoch_metrics, step=global_step)
 
-        # LR scheduler step (once per epoch, after optimizer)
+        # LR scheduler step (once per epoch, after validation)
         if scheduler is not None:
-            scheduler.step()
-            current_lr = scheduler.get_last_lr()[0]
-            print(f"  [scheduler] lr={current_lr:.2e}")
-            if use_wandb:
-                wandb.log({"train/lr": current_lr}, step=global_step)
+            if _lr_sched == "reduce-on-plateau":
+                # val_avg is guaranteed non-None when reduce-on-plateau is active
+                # (we validated val_loader is not None at scheduler creation time)
+                if val_avg is not None:
+                    scheduler.step(val_avg)
+                    current_lr = optim.param_groups[0]["lr"]
+                    print(f"  [scheduler] ReduceLROnPlateau step — lr={current_lr:.2e}")
+                    if use_wandb:
+                        wandb.log({"train/lr": current_lr}, step=global_step)
+            else:  # cosine-annealing
+                scheduler.step()
+                current_lr = scheduler.get_last_lr()[0]
+                print(f"  [scheduler] lr={current_lr:.2e}")
+                if use_wandb:
+                    wandb.log({"train/lr": current_lr}, step=global_step)
 
         # early stopping (only when val_loader is provided)
         if early_stop_patience is not None and val_avg is not None:
@@ -1929,3 +1988,5 @@ if __name__ == "__main__":
     print("Training is finished")
 
 # python csdi_train_modified.py --config configs/replication.yaml --epochs 1 --train_subset_ratio 0.005 --val_split_ratio 0.005 --data_root "./data/replication" --noise_schedule exponential --sigma_min 0.01 --sigma_max 1.0 --beta_min 0.01 --beta_max 20.0
+# python csdi_train_modified.py --config configs/replication.yaml --epochs 100 --train_subset_size 16 --val_split_ratio 0.01 --data_root "./data/filtered_windows" --noise_schedule exponential --sigma_min 0.01 --sigma_max 1.0 --beta_min 0.01 --beta_max 20.0
+# python csdi_train_modified.py --config configs/replication.yaml --epochs 100 --sde_type vp --noise_schedule cosine --sigma_min 0.01 --sigma_max 1.0 --beta_min 0.01 --beta_max 7.0 --data_root ./data/filtered_windows/pre_2001 --mask_mode unconditional --likelihood_weighting false --importance_sampling false --seq_len 2048 --stride 400 --weight_decay 0.0 --channels 128 --layers 4 --nheads 8 --diffusion_embedding_dim 256 --train_subset_size 16 --val_split_ratio 0.1 --batch_size 16 --lr_scheduler reduce-on-plateau --lr_patience 2 --lr 1e-3  --lr_eta_min 1e-6 --seed 42 --use_amp true --early_stop_patience 1000 --debug false --print_plots false

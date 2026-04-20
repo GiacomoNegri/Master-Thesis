@@ -157,6 +157,8 @@ def parse_args():
                         help="Fraction of dataset to hold out for validation, e.g. 0.1 for 10%")
     parser.add_argument("--early_stop_patience", type=int, default=None,
                         help="Stop training if val loss does not improve for this many epochs. Requires val_split_ratio. 0 or omit to disable.")
+    parser.add_argument("--seed", type=int, default=None,
+                        help="Random seed for reproducibility (overrides config)")
     parser.add_argument("--likelihood_weighting", type=str2bool, default=None,
                         help="If true, apply Song's likelihood weighting λ(t)=g(t)²/σ²(t) to the MSE loss. If false, use plain MSE.")
     parser.add_argument("--debug", type=str2bool, default=None,
@@ -247,6 +249,8 @@ def build_cli_override_dict(args) -> Dict[str, Any]:
         override["process"]["beta_max"] = args.beta_max
 
     # train
+    if args.seed is not None:
+        override["train"]["seed"] = args.seed
     if args.epochs is not None:
         override["train"]["epochs"] = args.epochs
     if args.batch_size is not None:

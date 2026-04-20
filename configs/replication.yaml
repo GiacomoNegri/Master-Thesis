@@ -7,7 +7,7 @@ model:
   is_unconditional: true
 
 diffusion:
-  num_steps: 200
+  # num_steps: 200
   diffusion_embedding_dim: 256
   channels: 128
   layers: 4
@@ -16,12 +16,12 @@ diffusion:
 
 process:
   N: 2000
-  sde_type: vp
-  noise_schedule: linear
+  sde_type: ve
+  noise_schedule: exponential
   sigma_min: 0.01
   sigma_max: 1.0
   beta_min: 0.01
-  beta_max: 6.0
+  beta_max: 5.0
   model_steps: 200
   eps: 1.0e-3
   enforce_observed: true
@@ -37,12 +37,15 @@ train:
   #   random        – randomly hide 10-90% of all entries (original CSDI behaviour)
   #   unconditional – no context at all; pair with is_unconditional: true in model
   #   predict_close – always condition on Open/High/Low/Volume; Close is the target
-  mask_mode: random
+  mask_mode: unconditional
   cond_min_ratio: 0.1
   cond_max_ratio: 0.9
   debug: false                # if true, print per-batch sigma / err / eps diagnostics
-  lr_cosine_annealing: false  # if true, apply CosineAnnealingLR from lr down to lr_eta_min
-  lr_eta_min: 1.0e-6          # minimum LR at the end of the cosine cycle
+  lr_scheduler: none          # 'cosine-annealing' | 'reduce-on-plateau' | 'none'; overrides lr_cosine_annealing
+  lr_eta_min: 1.0e-6          # minimum LR for cosine-annealing and reduce-on-plateau floor
+  lr_gamma: 0.5               # multiplicative factor for reduce-on-plateau
+  lr_patience: null           # patience epochs for reduce-on-plateau (must be > 0 when used)
+  lr_cosine_annealing: false  # [legacy] superseded by lr_scheduler; kept for backward compat
   ema_beta: 0.98           # smoothing factor for the step-level EMA loss display
   log_every_steps: 50
   save_every_steps: 1000
@@ -58,7 +61,7 @@ train:
   #  val_split_ratio: 0.1   # fraction of dataset held out for validation
   # train_subset_ratio: 1.0  # fraction of dataset used for training (quick tFests)
   # train_subset_size: 1 # absolute number of training samples (alternative to ratio)
-  #early_stop_patience: 10  # stop if val loss doesn't improve for this many epochs (null to disable)
+  early_stop_patience: 10  # stop if val loss doesn't improve for this many epochs (null to disable)
 
 wandb:
   entity: thesis-giacomo-negri   # your W&B team name

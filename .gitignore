@@ -29,3 +29,7 @@ outputs/
 err/
 out/
 images/
+jobs/
+
+#specific files
+jobs_launcher.py
