@@ -4,7 +4,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Project Overview
 
-Master's thesis: generative modelling of S&P 500 log-returns using a CSDI-style diffusion model with a GBM-inspired forward VE SDE. The model uses a 1D-UNet architecture with Transformer as in CSDI, continuous-time noise schedules (VE/VP/GBM), and is trained on sliding windows of log-adjusted-returns of log-prices.
+Master's thesis: generative modelling of S&P 500 log-returns for those companies with 40 years or more of historical data. This is achieved by using a CSDI-style diffusion model with a GBM-inspired forward VE SDE. The model uses a 1D-UNet architecture with Transformer as in CSDI, continuous-time noise schedules (VE/VP/GBM), and is trained on sliding windows of log-adjusted-returns of log-prices in an unconditional manner.
 
 ## Common Commands
 
