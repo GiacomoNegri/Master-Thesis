@@ -24,6 +24,7 @@ import sys
 import warnings
 
 import matplotlib
+from requests_cache import timedelta
 matplotlib.use("Agg")          # must come before any other matplotlib import
 import matplotlib.pyplot as plt  # noqa: E402
 
@@ -93,6 +94,9 @@ def parse_args():
 
 def main():
     # ── DDP init ──────────────────────────────────────────────────────────────
+    from datetime import timedelta
+    dist.init_process_group(backend="nccl", timeout=timedelta(hours=4))
+
     dist.init_process_group(backend="nccl")
     local_rank = int(os.environ["LOCAL_RANK"])
     world_size = dist.get_world_size()
