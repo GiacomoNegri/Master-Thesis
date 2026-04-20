@@ -94,9 +94,6 @@ def parse_args():
 
 def main():
     # ── DDP init ──────────────────────────────────────────────────────────────
-    from datetime import timedelta
-    dist.init_process_group(backend="nccl", timeout=timedelta(hours=4))
-
     dist.init_process_group(backend="nccl", timeout=timedelta(hours=4))
     local_rank = int(os.environ["LOCAL_RANK"])
     world_size = dist.get_world_size()
