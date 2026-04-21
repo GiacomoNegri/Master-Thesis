@@ -1640,6 +1640,7 @@ def train(
             _grad_buf.append(grad_norm_val)
             _loss_buf.append(loss_val)
 
+            #Activated after 50 batches to allow EMA to stabilize, and only if a spike factor is set in config
             if _spike_factor is not None and ema_loss is not None and batch_idx >= 50:
                 if loss_val > _spike_factor * ema_loss:
                     print(f"  [spike step={global_step}]  loss={loss_val:.4f}  ema={ema_loss:.4f}  "

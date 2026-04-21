@@ -44,7 +44,7 @@ train:
   loss_spike_factor: null     # if set (e.g. 5.0), print a line whenever loss > factor × ema_loss
   lr_scheduler: none          # 'cosine-annealing' | 'reduce-on-plateau' | 'none'; overrides lr_cosine_annealing
   lr_eta_min: 1.0e-6          # minimum LR for cosine-annealing and reduce-on-plateau floor
-  lr_gamma: 0.5               # multiplicative factor for reduce-on-plateau
+  lr_gamma: 0.8              # multiplicative factor for reduce-on-plateau
   lr_patience: null           # patience epochs for reduce-on-plateau (must be > 0 when used)
   lr_cosine_annealing: false  # [legacy] superseded by lr_scheduler; kept for backward compat
   ema_beta: 0.98           # smoothing factor for the step-level EMA loss display
