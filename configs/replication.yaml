@@ -41,6 +41,7 @@ train:
   cond_min_ratio: 0.1
   cond_max_ratio: 0.9
   debug: false                # if true, print per-batch sigma / err / eps diagnostics
+  loss_spike_factor: null     # if set (e.g. 5.0), print a line whenever loss > factor × ema_loss
   lr_scheduler: none          # 'cosine-annealing' | 'reduce-on-plateau' | 'none'; overrides lr_cosine_annealing
   lr_eta_min: 1.0e-6          # minimum LR for cosine-annealing and reduce-on-plateau floor
   lr_gamma: 0.5               # multiplicative factor for reduce-on-plateau

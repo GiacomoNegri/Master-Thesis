@@ -158,6 +158,8 @@ def parse_args():
                         help="If true, z-score normalize each window per feature before training (mean=0, std=1 per (K,) channel across the L time steps).")
     parser.add_argument("--debug", type=str2bool, default=None,
                         help="If true, print per-batch sigma / err / eps diagnostics. If false, only loss is printed.")
+    parser.add_argument("--loss_spike_factor", type=float, default=None,
+                        help="Print a line whenever loss > factor × ema_loss (e.g. 5.0). null/omit to disable.")
     parser.add_argument("--print_plots", type=str2bool, default=None,
                         help="If true, collect diagnostic statistics and save 11 PNG plots "
                              "to <out_dir>/diagnostics/epoch_NNN/ every --plots_every epochs. "
@@ -301,6 +303,8 @@ def build_cli_override_dict(args) -> Dict[str, Any]:
         override["train"]["normalization"] = args.normalization
     if args.debug is not None:
         override["train"]["debug"] = args.debug
+    if args.loss_spike_factor is not None:
+        override["train"]["loss_spike_factor"] = args.loss_spike_factor
     if args.print_plots is not None:
         override["train"]["print_plots"] = args.print_plots
     if args.plots_every is not None:
@@ -1473,6 +1477,9 @@ def train(
         ema_beta    = float(config["train"].get("ema_beta", 0.98))
         use_lw      = bool(config["train"].get("likelihood_weighting", False))
         debug       = bool(config["train"].get("debug", False))
+        _spike_factor = config["train"].get("loss_spike_factor", None)
+        if _spike_factor is not None:
+            _spike_factor = float(_spike_factor)
         print_plots = bool(config["train"].get("print_plots", False))
         plots_every = int(config["train"].get("plots_every", 1))
         # collect diagnostics this epoch only when print_plots is on AND the cadence hits
@@ -1632,6 +1639,12 @@ def train(
             grad_norm_val = float(grad_norm)
             _grad_buf.append(grad_norm_val)
             _loss_buf.append(loss_val)
+
+            if _spike_factor is not None and ema_loss is not None and batch_idx >= 50:
+                if loss_val > _spike_factor * ema_loss:
+                    print(f"  [spike step={global_step}]  loss={loss_val:.4f}  ema={ema_loss:.4f}  "
+                          f"ratio={loss_val / ema_loss:.1f}x  t={t_cont.float().mean().item():.3f}  "
+                          f"sigma={sigma_t.float().mean().item():.4f}  gnorm={grad_norm_val:.3f}")
 
             if log_this_batch:
                 _clip_flag = "CLIPPED" if grad_norm_val >= max_norm - 0.01 else "ok"
