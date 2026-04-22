@@ -56,7 +56,7 @@ def _ode_consistency_discrepancy(
 
     diff = (x_full - x_2h).float()
     return {
-        "l2":     diff.norm().item(),
+        "l2":     diff.norm().item(), #L2 norm collapse the entire discrepancy tensor (B,K,L) into a single scalar that summarise the magnitude of the local error.
         "mae":    diff.abs().mean().item(),
         "max_ae": diff.abs().max().item(),
     }
@@ -225,6 +225,7 @@ class Diffusion_Processes:
         debug: bool = False,
         disc_out: list = None,
         use_heun: bool = False,
+        cmp_out: list = None,
         # labels: torch.Tensor = None,
     ):
         """
@@ -332,6 +333,10 @@ class Diffusion_Processes:
         print(f"Check prior {self.sde_type}: Mean = {x.mean()}, Std = {x.std()}")
         ts = torch.linspace(T,self.eps_time, num_steps, device = device)
 
+        # Shadow ODE-Euler trajectory — same starting noise, different solver
+        if _run_cmp:
+            x_ode = x.clone()
+
         # Step size for the actual time grid (used by the consistency diagnostic)
         dt_actual = float((T - self.eps_time) / max(num_steps - 1, 1))
 
@@ -343,6 +348,12 @@ class Diffusion_Processes:
 
         # Whether to run the ODE consistency check this run
         _run_consistency = debug and probability_flow and (disc_out is not None)
+
+        # Whether to run the paired ODE-vs-Heun comparison
+        # Requires use_heun=True so both f and f2 are already computed per step.
+        # Maintains a shadow ODE-Euler trajectory from the same initial x.
+        # Costs one extra model call per step (rsde.discretize for x_ode at i > 0).
+        _run_cmp = debug and use_heun and (cmp_out is not None)
 
         # Running accumulators for cumulative trajectory diagnostics.
         # Updated at every consistency-check step:
@@ -378,6 +389,10 @@ class Diffusion_Processes:
                     f"  cum_L2={disc['cum_l2_sum']:.4e}  cum_RMS={disc['cum_rms']:.4e}"
                 )
 
+            # Shadow ODE: get drift at shadow state (free reuse at i=0 since x_ode == x)
+            if _run_cmp:
+                f_ode = f if i == 0 else rsde.discretize(x_ode, t_i, labels=None)[0]
+
             G_b = _expand_batch_vector_to(x, G)
 
             if probability_flow:
@@ -390,10 +405,70 @@ class Diffusion_Processes:
                 t_next = ts[i + 1].expand(B)
                 f2, _  = rsde.discretize(x_pred, t_next, labels=None)
                 dx     = -0.5 * (f + f2)
+                if _run_cmp:
+                    # Pure solver correction: what Heun adds over ODE-Euler at the same state.
+                    # Equals 0.5*(f - f2); measures local curvature of the reverse score field.
+                    heun_corr = 0.5 * (f - f2)
             else:
                 dx = -f + G_b * noise
+                if _run_cmp:
+                    heun_corr = torch.zeros_like(f)  # last step falls back to Euler
 
             x  = x + dx
+
+            # ---- ODE-vs-Heun comparison: advance shadow and collect stats ----
+            if _run_cmp:
+                dx_ode_shad = -f_ode
+                x_ode       = x_ode + dx_ode_shad
+
+                upd_diff = (dx - dx_ode_shad).float()
+                hcorr_f  = heun_corr.float()
+
+                entry: dict = {
+                    "step":     i,
+                    "t":        t_i[0].item(),
+                    # update comparison (Heun state vs ODE shadow state — solver + state effect)
+                    "upd_l1":   upd_diff.abs().mean().item(),
+                    "upd_l2":   upd_diff.norm().item(),
+                    "upd_max":  upd_diff.abs().max().item(),
+                    # pure Heun correction (solver only, evaluated at Heun state)
+                    "hcorr_l1": hcorr_f.abs().mean().item(),
+                    "hcorr_l2": hcorr_f.norm().item(),
+                    "hcorr_max":hcorr_f.abs().max().item(),
+                }
+
+                if i % k == 0:
+                    td     = (x - x_ode).float()
+                    td_abs = td.abs()
+                    td_flt = td_abs.flatten()
+                    tk     = min(5, td_flt.numel())
+                    top_vals, top_flat = torch.topk(td_flt, tk)
+                    B_s, K_s, L_s = x.shape
+                    top_l  = (top_flat % L_s).cpu().tolist()
+                    top_kk = ((top_flat // L_s) % K_s).cpu().tolist()
+                    top_b  = (top_flat // (L_s * K_s)).cpu().tolist()
+                    # max |x_{t+1} - x_t| along sequence length — temporal roughness
+                    fd_h = (x.float()[..., 1:] - x.float()[..., :-1]).abs().max().item() if L_s > 1 else 0.0
+                    fd_o = (x_ode.float()[..., 1:] - x_ode.float()[..., :-1]).abs().max().item() if L_s > 1 else 0.0
+                    entry.update({
+                        "traj_l1":  td_abs.mean().item(),
+                        "traj_l2":  td.norm().item(),
+                        "traj_max": td_abs.max().item(),
+                        "top_vals": top_vals.cpu().tolist(),
+                        "top_idx":  list(zip(top_b, top_kk, top_l)),  # (b, feat, time)
+                        "min_diff": float(x.min()) - float(x_ode.min()),
+                        "max_diff": float(x.max()) - float(x_ode.max()),
+                        "fd_heun":  fd_h,
+                        "fd_ode":   fd_o,
+                    })
+                    print(
+                        f"  [ODE-vs-Heun | step {i+1:4d}/{num_steps} | t={entry['t']:.4f}]"
+                        f"  traj_L2={entry['traj_l2']:.4e}  traj_max={entry['traj_max']:.4e}"
+                        f"  hcorr_L2={entry['hcorr_l2']:.4e}  upd_L2={entry['upd_l2']:.4e}"
+                        f"  fd_diff={fd_h - fd_o:+.4e}"
+                    )
+
+                cmp_out.append(entry)
 
             # ---- log stats every 10% of steps (and the first 15) ----
             if (i % k == 0) or (i > num_steps - 10):
@@ -428,34 +503,34 @@ class Diffusion_Processes:
                 )
 
                 # ---- inline snapshot plot every 10% checkpoint (not for early steps) ----
-                if i % k == 0:
-                    x_np    = x_cpu.numpy()          # (B, K, L)
-                    n_show  = min(x_cpu.shape[0], 5)
-                    t_label = f"t={t_i[0].item():.3f}  step {i+1}/{num_steps}"
+                # if i % k == 0:
+                #     x_np    = x_cpu.numpy()          # (B, K, L)
+                #     n_show  = min(x_cpu.shape[0], 5)
+                #     t_label = f"t={t_i[0].item():.3f}  step {i+1}/{num_steps}"
 
-                    fig, axes = plt.subplots(1, 2, figsize=(12, 3))
+                #     fig, axes = plt.subplots(1, 2, figsize=(12, 3))
 
-                    # Left: marginal histogram of all values — should narrow and shift as t→0
-                    axes[0].hist(x_np.ravel(), bins=80, density=True, color="steelblue", alpha=0.8)
-                    axes[0].set_title(f"Marginal distribution  ({t_label})")
-                    axes[0].set_xlabel("value")
-                    axes[0].set_ylabel("density")
-                    axes[0].grid(True, linewidth=0.4)
+                #     # Left: marginal histogram of all values — should narrow and shift as t→0
+                #     axes[0].hist(x_np.ravel(), bins=80, density=True, color="steelblue", alpha=0.8)
+                #     axes[0].set_title(f"Marginal distribution  ({t_label})")
+                #     axes[0].set_xlabel("value")
+                #     axes[0].set_ylabel("density")
+                #     axes[0].grid(True, linewidth=0.4)
 
-                    # Right: first-feature trajectories for n_show samples
-                    # shows whether samples are diverse or collapsing to the same path
-                    for b in range(n_show):
-                        alpha = 0.9 if b == 0 else 0.4
-                        lw    = 1.4 if b == 0 else 0.7
-                        axes[1].plot(x_np[b, 0], alpha=alpha, linewidth=lw,
-                                     label=f"s{b}" if b == 0 else None)
-                    axes[1].set_title(f"Sample trajectories feat-0  ({t_label})")
-                    axes[1].set_xlabel("time step")
-                    axes[1].set_ylabel("value")
-                    axes[1].grid(True, linewidth=0.4)
+                #     # Right: first-feature trajectories for n_show samples
+                #     # shows whether samples are diverse or collapsing to the same path
+                #     for b in range(n_show):
+                #         alpha = 0.9 if b == 0 else 0.4
+                #         lw    = 1.4 if b == 0 else 0.7
+                #         axes[1].plot(x_np[b, 0], alpha=alpha, linewidth=lw,
+                #                      label=f"s{b}" if b == 0 else None)
+                #     axes[1].set_title(f"Sample trajectories feat-0  ({t_label})")
+                #     axes[1].set_xlabel("time step")
+                #     axes[1].set_ylabel("value")
+                #     axes[1].grid(True, linewidth=0.4)
 
-                    plt.tight_layout()
-                    plt.show()
+                #     plt.tight_layout()
+                #     plt.show()
 
         if self.enforce_observed:
             x = cond_mask * observed_data + (1.0 - cond_mask) * x
@@ -502,5 +577,61 @@ class Diffusion_Processes:
         fig.suptitle("Generated samples — normalised space  (each colour = one sample)", fontsize=11)
         plt.tight_layout()
         plt.show()
+
+        # ── ODE-vs-Heun comparison plots ──────────────────────────────────────────
+        if _run_cmp and len(cmp_out) > 0:
+            _all_ts    = [e["t"]         for e in cmp_out]
+            _upd_l2    = [e["upd_l2"]    for e in cmp_out]
+            _hcorr_l2  = [e["hcorr_l2"] for e in cmp_out]
+
+            _ckpts = [e for e in cmp_out if "traj_l2" in e]
+            if _ckpts:
+                _ck_ts    = [e["t"]       for e in _ckpts]
+                _traj_l2  = [e["traj_l2"] for e in _ckpts]
+                _traj_max = [e["traj_max"]for e in _ckpts]
+                _fd_heun  = [e["fd_heun"] for e in _ckpts]
+                _fd_ode   = [e["fd_ode"]  for e in _ckpts]
+
+                fig_cmp, axes_cmp = plt.subplots(3, 1, figsize=(10, 9))
+
+                # Panel 1: per-step L2 of update diff vs pure Heun correction
+                axes_cmp[0].semilogy(
+                    _all_ts, [max(v, 1e-12) for v in _upd_l2],
+                    ".", ms=2, color="tomato", label="update diff L2  (Heun@x_heun − ODE@x_ode)")
+                axes_cmp[0].semilogy(
+                    _all_ts, [max(v, 1e-12) for v in _hcorr_l2],
+                    ".", ms=2, color="steelblue", label="Heun correction L2  ½‖f−f₂‖  (solver only)")
+                axes_cmp[0].set_ylabel("L2  (log)")
+                axes_cmp[0].set_title("Per-step update: ODE vs Heun")
+                axes_cmp[0].invert_xaxis()
+                axes_cmp[0].legend(fontsize=8)
+                axes_cmp[0].grid(True, linewidth=0.4)
+
+                # Panel 2: trajectory divergence between Heun and ODE shadow
+                axes_cmp[1].semilogy(
+                    _ck_ts, [max(v, 1e-12) for v in _traj_l2],
+                    "o-", ms=3, color="steelblue", label="traj L2  ‖x_Heun − x_ODE‖")
+                axes_cmp[1].semilogy(
+                    _ck_ts, [max(v, 1e-12) for v in _traj_max],
+                    "s--", ms=3, color="darkorange", label="traj max-abs")
+                axes_cmp[1].set_ylabel("‖x_Heun − x_ODE‖  (log)")
+                axes_cmp[1].set_title("Trajectory divergence: Heun vs ODE shadow")
+                axes_cmp[1].invert_xaxis()
+                axes_cmp[1].legend(fontsize=8)
+                axes_cmp[1].grid(True, linewidth=0.4)
+
+                # Panel 3: temporal roughness of the generated series at each checkpoint
+                axes_cmp[2].plot(_ck_ts, _fd_heun, "o-", ms=3, color="steelblue", label="Heun  max|Δx_t|")
+                axes_cmp[2].plot(_ck_ts, _fd_ode,  "o-", ms=3, color="tomato",    label="ODE   max|Δx_t|")
+                axes_cmp[2].set_ylabel("max |x_{t+1} − x_t|  (seq dim)")
+                axes_cmp[2].set_title("Temporal roughness of generated series")
+                axes_cmp[2].invert_xaxis()
+                axes_cmp[2].legend(fontsize=8)
+                axes_cmp[2].grid(True, linewidth=0.4)
+
+                for _ax in axes_cmp:
+                    _ax.set_xlabel("diffusion time t  (T → ε)")
+                plt.tight_layout()
+                plt.show()
 
         return x

@@ -19,6 +19,7 @@ saved to PNG files instead of being displayed interactively.
 """
 
 import argparse
+import json
 import os
 import sys
 import warnings
@@ -189,7 +190,7 @@ def main():
 
     # ── Diffusion processes ───────────────────────────────────────────────────
     processes = Diffusion_Processes(config["process"])
-    num_reverse_steps = args.num_reverse_steps if args.num_reverse_steps is not None else processes.N
+    num_reverse_steps = args.num_reverse_steps if args.num_reverse_steps is not None else int(config["process"]["N"])
     if is_main:
         print(f"Diffusion_Processes — SDE: {processes.sde_type}, N: {processes.N}, "
               f"model_steps: {processes.model_steps}")
@@ -225,6 +226,8 @@ def main():
     # ODE consistency diagnostic only on rank 0 (same behaviour as original)
     run_debug = args.debug and (use_ode or use_heun) and is_main
     disc_out  = [] if run_debug else None
+    # ODE-vs-Heun comparison active when Heun is selected and debug is on (rank 0 only)
+    cmp_out   = [] if (run_debug and use_heun) else None
 
     samples = processes.reverse_process(
         model            = model,
@@ -238,6 +241,7 @@ def main():
         debug            = run_debug,
         disc_out         = disc_out,
         use_heun         = use_heun,
+        cmp_out          = cmp_out,
     )  # → (rank_n_samples, 1, L)
 
     print(f"[rank {local_rank}] generation done. shape={samples.shape}")
@@ -323,6 +327,50 @@ def main():
             if use_wandb:
                 wandb_images[label] = wandb.Image(fig_path)
     plt.close("all")
+
+    # ── ODE-vs-Heun comparison summary and persistence (rank 0 only) ─────────
+    if is_main and cmp_out is not None and len(cmp_out) > 0:
+        upd_l2s   = [e["upd_l2"]    for e in cmp_out]
+        hcorr_l2s = [e["hcorr_l2"] for e in cmp_out]
+        ckpts     = [e for e in cmp_out if "traj_l2" in e]
+
+        cmp_summary = {
+            "cmp/upd_l2_mean":   float(np.mean(upd_l2s)),
+            "cmp/upd_l2_max":    float(np.max(upd_l2s)),
+            "cmp/hcorr_l2_mean": float(np.mean(hcorr_l2s)),
+            "cmp/hcorr_l2_max":  float(np.max(hcorr_l2s)),
+        }
+        if ckpts:
+            traj_l2s  = [e["traj_l2"]  for e in ckpts]
+            traj_maxs = [e["traj_max"] for e in ckpts]
+            fd_diffs  = [e["fd_heun"] - e["fd_ode"] for e in ckpts]
+            cmp_summary.update({
+                "cmp/traj_l2_final":  float(traj_l2s[-1]),
+                "cmp/traj_max_final": float(traj_maxs[-1]),
+                "cmp/fd_diff_mean":   float(np.mean(fd_diffs)),
+            })
+
+        print("\n=== ODE-vs-Heun comparison summary ===")
+        for _k, _v in cmp_summary.items():
+            print(f"  {_k}: {_v:.4e}")
+
+        cmp_json = os.path.join(out_dir, "ode_heun_cmp.json")
+        with open(cmp_json, "w") as _jf:
+            json.dump(cmp_out, _jf, indent=2)
+        print(f"ODE-vs-Heun comparison data → {cmp_json}")
+
+        # Save comparison figures produced by reverse_process
+        for fig_num in plt.get_fignums():
+            fig_path = os.path.join(out_dir, f"diagnostic_ode_heun_cmp_{fig_num}.png")
+            plt.figure(fig_num).savefig(fig_path, dpi=100, bbox_inches="tight")
+            print(f"Saved ODE-vs-Heun figure → {fig_path}")
+            if use_wandb and wandb.run is not None:
+                wandb_images[f"cmp/fig_{fig_num}"] = wandb.Image(fig_path)
+        plt.close("all")
+
+        if use_wandb and wandb.run is not None:
+            cmp_summary.update(wandb_images)
+            wandb.log(cmp_summary)
 
     if is_main:
         samples_local = samples.detach().cpu()
