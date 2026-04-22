@@ -328,6 +328,15 @@ class Diffusion_Processes:
         # Build reverse-time SDE/ODE
         rsde: SDE = self.sde.reverse(score_fn, probability_flow=probability_flow)
 
+        # Whether to run the ODE consistency check this run
+        _run_consistency = debug and probability_flow and (disc_out is not None)
+
+        # Whether to run the paired ODE-vs-Heun comparison
+        # Requires use_heun=True so both f and f2 are already computed per step.
+        # Maintains a shadow ODE-Euler trajectory from the same initial x.
+        # Costs one extra model call per step (rsde.discretize for x_ode at i > 0).
+        _run_cmp = debug and use_heun and (cmp_out is not None)
+
         # Initialize from the prior at time T
         x = self.sde.prior_sampling(shape).to(device)
         print(f"Check prior {self.sde_type}: Mean = {x.mean()}, Std = {x.std()}")
@@ -345,15 +354,6 @@ class Diffusion_Processes:
 
         # Tracks (t_value, global_std, dx_norm) at each logging checkpoint
         std_trajectory = []
-
-        # Whether to run the ODE consistency check this run
-        _run_consistency = debug and probability_flow and (disc_out is not None)
-
-        # Whether to run the paired ODE-vs-Heun comparison
-        # Requires use_heun=True so both f and f2 are already computed per step.
-        # Maintains a shadow ODE-Euler trajectory from the same initial x.
-        # Costs one extra model call per step (rsde.discretize for x_ode at i > 0).
-        _run_cmp = debug and use_heun and (cmp_out is not None)
 
         # Running accumulators for cumulative trajectory diagnostics.
         # Updated at every consistency-check step:
