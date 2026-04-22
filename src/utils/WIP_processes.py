@@ -340,7 +340,7 @@ class Diffusion_Processes:
         # Step size for the actual time grid (used by the consistency diagnostic)
         dt_actual = float((T - self.eps_time) / max(num_steps - 1, 1))
 
-        k = max(num_steps//10, 1)
+        k = max(num_steps//100, 1)
         start_time = time.time()
 
         # Tracks (t_value, global_std, dx_norm) at each logging checkpoint
