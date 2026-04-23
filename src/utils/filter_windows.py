@@ -9,10 +9,10 @@ extracted windows are identical to those seen during training.
 Usage example
 -------------
 python src/utils/filter_windows.py \
-    --data_folder  data/sp500_individual_gbm \
+    --data_folder  data/replication_returns_other \
     --output_folder data/filtered_windows \
-    --seq_length 252 \
-    --stride 1 \
+    --seq_length 2048 \
+    --stride 400 \
     --percentage_zero 0.10
 
  2048 --stride 400 --percentage_zero 0.05
@@ -325,7 +325,7 @@ def main() -> None:
 
     kurt_p_lo = float(np.percentile(kurtoses, mid_lo_pct))
     kurt_p_hi = float(np.percentile(kurtoses, mid_hi_pct))
-    kurt_p90  = float(np.percentile(kurtoses, 90))
+    kurt_p90  = float(np.percentile(kurtoses, 80))
 
     # high_zero: top <percentage_zero> fraction → percentile = (1 - pct) * 100
     zero_high_pct_rank   = (1.0 - args.percentage_zero) * 100.0

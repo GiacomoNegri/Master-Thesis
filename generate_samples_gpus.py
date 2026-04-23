@@ -343,11 +343,13 @@ def main():
         if ckpts:
             traj_l2s  = [e["traj_l2"]  for e in ckpts]
             traj_maxs = [e["traj_max"] for e in ckpts]
-            fd_diffs  = [e["fd_heun"] - e["fd_ode"] for e in ckpts]
+            fd_diffs_max  = [e["fd_heun_max"]  - e["fd_ode_max"]  for e in ckpts]
+            fd_diffs_mean = [e["fd_heun_mean"] - e["fd_ode_mean"] for e in ckpts]
             cmp_summary.update({
-                "cmp/traj_l2_final":  float(traj_l2s[-1]),
-                "cmp/traj_max_final": float(traj_maxs[-1]),
-                "cmp/fd_diff_mean":   float(np.mean(fd_diffs)),
+                "cmp/traj_l2_final":     float(traj_l2s[-1]),
+                "cmp/traj_max_final":    float(traj_maxs[-1]),
+                "cmp/fd_max_diff_mean":  float(np.mean(fd_diffs_max)),
+                "cmp/fd_mean_diff_mean": float(np.mean(fd_diffs_mean)),
             })
 
         print("\n=== ODE-vs-Heun comparison summary ===")

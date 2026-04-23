@@ -17,7 +17,7 @@ def _ode_consistency_discrepancy(
     x: torch.Tensor,
     t_i: torch.Tensor,
     f_full: torch.Tensor,
-    dt_actual: float,
+    t_next: torch.Tensor,
 ) -> dict:
     """
     Local reverse-step consistency check for deterministic ODE sampling.
@@ -34,11 +34,11 @@ def _ode_consistency_discrepancy(
     and acts as a proxy for local truncation error.
 
     Args:
-        rsde:       Reverse SDE (must expose .discretize(x, t, labels=None)).
-        x:          Current state, shape (B, K, L).
-        t_i:        Current time vector, shape (B,).
-        f_full:     Pre-computed full-step drift f = drift(x, t) * dt_sde, same shape as x.
-        dt_actual:  Actual time-grid step size (T → eps direction) used to place t_mid.
+        rsde:    Reverse SDE (must expose .discretize(x, t, labels=None)).
+        x:       Current state, shape (B, K, L).
+        t_i:     Current time vector, shape (B,).
+        f_full:  Pre-computed full-step drift f = drift(x, t) * dt_sde, same shape as x.
+        t_next:  Next grid time vector, shape (B,). Midpoint is placed at 0.5*(t_i + t_next).
 
     Returns:
         dict with float keys "l2", "mae", "max_ae".
@@ -50,7 +50,7 @@ def _ode_consistency_discrepancy(
     x_mid = x - f_full * 0.5
 
     # Second half step — one extra model call at the midpoint time
-    t_mid = (t_i - dt_actual * 0.5).clamp(min=0.0)
+    t_mid = 0.5 * (t_i + t_next)
     f2, _ = rsde.discretize(x_mid, t_mid, labels=None)
     x_2h = x_mid - f2 * 0.5
 
@@ -346,9 +346,6 @@ class Diffusion_Processes:
         if _run_cmp:
             x_ode = x.clone()
 
-        # Step size for the actual time grid (used by the consistency diagnostic)
-        dt_actual = float((T - self.eps_time) / max(num_steps - 1, 1))
-
         k = max(num_steps//100, 1)
         start_time = time.time()
 
@@ -371,7 +368,7 @@ class Diffusion_Processes:
 
             # ---- ODE consistency diagnostic (debug + probability_flow only) ----
             if _run_consistency and (i % k == 0):
-                disc = _ode_consistency_discrepancy(rsde, x, t_i, f, dt_actual)
+                disc = _ode_consistency_discrepancy(rsde, x, t_i, f, ts[i + 1].expand(B))
                 disc["step"] = i
                 disc["t"]    = t_i[0].item()
 
@@ -447,25 +444,36 @@ class Diffusion_Processes:
                     top_l  = (top_flat % L_s).cpu().tolist()
                     top_kk = ((top_flat // L_s) % K_s).cpu().tolist()
                     top_b  = (top_flat // (L_s * K_s)).cpu().tolist()
-                    # max |x_{t+1} - x_t| along sequence length — temporal roughness
-                    fd_h = (x.float()[..., 1:] - x.float()[..., :-1]).abs().max().item() if L_s > 1 else 0.0
-                    fd_o = (x_ode.float()[..., 1:] - x_ode.float()[..., :-1]).abs().max().item() if L_s > 1 else 0.0
+                    # temporal roughness: max and mean of |x_{t+1} - x_t| along sequence
+                    if L_s > 1:
+                        fd_tensor_h = (x.float()[..., 1:] - x.float()[..., :-1]).abs()
+                        fd_tensor_o = (x_ode.float()[..., 1:] - x_ode.float()[..., :-1]).abs()
+                        fd_h_max  = fd_tensor_h.max().item()
+                        fd_h_mean = fd_tensor_h.mean().item()
+                        fd_o_max  = fd_tensor_o.max().item()
+                        fd_o_mean = fd_tensor_o.mean().item()
+                    else:
+                        fd_h_max = fd_h_mean = fd_o_max = fd_o_mean = 0.0
                     entry.update({
-                        "traj_l1":  td_abs.mean().item(),
-                        "traj_l2":  td.norm().item(),
-                        "traj_max": td_abs.max().item(),
-                        "top_vals": top_vals.cpu().tolist(),
-                        "top_idx":  list(zip(top_b, top_kk, top_l)),  # (b, feat, time)
-                        "min_diff": float(x.min()) - float(x_ode.min()),
-                        "max_diff": float(x.max()) - float(x_ode.max()),
-                        "fd_heun":  fd_h,
-                        "fd_ode":   fd_o,
+                        "traj_l1":    td_abs.mean().item(),
+                        "traj_l2":    td.norm().item(),
+                        "traj_max":   td_abs.max().item(),
+                        "top_vals":   top_vals.cpu().tolist(),
+                        "top_idx":    list(zip(top_b, top_kk, top_l)),  # (b, feat, time)
+                        "min_diff":   float(x.min()) - float(x_ode.min()),
+                        "max_diff":   float(x.max()) - float(x_ode.max()),
+                        "fd_heun_max":  fd_h_max,
+                        "fd_heun_mean": fd_h_mean,
+                        "fd_ode_max":   fd_o_max,
+                        "fd_ode_mean":  fd_o_mean,
                     })
                     print(
                         f"  [ODE-vs-Heun | step {i+1:4d}/{num_steps} | t={entry['t']:.4f}]"
-                        f"  traj_L2={entry['traj_l2']:.4e}  traj_max={entry['traj_max']:.4e}"
-                        f"  hcorr_L2={entry['hcorr_l2']:.4e}  upd_L2={entry['upd_l2']:.4e}"
-                        f"  fd_diff={fd_h - fd_o:+.4e}"
+                        f"  traj_L2={entry['traj_l2']:.4e}  traj_L1={entry['traj_l1']:.4e}  traj_max={entry['traj_max']:.4e}"
+                        f"  hcorr_L2={entry['hcorr_l2']:.4e}  hcorr_L1={entry['hcorr_l1']:.4e}"
+                        f"  upd_L2={entry['upd_l2']:.4e}  upd_L1={entry['upd_l1']:.4e}"
+                        f"  fd_heun_mean={fd_h_mean:.4e}  fd_ode_mean={fd_o_mean:.4e}  fd_heun_max={fd_h_max:.4e}  fd_ode_max={fd_o_max:.4e}"
+                        f"  fd_max_diff={fd_h_max - fd_o_max:+.4e}  fd_mean_diff={fd_h_mean - fd_o_mean:+.4e}"
                     )
 
                 cmp_out.append(entry)
@@ -478,8 +486,7 @@ class Diffusion_Processes:
                 global_std = x_cpu.std().item()
                 # per-feature std: shape (K,) — std across batch and time dims
                 per_feat_std = x_cpu.std(dim=[0, 2]).tolist()   # (K,)
-                dx_norm = (dx_cpu.norm() / dx_cpu.numel()).item() if dx_cpu is not None else 0.0
-
+                dx_norm = (dx_cpu.norm() / dx_cpu.numel()).item() if dx_cpu is not None else 0.0 #Frobenious L2 norm, we divide by numel to get an average per-element update magnitude, which is more interpretable and comparable across different shapes.
                 # skewness and excess kurtosis over all elements (batch × features × time)
                 xf = x_cpu.flatten()
                 mu = xf.mean()
@@ -541,9 +548,9 @@ class Diffusion_Processes:
 
         # 1. std trajectory: should decrease from sigma_max toward data std
         if len(std_trajectory) > 1:
-            t_vals   = [r[0] for r in std_trajectory]
-            std_vals = [r[1] for r in std_trajectory]
-            dx_vals  = [r[2] for r in std_trajectory]
+            t_vals   = [r[0] for r in std_trajectory] #time
+            std_vals = [r[1] for r in std_trajectory] #std
+            dx_vals  = [r[2] for r in std_trajectory] #norm
 
             fig, (ax1, ax2) = plt.subplots(2, 1, figsize=(10, 4), sharex=True)
             ax1.plot(t_vals, std_vals, marker="o", markersize=3)
@@ -580,28 +587,30 @@ class Diffusion_Processes:
 
         # ── ODE-vs-Heun comparison plots ──────────────────────────────────────────
         if _run_cmp and len(cmp_out) > 0:
-            _all_ts    = [e["t"]         for e in cmp_out]
-            _upd_l2    = [e["upd_l2"]    for e in cmp_out]
-            _hcorr_l2  = [e["hcorr_l2"] for e in cmp_out]
+            _all_ts    = [e["t"]        for e in cmp_out]
+            _upd_l1    = [e["upd_l1"]   for e in cmp_out]
+            _hcorr_l1  = [e["hcorr_l1"] for e in cmp_out]
 
-            _ckpts = [e for e in cmp_out if "traj_l2" in e]
+            _ckpts = [e for e in cmp_out if "traj_l1" in e]
             if _ckpts:
-                _ck_ts    = [e["t"]       for e in _ckpts]
-                _traj_l2  = [e["traj_l2"] for e in _ckpts]
-                _traj_max = [e["traj_max"]for e in _ckpts]
-                _fd_heun  = [e["fd_heun"] for e in _ckpts]
-                _fd_ode   = [e["fd_ode"]  for e in _ckpts]
+                _ck_ts        = [e["t"]            for e in _ckpts]
+                _traj_l1      = [e["traj_l1"]      for e in _ckpts]
+                _traj_max     = [e["traj_max"]      for e in _ckpts]
+                _fd_heun_max  = [e["fd_heun_max"]   for e in _ckpts]
+                _fd_heun_mean = [e["fd_heun_mean"]  for e in _ckpts]
+                _fd_ode_max   = [e["fd_ode_max"]    for e in _ckpts]
+                _fd_ode_mean  = [e["fd_ode_mean"]   for e in _ckpts]
 
-                fig_cmp, axes_cmp = plt.subplots(3, 1, figsize=(10, 9))
+                fig_cmp, axes_cmp = plt.subplots(4, 1, figsize=(10, 12))
 
-                # Panel 1: per-step L2 of update diff vs pure Heun correction
+                # Panel 1: per-step MAE of update diff vs pure Heun correction
                 axes_cmp[0].semilogy(
-                    _all_ts, [max(v, 1e-12) for v in _upd_l2],
-                    ".", ms=2, color="tomato", label="update diff L2  (Heun@x_heun − ODE@x_ode)")
+                    _all_ts, [max(v, 1e-12) for v in _upd_l1],
+                    ".", ms=2, color="tomato", label="update diff MAE  (Heun@x_heun − ODE@x_ode)")
                 axes_cmp[0].semilogy(
-                    _all_ts, [max(v, 1e-12) for v in _hcorr_l2],
-                    ".", ms=2, color="steelblue", label="Heun correction L2  ½‖f−f₂‖  (solver only)")
-                axes_cmp[0].set_ylabel("L2  (log)")
+                    _all_ts, [max(v, 1e-12) for v in _hcorr_l1],
+                    ".", ms=2, color="steelblue", label="Heun correction MAE  ½‖f−f₂‖  (solver only)")
+                axes_cmp[0].set_ylabel("MAE  (log)")
                 axes_cmp[0].set_title("Per-step update: ODE vs Heun")
                 axes_cmp[0].invert_xaxis()
                 axes_cmp[0].legend(fontsize=8)
@@ -609,25 +618,34 @@ class Diffusion_Processes:
 
                 # Panel 2: trajectory divergence between Heun and ODE shadow
                 axes_cmp[1].semilogy(
-                    _ck_ts, [max(v, 1e-12) for v in _traj_l2],
-                    "o-", ms=3, color="steelblue", label="traj L2  ‖x_Heun − x_ODE‖")
+                    _ck_ts, [max(v, 1e-12) for v in _traj_l1],
+                    "o-", ms=3, color="steelblue", label="traj MAE  mean|x_Heun − x_ODE|")
                 axes_cmp[1].semilogy(
                     _ck_ts, [max(v, 1e-12) for v in _traj_max],
                     "s--", ms=3, color="darkorange", label="traj max-abs")
-                axes_cmp[1].set_ylabel("‖x_Heun − x_ODE‖  (log)")
+                axes_cmp[1].set_ylabel("mean|x_Heun − x_ODE|  (log)")
                 axes_cmp[1].set_title("Trajectory divergence: Heun vs ODE shadow")
                 axes_cmp[1].invert_xaxis()
                 axes_cmp[1].legend(fontsize=8)
                 axes_cmp[1].grid(True, linewidth=0.4)
 
-                # Panel 3: temporal roughness of the generated series at each checkpoint
-                axes_cmp[2].plot(_ck_ts, _fd_heun, "o-", ms=3, color="steelblue", label="Heun  max|Δx_t|")
-                axes_cmp[2].plot(_ck_ts, _fd_ode,  "o-", ms=3, color="tomato",    label="ODE   max|Δx_t|")
-                axes_cmp[2].set_ylabel("max |x_{t+1} − x_t|  (seq dim)")
-                axes_cmp[2].set_title("Temporal roughness of generated series")
+                # Panel 3: temporal roughness — max adjacent jump
+                axes_cmp[2].plot(_ck_ts, _fd_heun_max, "o-", ms=3, color="steelblue", label="Heun  max|Δx_t|")
+                axes_cmp[2].plot(_ck_ts, _fd_ode_max,  "o-", ms=3, color="tomato",    label="ODE   max|Δx_t|")
+                axes_cmp[2].set_ylabel("max |x_{t+1} − x_t|")
+                axes_cmp[2].set_title("Temporal roughness — worst-case adjacent jump")
                 axes_cmp[2].invert_xaxis()
                 axes_cmp[2].legend(fontsize=8)
                 axes_cmp[2].grid(True, linewidth=0.4)
+
+                # Panel 4: temporal roughness — mean adjacent jump
+                axes_cmp[3].plot(_ck_ts, _fd_heun_mean, "o-", ms=3, color="steelblue", label="Heun  mean|Δx_t|")
+                axes_cmp[3].plot(_ck_ts, _fd_ode_mean,  "o-", ms=3, color="tomato",    label="ODE   mean|Δx_t|")
+                axes_cmp[3].set_ylabel("mean |x_{t+1} − x_t|")
+                axes_cmp[3].set_title("Temporal roughness — average adjacent jump")
+                axes_cmp[3].invert_xaxis()
+                axes_cmp[3].legend(fontsize=8)
+                axes_cmp[3].grid(True, linewidth=0.4)
 
                 for _ax in axes_cmp:
                     _ax.set_xlabel("diffusion time t  (T → ε)")
