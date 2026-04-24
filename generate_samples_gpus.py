@@ -118,15 +118,11 @@ def main():
         if torch.cuda.is_available():
             torch.cuda.manual_seed_all(rank_seed)
 
-    # ── Output dir (rank 0 creates; others wait at barrier) ──────────────────
+    # ── Checkpoint stem components (needed before config is loaded) ──────────
     ckpt_stem   = os.path.splitext(args.checkpoint_name)[0]
     _parts      = ckpt_stem.split("_")
     _noise_idx  = next((i for i, p in enumerate(_parts) if p.startswith("noise-")), len(_parts) - 3)
     _short_stem = "_".join(_parts[:_noise_idx + 1]) + "_" + "_".join(_parts[-2:])
-    out_dir     = os.path.join(args.out_dir, f"{_sampler_label}_{_short_stem}")
-    if is_main:
-        os.makedirs(out_dir, exist_ok=True)
-    dist.barrier()
 
     # ── Device ────────────────────────────────────────────────────────────────
     device = torch.device(f"cuda:{local_rank}")
@@ -195,6 +191,13 @@ def main():
         print(f"Diffusion_Processes — SDE: {processes.sde_type}, N: {processes.N}, "
               f"model_steps: {processes.model_steps}")
         print(f"Reverse steps to use: {num_reverse_steps}")
+
+    # ── Output dir (rank 0 creates; others wait at barrier) ──────────────────
+    # Built here so num_reverse_steps (which may come from config) is known.
+    out_dir = os.path.join(args.out_dir, f"{_sampler_label}_{_short_stem}_N{num_reverse_steps}")
+    if is_main:
+        os.makedirs(out_dir, exist_ok=True)
+    dist.barrier()
 
     # ── Split N_SAMPLES across ranks ──────────────────────────────────────────
     # Distribute as evenly as possible.  The first (N_TOTAL % world_size) ranks

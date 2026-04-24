@@ -167,9 +167,28 @@ def parse_args():
                         help="If true, sample t ~ p(t) ∝ g(t)²/σ²(t) instead of uniform. "
                              "Concentrates training on hard small-t timesteps; disables likelihood weighting.")
     parser.add_argument("--lr_cosine_annealing", type=str2bool, default=None,
-                        help="If true, apply CosineAnnealingLR decaying from lr to lr_eta_min over the full run.")
+                        help="[Legacy] If true, equivalent to --lr_scheduler cosine-annealing. "
+                             "Ignored when --lr_scheduler is set explicitly.")
     parser.add_argument("--lr_eta_min", type=float, default=None,
                         help="Minimum LR at the end of the cosine annealing cycle (default 1e-6).")
+    parser.add_argument("--lr_scheduler",
+                        type=str,
+                        default=None,
+                        choices=["cosine-annealing", "reduce-on-plateau", "none"],
+                        help="LR scheduler. Takes precedence over --lr_cosine_annealing. "
+                             "'cosine-annealing': decay from lr to lr_eta_min over the full run; "
+                             "'reduce-on-plateau': multiply lr by lr_gamma when val loss stalls "
+                             "(requires val_split_ratio and lr_patience); "
+                             "'none': constant LR.")
+    parser.add_argument("--lr_patience", type=int, default=None,
+                        help="Patience epochs for reduce-on-plateau: reduce LR after this many "
+                             "epochs with no val-loss improvement. Only used when "
+                             "--lr_scheduler=reduce-on-plateau.")
+    parser.add_argument("--lr_gamma", type=float, default=None,
+                        help="Multiplicative factor for reduce-on-plateau (default 0.5). "
+                             "Only used when --lr_scheduler=reduce-on-plateau.")
+    parser.add_argument("--loss_spike_factor", type=float, default=None,
+                        help="Print a line whenever loss > factor × ema_loss (e.g. 5.0). null/omit to disable.")
     parser.add_argument(
         "--mask_mode",
         type=str,
@@ -289,6 +308,14 @@ def build_cli_override_dict(args) -> Dict[str, Any]:
         override["train"]["lr_cosine_annealing"] = args.lr_cosine_annealing
     if args.lr_eta_min is not None:
         override["train"]["lr_eta_min"] = args.lr_eta_min
+    if args.lr_scheduler is not None:
+        override["train"]["lr_scheduler"] = args.lr_scheduler
+    if args.lr_patience is not None:
+        override["train"]["lr_patience"] = args.lr_patience
+    if args.lr_gamma is not None:
+        override["train"]["lr_gamma"] = args.lr_gamma
+    if args.loss_spike_factor is not None:
+        override["train"]["loss_spike_factor"] = args.loss_spike_factor
     if args.seq_len is not None:
         override["train"]["seq_len"] = args.seq_len
     if args.stride is not None:
@@ -715,10 +742,14 @@ def train(
     global_step = 0
     history = {"epoch_losses": [], "val_losses": []}
 
-    # 6) LR scheduler (optional)
-    use_cosine = bool(config["train"].get("lr_cosine_annealing", False))
+    # 6) LR scheduler — new lr_scheduler key takes precedence over legacy lr_cosine_annealing.
+    _lr_sched = config["train"].get("lr_scheduler", None)
+    if _lr_sched is None:
+        _lr_sched = "cosine-annealing" if bool(config["train"].get("lr_cosine_annealing", False)) else "none"
+
     eta_min = float(config["train"].get("lr_eta_min", 1e-6))
-    if use_cosine:
+
+    if _lr_sched == "cosine-annealing":
         scheduler = torch.optim.lr_scheduler.CosineAnnealingLR(
             optim,
             T_max=num_epochs,
@@ -726,8 +757,30 @@ def train(
             last_epoch=-1,
         )
         if is_main:
-            print(f"CosineAnnealingLR enabled: lr={config['train']['lr']:.2e} → eta_min={eta_min:.2e} over {num_epochs} epochs")
-    else:
+            print(f"CosineAnnealingLR: lr={config['train']['lr']:.2e} → eta_min={eta_min:.2e} over {num_epochs} epochs")
+    elif _lr_sched == "reduce-on-plateau":
+        if val_loader is None:
+            raise ValueError(
+                "lr_scheduler='reduce-on-plateau' requires a validation set. "
+                "Set train.val_split_ratio in config or pass --val_split_ratio."
+            )
+        _lr_patience = config["train"].get("lr_patience", None)
+        if _lr_patience is None or int(_lr_patience) <= 0:
+            raise ValueError(
+                "lr_scheduler='reduce-on-plateau' requires lr_patience > 0. "
+                "Set train.lr_patience in config or pass --lr_patience."
+            )
+        lr_gamma = float(config["train"].get("lr_gamma", 0.5))
+        scheduler = torch.optim.lr_scheduler.ReduceLROnPlateau(
+            optim,
+            mode="min",
+            factor=lr_gamma,
+            patience=int(_lr_patience),
+            min_lr=eta_min,
+        )
+        if is_main:
+            print(f"ReduceLROnPlateau: patience={_lr_patience} epochs, factor={lr_gamma}, min_lr={eta_min:.2e}")
+    else:  # "none"
         scheduler = None
 
     # 7) Resume checkpoint — must happen BEFORE DDP wrapping
@@ -739,7 +792,7 @@ def train(
         )
         if is_main:
             print(f"Resumed at epoch={start_epoch}, global_step={global_step}")
-        if use_cosine and "scheduler" not in torch.load(resume_checkpoint, map_location="cpu"):
+        if _lr_sched == "cosine-annealing" and "scheduler" not in torch.load(resume_checkpoint, map_location="cpu"):
             for _ in range(start_epoch):
                 scheduler.step()
             if is_main:
@@ -819,6 +872,9 @@ def train(
         ema_beta = float(config["train"].get("ema_beta", 0.98))
         use_lw = bool(config["train"].get("likelihood_weighting", False))
         debug = bool(config["train"].get("debug", False))
+        _spike_factor = config["train"].get("loss_spike_factor", None)
+        if _spike_factor is not None:
+            _spike_factor = float(_spike_factor)
         t0 = time.time()
 
         for batch_idx, batch in pbar:
@@ -944,6 +1000,13 @@ def train(
             if log_this_batch and is_main:
                 _clip_flag = "CLIPPED" if grad_norm_val >= max_norm - 0.01 else "ok"
                 print(f"  grad_norm | {grad_norm_val:.4f}  ({_clip_flag})")
+
+            # Activated after 50 batches to allow EMA to stabilize, and only if a spike factor is set in config
+            if is_main and _spike_factor is not None and ema_loss is not None and batch_idx >= 50:
+                if loss_val > _spike_factor * ema_loss:
+                    print(f"  [spike step={global_step}]  loss={loss_val:.4f}  ema={ema_loss:.4f}  "
+                          f"ratio={loss_val / ema_loss:.1f}x  t={t_cont.float().mean().item():.3f}  "
+                          f"sigma={sigma_t.float().mean().item():.4f}  gnorm={grad_norm_val:.3f}")
 
             if is_main:
                 pbar.set_postfix({
@@ -1090,14 +1153,25 @@ def train(
                     epoch_metrics["epoch/val_loss"] = val_avg
                 wandb.log(epoch_metrics, step=global_step)
 
-        # LR scheduler step
+        # LR scheduler step (once per epoch, after validation)
         if scheduler is not None:
-            scheduler.step()
-            if is_main:
-                current_lr = scheduler.get_last_lr()[0]
-                print(f"  [scheduler] lr={current_lr:.2e}")
-                if use_wandb:
-                    wandb.log({"train/lr": current_lr}, step=global_step)
+            if _lr_sched == "reduce-on-plateau":
+                # val_avg is guaranteed non-None when reduce-on-plateau is active
+                # (we validated val_loader is not None at scheduler creation time)
+                if val_avg is not None:
+                    scheduler.step(val_avg)
+                    if is_main:
+                        current_lr = optim.param_groups[0]["lr"]
+                        print(f"  [scheduler] ReduceLROnPlateau step — lr={current_lr:.2e}")
+                        if use_wandb:
+                            wandb.log({"train/lr": current_lr}, step=global_step)
+            else:  # cosine-annealing
+                scheduler.step()
+                if is_main:
+                    current_lr = scheduler.get_last_lr()[0]
+                    print(f"  [scheduler] lr={current_lr:.2e}")
+                    if use_wandb:
+                        wandb.log({"train/lr": current_lr}, step=global_step)
 
         # Early stopping — rank 0 decides, result broadcast to all ranks
         if early_stop_patience is not None and val_avg is not None:
