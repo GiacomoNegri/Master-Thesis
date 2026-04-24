@@ -1220,6 +1220,8 @@ def build_final_checkpoint_name(
         data_root = "REPL_POST_2001_HIGH_KURT"
     elif data_root == "./data/filtered_windows/post_2001_low_kurtosis":
         data_root = "REPL_POST_2001_LOW_KURT"
+    elif data_root == "./data/replication_returns_global":
+        data_root = "REPL_RET_GLOBAL"
     else:
         data_root = "REPL"
     mask_mode = str(config['train']['mask_mode'])
