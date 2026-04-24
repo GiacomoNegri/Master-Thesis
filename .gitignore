@@ -30,6 +30,7 @@ err/
 out/
 images/
 jobs/
+replication/
 
 #specific files
 jobs_launcher.py

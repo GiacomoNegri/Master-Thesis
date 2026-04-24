@@ -828,7 +828,17 @@ def train(
 
             if log_this_batch:
                 print(f"\n[debug | epoch {epoch+1} | train | batch 0]")
-                print(f"  data  | mean={observed_data.mean():.4f}  std={observed_data.std():.4f}  min={observed_data.min():.4f}  max={observed_data.max():.4f}")
+                _d    = observed_data.float()
+                _flat = _d.flatten()
+                print(f"  data  | mean={_flat.mean():.4f}  std={_flat.std():.4f}  "
+                      f"min={_flat.min():.4f}  max={_flat.max():.4f}  "
+                      f"p5={_flat.quantile(0.05):.4f}  p50={_flat.quantile(0.50):.4f}  p95={_flat.quantile(0.95):.4f}")
+                _win_mean = _d.mean(dim=-1).flatten()
+                _win_std  = _d.std(dim=-1).flatten()
+                print(f"  win μ | mean={_win_mean.mean():.4f}  std={_win_mean.std():.4f}  "
+                      f"p5={_win_mean.quantile(0.05):.4f}  p50={_win_mean.quantile(0.50):.4f}  p95={_win_mean.quantile(0.95):.4f}")
+                print(f"  win σ | mean={_win_std.mean():.4f}  std={_win_std.std():.4f}  "
+                      f"p5={_win_std.quantile(0.05):.4f}  p50={_win_std.quantile(0.50):.4f}  p95={_win_std.quantile(0.95):.4f}")
 
             # conditioning mask
             mask_mode = config["train"].get("mask_mode", "random")
@@ -876,8 +886,22 @@ def train(
                     loss = masked_mse(eps_hat, eps, target_mask, None, debug=log_this_batch)
 
                 if log_this_batch:
-                    print(f"  eps_hat | norm={eps_hat.norm().item():.4f}  mean={eps_hat.mean().item():.4f}  std={eps_hat.std().item():.4f}")
-                    print(f"  eps     | norm={eps.norm().item():.4f}  mean={eps.mean().item():.4f}  std={eps.std().item():.4f}")
+                    print(f"  eps_hat | norm={eps_hat.norm().item():.4f}  mean={eps_hat.mean().item():.4f}  std={eps_hat.std().item():.4f}  min={eps_hat.min().item():.4f}  max={eps_hat.max().item():.4f}  median={eps_hat.median().item():.4f}")
+                    print(f"  eps     | norm={eps.norm().item():.4f}  mean={eps.mean().item():.4f}  std={eps.std().item():.4f}  min={eps.min().item():.4f}  max={eps.max().item():.4f}  median={eps.median().item():.4f}")
+                    _a = eps.detach().float().view(-1);  _a = _a - _a.mean()
+                    _b = eps_hat.detach().float().view(-1);  _b = _b - _b.mean()
+                    print(f"  corr(ε, ε̂) = {float((_a * _b).sum() / (_a.norm() * _b.norm() + 1e-8)):.4f}")
+
+            # Collapse detection — every batch, regardless of debug mode.
+            # Fires when std(ε̂) < 10 % of std(ε): model is hedging toward zero
+            # rather than predicting the noise distribution.
+            with torch.no_grad():
+                _std_hat = eps_hat.detach().float().std().item()
+                _std_eps = eps.float().std().item()
+                if _std_hat < 0.1 * (_std_eps + 1e-8):
+                    if is_main:
+                        print(f"  [COLLAPSE step={global_step}]  std(ε̂)={_std_hat:.4f}  "
+                              f"std(ε)={_std_eps:.4f}  ratio={_std_hat / (_std_eps + 1e-8):.3f}")
 
             loss_val = float(loss.detach().item())
             epoch_loss_sum += loss_val
@@ -900,7 +924,8 @@ def train(
             scaler.scale(loss).backward()
             scaler.unscale_(optim)
             # IMPORTANT: we are doing gradient clipping, because of extreme gradient values
-            grad_norm = torch.nn.utils.clip_grad_norm_(model.parameters(), max_norm=5.0)
+            max_norm = 5.0
+            grad_norm = torch.nn.utils.clip_grad_norm_(model.parameters(), max_norm=max_norm)
             scaler.step(optim)
             scaler.update()
 
@@ -916,6 +941,10 @@ def train(
             it_per_s = steps_done / max(elapsed, 1e-9)
 
             grad_norm_val = float(grad_norm)
+
+            if log_this_batch and is_main:
+                _clip_flag = "CLIPPED" if grad_norm_val >= max_norm - 0.01 else "ok"
+                print(f"  grad_norm | {grad_norm_val:.4f}  ({_clip_flag})")
 
             if is_main:
                 pbar.set_postfix({
@@ -961,7 +990,17 @@ def train(
 
                     if log_this_val_batch:
                         print(f"\n[debug | epoch {epoch+1} | val | batch 0]")
-                        print(f"  data  | mean={observed_data.mean():.4f}  std={observed_data.std():.4f}  min={observed_data.min():.4f}  max={observed_data.max():.4f}")
+                        _d    = observed_data.float()
+                        _flat = _d.flatten()
+                        print(f"  data  | mean={_flat.mean():.4f}  std={_flat.std():.4f}  "
+                              f"min={_flat.min():.4f}  max={_flat.max():.4f}  "
+                              f"p5={_flat.quantile(0.05):.4f}  p50={_flat.quantile(0.50):.4f}  p95={_flat.quantile(0.95):.4f}")
+                        _win_mean = _d.mean(dim=-1).flatten()
+                        _win_std  = _d.std(dim=-1).flatten()
+                        print(f"  win μ | mean={_win_mean.mean():.4f}  std={_win_mean.std():.4f}  "
+                              f"p5={_win_mean.quantile(0.05):.4f}  p50={_win_mean.quantile(0.50):.4f}  p95={_win_mean.quantile(0.95):.4f}")
+                        print(f"  win σ | mean={_win_std.mean():.4f}  std={_win_std.std():.4f}  "
+                              f"p5={_win_std.quantile(0.05):.4f}  p50={_win_std.quantile(0.50):.4f}  p95={_win_std.quantile(0.95):.4f}")
 
                     if config["model"]["is_unconditional"] or mask_mode == "unconditional":
                         cond_mask = torch.zeros_like(observed_mask)
@@ -1003,8 +1042,20 @@ def train(
                             val_loss = masked_mse(eps_hat, eps, target_mask, None, debug=log_this_val_batch)
 
                         if log_this_val_batch:
-                            print(f"  eps_hat | norm={eps_hat.norm().item():.4f}  mean={eps_hat.mean().item():.4f}  std={eps_hat.std().item():.4f}")
-                            print(f"  eps     | norm={eps.norm().item():.4f}  mean={eps.mean().item():.4f}  std={eps.std().item():.4f}")
+                            print(f"  eps_hat | norm={eps_hat.norm().item():.4f}  mean={eps_hat.mean().item():.4f}  std={eps_hat.std().item():.4f}  min={eps_hat.min().item():.4f}  max={eps_hat.max().item():.4f}  median={eps_hat.median().item():.4f}")
+                            print(f"  eps     | norm={eps.norm().item():.4f}  mean={eps.mean().item():.4f}  std={eps.std().item():.4f}  min={eps.min().item():.4f}  max={eps.max().item():.4f}  median={eps.median().item():.4f}")
+                            _va = eps.float().view(-1);        _va = _va - _va.mean()
+                            _vb = eps_hat.float().view(-1);    _vb = _vb - _vb.mean()
+                            print(f"  corr(ε, ε̂) = {float((_va * _vb).sum() / (_va.norm() * _vb.norm() + 1e-8)):.4f}")
+
+                    # Collapse detection — every val batch, regardless of debug mode.
+                    with torch.no_grad():
+                        _std_hat_v = eps_hat.float().std().item()
+                        _std_eps_v = eps.float().std().item()
+                        if _std_hat_v < 0.1 * (_std_eps_v + 1e-8):
+                            if is_main:
+                                print(f"  [COLLAPSE val step={val_batch_idx}]  std(ε̂)={_std_hat_v:.4f}  "
+                                      f"std(ε)={_std_eps_v:.4f}  ratio={_std_hat_v / (_std_eps_v + 1e-8):.3f}")
 
                     val_loss_sum += val_loss.detach()
                     val_loss_count += 1
