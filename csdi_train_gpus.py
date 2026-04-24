@@ -477,7 +477,6 @@ def build_run_metadata(config: Dict[str, Any]) -> Dict[str, Any]:
             "enforce_observed": config["process"].get("enforce_observed", True),
         },
         "diffusion": {
-            "num_steps": config["diffusion"]["num_steps"],
             "diffusion_embedding_dim": config["diffusion"]["diffusion_embedding_dim"],
             "channels": config["diffusion"]["channels"],
             "layers": config["diffusion"]["layers"],
