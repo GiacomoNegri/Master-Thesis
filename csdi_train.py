@@ -132,6 +132,8 @@ def train(
         epoch_loss_sum   = 0.0
         epoch_loss_count = 0
         ema_loss = None
+        _grad_buf = []
+        _loss_buf = []
         ema_beta = float(config["train"].get("ema_beta", 0.98))
         debug    = bool(config["train"].get("debug", False))
         mask_mode = config["train"].get("mask_mode", "random")
@@ -140,9 +142,20 @@ def train(
         for batch_idx, batch in pbar:
             observed_data, observed_mask, observed_tp = unpack_batch(batch, device)
 
-            if debug:
-                print(f"Data | mean={observed_data.mean():.4f}  std={observed_data.std():.4f}"
-                      f"  min={observed_data.min():.4f}  max={observed_data.max():.4f}")
+            log_this_batch = debug and (batch_idx == 0)
+            if log_this_batch:
+                print(f"\n[debug | epoch {epoch+1} | train | batch 0]")
+                _d    = observed_data.float()
+                _flat = _d.flatten()
+                print(f"  data  | mean={_flat.mean():.4f}  std={_flat.std():.4f}  "
+                      f"min={_flat.min():.4f}  max={_flat.max():.4f}  "
+                      f"p5={_flat.quantile(0.05):.4f}  p50={_flat.quantile(0.50):.4f}  p95={_flat.quantile(0.95):.4f}")
+                _win_mean = _d.mean(dim=-1).flatten()
+                _win_std  = _d.std(dim=-1).flatten()
+                print(f"  win μ | mean={_win_mean.mean():.4f}  std={_win_mean.std():.4f}  "
+                      f"p5={_win_mean.quantile(0.05):.4f}  p50={_win_mean.quantile(0.50):.4f}  p95={_win_mean.quantile(0.95):.4f}")
+                print(f"  win σ | mean={_win_std.mean():.4f}  std={_win_std.std():.4f}  "
+                      f"p5={_win_std.quantile(0.05):.4f}  p50={_win_std.quantile(0.50):.4f}  p95={_win_std.quantile(0.95):.4f}")
 
             # Build conditioning and target masks
             if config["model"]["is_unconditional"] or mask_mode == "unconditional":
@@ -175,6 +188,9 @@ def train(
                 )
 
             loss_val = float(loss.detach().item())
+            if log_this_batch:
+                print(f"  sigma | min={sigma_t.float().min():.4f}  max={sigma_t.float().max():.4f}  "
+                      f"mean={sigma_t.float().mean():.4f}  median={sigma_t.float().median():.4f}")
             epoch_loss_sum   += loss_val
             epoch_loss_count += 1
             ema_loss = loss_val if ema_loss is None else (ema_beta * ema_loss + (1.0 - ema_beta) * loss_val)
@@ -191,6 +207,11 @@ def train(
             elapsed     = time.time() - t0
             it_per_s    = (batch_idx + 1) / max(elapsed, 1e-9)
             grad_norm_v = float(grad_norm)
+            _grad_buf.append(grad_norm_v)
+            _loss_buf.append(loss_val)
+            if log_this_batch:
+                _clip_flag = "CLIPPED" if grad_norm_v >= 4.99 else "ok"
+                print(f"  grad_norm | {grad_norm_v:.4f}  ({_clip_flag})")
 
             pbar.set_postfix({
                 "step": global_step,
@@ -218,6 +239,19 @@ def train(
                     }, step=global_step)
 
         # ---- end of epoch ----
+        if _grad_buf:
+            _gn = np.array(_grad_buf)
+            _lb = np.array(_loss_buf)
+            _clip_pct = (_gn >= 4.99).mean() * 100
+            _r_str = ""
+            if len(_gn) > 1 and _gn.std() > 1e-12 and _lb.std() > 1e-12:
+                _r = float(np.corrcoef(_lb, _gn)[0, 1])
+                _r_str = f"  Pearson r(loss, grad_norm)={_r:.3f}"
+            print(
+                f"  [grad] mean={_gn.mean():.4f}  std={_gn.std():.4f}  "
+                f"p50={np.median(_gn):.4f}  p95={np.percentile(_gn, 95):.4f}  "
+                f"max={_gn.max():.4f}  clipped={_clip_pct:.1f}%{_r_str}"
+            )
         epoch_avg = epoch_loss_sum / max(epoch_loss_count, 1)
 
         # Validation
@@ -227,8 +261,22 @@ def train(
             val_loss_sum = 0.0
             val_loss_count = 0
             with torch.no_grad():
-                for val_batch in val_loader:
+                for val_batch_idx, val_batch in enumerate(val_loader):
                     observed_data, observed_mask, observed_tp = unpack_batch(val_batch, device)
+                    log_this_val_batch = debug and (val_batch_idx == 0)
+                    if log_this_val_batch:
+                        print(f"\n[debug | epoch {epoch+1} | val | batch 0]")
+                        _d    = observed_data.float()
+                        _flat = _d.flatten()
+                        print(f"  data  | mean={_flat.mean():.4f}  std={_flat.std():.4f}  "
+                              f"min={_flat.min():.4f}  max={_flat.max():.4f}  "
+                              f"p5={_flat.quantile(0.05):.4f}  p50={_flat.quantile(0.50):.4f}  p95={_flat.quantile(0.95):.4f}")
+                        _win_mean = _d.mean(dim=-1).flatten()
+                        _win_std  = _d.std(dim=-1).flatten()
+                        print(f"  win μ | mean={_win_mean.mean():.4f}  std={_win_mean.std():.4f}  "
+                              f"p5={_win_mean.quantile(0.05):.4f}  p50={_win_mean.quantile(0.50):.4f}  p95={_win_mean.quantile(0.95):.4f}")
+                        print(f"  win σ | mean={_win_std.mean():.4f}  std={_win_std.std():.4f}  "
+                              f"p5={_win_std.quantile(0.05):.4f}  p50={_win_std.quantile(0.50):.4f}  p95={_win_std.quantile(0.95):.4f}")
 
                     if config["model"]["is_unconditional"] or mask_mode == "unconditional":
                         cond_mask = torch.zeros_like(observed_mask)
@@ -243,7 +291,7 @@ def train(
                     target_mask = (observed_mask.float() * (1.0 - cond_mask.float())).float()
 
                     with torch.amp.autocast("cuda", enabled=use_amp):
-                        val_loss, _ = edm_loss_fn(
+                        val_loss, val_sigma_t = edm_loss_fn(
                             model=model,
                             observed_data=observed_data,
                             cond_mask=cond_mask,
@@ -251,6 +299,9 @@ def train(
                             observed_tp=observed_tp,
                             debug=debug,
                         )
+                    if log_this_val_batch:
+                        print(f"  sigma | min={val_sigma_t.float().min():.4f}  max={val_sigma_t.float().max():.4f}  "
+                              f"mean={val_sigma_t.float().mean():.4f}  median={val_sigma_t.float().median():.4f}")
                     val_loss_sum   += float(val_loss.item())
                     val_loss_count += 1
 
