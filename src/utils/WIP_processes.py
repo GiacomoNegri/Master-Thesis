@@ -21,32 +21,6 @@ def _expand_batch_vector_to(x: torch.Tensor, vec: torch.Tensor) -> torch.Tensor:
     return vec
 
 
-###########################################
-# TimeMapper to combine the discrete expecatation from the model
-# with the continuous of the model
-###########################################
-class TimeMapper:
-    """
-    Defines the bijection between:
-      - continuous SDE time t_cont in [0, T]
-      - discrete model timestep t_idx in {0, ..., S-1}
-    """
-    def __init__(self, T: float, S: int):
-        self.T = float(T)
-        self.S = int(S)
-
-    def cont_to_idx(self, t_cont: torch.Tensor) -> torch.Tensor:
-        # t_cont: (B,) float in [0, T]
-        t01 = (t_cont / self.T).clamp(0.0, 1.0)
-        idx = torch.round(t01 * (self.S - 1)).long()
-        return idx.clamp(0, self.S - 1)
-
-    def idx_to_cont(self, t_idx: torch.Tensor) -> torch.Tensor:
-        # t_idx: (B,) long in [0, S-1]
-        t01 = t_idx.float() / (self.S - 1)
-        return t01 * self.T
-
-
 class Diffusion_Processes:
     def __init__(self, cfg: dict):
         self.N = int(cfg["N"])
@@ -209,59 +183,29 @@ class Diffusion_Processes:
 
         def score_fn(x: torch.Tensor, t: torch.Tensor, labels: torch.Tensor = None) -> torch.Tensor:
             """
-            Computes the score using the pre-trained model.
-            Handles the mapping from continuous SDE time t to model-specific inputs.
+            EDM EDITING
+            Score function using the EDM denoiser interface.
+            sigma is derived from the SDE marginal at time t and passed directly to
+            model.denoise(); the score is then recovered via Tweedie's formula for VE:
+                ∇_x log p_t(x) = (D_x - x) / sigma^2
+            where D_x = model.denoise(x, sigma, ...) approximates E[x0 | x_t].
             """
-            # t_idx = self.mapper.cont_to_idx(t)
+            # sigma must be derived before the model call: denoise() takes sigma as input.
+            _, sigma = self.sde.marginal_prob(x, t)   # sigma: (B,)
 
-            eps_hat = model.predict_eps(
-                x_t = x,
-                t = t,
-                observed_data = observed_data,
-                cond_mask = cond_mask,
-                observed_tp = observed_tp
+            D_x = model.denoise(
+                x_t=x,
+                sigma=sigma,
+                observed_data=observed_data,
+                cond_mask=cond_mask,
+                observed_tp=observed_tp,
             )
-            # if self.conditional:
-            #     null_y = torch.full((B,), self.num_classes, device=device)
-            #     x_combined = torch.cat([x,x], dim=0)
-            #     t_combined = torch.cat([t,t], dim=0)
-            #     labels_combined = torch.cat([labels, null_y], dim=0)
-            # else:
-            #     x_combined = x
-            #     t_combined = t
-            #     labels_combined = None
 
-            # 1. Get the marginal std (sigma) from the SDE
-            #    std shape: (B,)
-            _, std = self.sde.marginal_prob(x, t)
-            std_b = _expand_batch_vector_to(x, std)
-            score = -eps_hat / (std_b + 1e-6)
-            # model_input_t = t
+            # Tweedie's formula: score = (E[x0|x] - x) / sigma^2.
+            # Denominator is sigma^2 (not sigma) because D_x is in data space, not noise space.
+            sigma_b = _expand_batch_vector_to(x, sigma)
+            score = (D_x - x) / (sigma_b ** 2 + 1e-12)
             return score
-
-            # 3. Forward Pass
-            # .sample is REQUIRED because diffusers models return an output object
-            # model_out = model(x_combined, t_combined, labels_combined)
-
-            # eps_cond, eps_uncond = model_out.chunk(2, dim=0)
-
-            # # CDF Extrapolation
-            # eps_cfg = eps_uncond + self.guidance_scale * (eps_cond - eps_uncond)
-
-            # # 4. Convert Output to Score
-            # # Reshape std for broadcasting: (B, 1, 1, 1)
-            # std = std.view(*std.shape, *([1] * (x.dim() - 1)))
-            
-            # if self.sde_type == "ve":
-            #     # VE: Model predicts score * sigma (approx).
-            #     # score = output / sigma
-            #     score = eps_cfg / (std + 1e-6)
-            # else:
-            #     # VP: Model predicts noise (epsilon).
-            #     # score = -epsilon / sigma
-            #     score = -eps_cfg / (std + 1e-6)
-
-            # return score
 
         # Build reverse-time SDE/ODE
         rsde: SDE = self.sde.reverse(score_fn, probability_flow=probability_flow)

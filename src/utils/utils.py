@@ -1,236 +1,442 @@
-import sys
-import optuna
-from optuna.integration import PyTorchLightningPruningCallback
-import wandb
-import torch
-from torch.utils.data import DataLoader, random_split
-from pytorch_lightning import Trainer
-from pytorch_lightning.callbacks import ModelCheckpoint
-from pytorch_lightning.loggers import WandbLogger
-import wandb
-# Import all core components from your structured project modules
-from src.utils.sde_utils import * 
-from torchvision import transforms
-from src.data.base_dataset import LatentDataset       # Your custom Dataset class
-from src.training.ldm_module import LDMLightningModule # Your PL module core
+import os
+import json
+import random
+import argparse
+from copy import deepcopy
+from datetime import datetime
+from typing import Any, Dict, Optional, Tuple
+from tqdm import tqdm
+import time
+import yaml
+
 import numpy as np
-from torchvision.datasets import CelebA
-from torchvision import transforms
-#from src.models.unet_model import UNet  # Your custom UNet model
-from src.models.UNet import UNet
-from .vae_utils import get_vae_encoder_func
-from src.models.components import EMAModel
+import torch
+import torch.nn as nn
+from torch.optim import AdamW
+from torch.utils.data import DataLoader, Subset
+
+import yaml
+import wandb
+
+# ----------------------------
+# YAML helpers
+# ----------------------------
+
+def load_yaml_config(path: str) -> Dict[str, Any]:
+    with open(path, "r", encoding="utf-8") as f:
+        config = yaml.safe_load(f)
+    return config if config is not None else {}
 
 
-def sample_hparams(trial):
+def deep_update(base: Dict[str, Any], updates: Dict[str, Any]) -> Dict[str, Any]:
+    """Recursively merge `updates` into `base`; values in `updates` win."""
+    out = deepcopy(base)
+    for key, value in updates.items():
+        if key in out and isinstance(out[key], dict) and isinstance(value, dict):
+            out[key] = deep_update(out[key], value)
+        else:
+            out[key] = value
+    return out
 
-    features_key = trial.suggest_categorical(
-        "features", ["small", "medium", "large"]
-    )
 
-    FEATURE_MAP = {
-        "small":  [64, 128, 256],
-        "medium": [128, 256, 512],
-        "large":  [256, 512, 1024]
+# ----------------------------
+# CLI argument parsing
+# ----------------------------
+
+def str2bool(v):
+    if isinstance(v, bool):
+        return v
+    if v.lower() in ("yes", "true", "t", "1", "y"):
+        return True
+    if v.lower() in ("no", "false", "f", "0", "n"):
+        return False
+    raise argparse.ArgumentTypeError("Boolean value expected.")
+
+
+def parse_args():
+    parser = argparse.ArgumentParser(description="EDM training for CSDI financial time-series model")
+
+    # config file
+    parser.add_argument("--config", type=str, required=True, help="Path to YAML config file")
+
+    # train overrides
+    parser.add_argument("--epochs",           type=int,      default=None)
+    parser.add_argument("--batch_size",       type=int,      default=None)
+    parser.add_argument("--lr",               type=float,    default=None)
+    parser.add_argument("--weight_decay",     type=float,    default=None)
+    parser.add_argument("--use_amp",          type=str2bool, default=None)
+    parser.add_argument("--log_every_steps",  type=int,      default=None)
+    parser.add_argument("--data_root",        type=str,      default=None)
+    parser.add_argument("--out_dir",          type=str,      default=None)
+    parser.add_argument("--seq_len",          type=int,      default=None)
+    parser.add_argument("--stride",           type=int,      default=None)
+    parser.add_argument("--mask_mode",        type=str,      default=None,
+                        choices=["random", "unconditional", "predict_close"])
+    parser.add_argument("--debug",            type=str2bool, default=None)
+    parser.add_argument("--lr_cosine_annealing", type=str2bool, default=None)
+    parser.add_argument("--lr_eta_min",       type=float,    default=None)
+    parser.add_argument("--train_subset_ratio", type=float,  default=None)
+    parser.add_argument("--train_subset_size",  type=int,    default=None)
+    parser.add_argument("--val_split_ratio",    type=float,  default=None)
+    parser.add_argument("--early_stop_patience", type=int,   default=None)
+
+    # EDM loss overrides (map to config["edm"] and config["model"])
+    parser.add_argument("--P_mean",     type=float, default=None,
+                        help="Log-normal mean for EDM sigma sampling (default: -1.2)")
+    parser.add_argument("--P_std",      type=float, default=None,
+                        help="Log-normal std for EDM sigma sampling (default: 1.2)")
+    parser.add_argument("--sigma_data", type=float, default=None,
+                        help="Empirical data std for EDM preconditioning; must match model.sigma_data")
+
+    # model overrides
+    parser.add_argument("--is_unconditional",      type=str2bool, default=None)
+    parser.add_argument("--timeemb",               type=int,      default=None)
+    parser.add_argument("--featureemb",            type=int,      default=None)
+
+    # diffusion backbone overrides
+    parser.add_argument("--channels",              type=int,   default=None)
+    parser.add_argument("--layers",                type=int,   default=None)
+    parser.add_argument("--nheads",                type=int,   default=None)
+    parser.add_argument("--diffusion_embedding_dim", type=int, default=None)
+
+    # data
+    parser.add_argument("--target_dim", type=int, default=None)
+
+    # process overrides (saved to checkpoint config, used by generate_samples.py)
+    parser.add_argument("--sde_type",       type=str,   default=None)
+    parser.add_argument("--noise_schedule", type=str,   default=None,
+                        choices=["linear", "exponential", "cosine"])
+    parser.add_argument("--sigma_min",      type=float, default=None)
+    parser.add_argument("--sigma_max",      type=float, default=None)
+    parser.add_argument("--beta_min",       type=float, default=None)
+    parser.add_argument("--beta_max",       type=float, default=None)
+    parser.add_argument("--model_steps",    type=int,   default=None)
+    parser.add_argument("--N",              type=int,   default=None)
+
+    # resume
+    parser.add_argument("--resume_checkpoint", type=str, default=None)
+
+    # wandb
+    parser.add_argument("--wandb_project",  type=str, default=None)
+    parser.add_argument("--wandb_entity",   type=str, default=None)
+    parser.add_argument("--wandb_run_name", type=str, default=None)
+
+    return parser.parse_args()
+
+
+def build_cli_override_dict(args) -> Dict[str, Any]:
+    override: Dict[str, Any] = {
+        "data": {}, "model": {}, "diffusion": {}, "process": {}, "train": {}, "edm": {}, "wandb": {}
     }
-    return {
-        # Optimization
-        "learning_rate": trial.suggest_float("lr", 1e-5, 5e-4, log = True),
-        "batch_size": trial.suggest_categorical("batch_size", [1, 2, 4, 8]),
 
-        # Diffusion
-        "sigma_min": trial.suggest_float("sigma_min", 0.01, 0.1, log=True),
-        "sigma_max": trial.suggest_float("sigma_max", 20, 348),
-        "n_timesteps": trial.suggest_categorical("N", [500, 1000, 2000]),
+    # data
+    if args.target_dim is not None:
+        override["data"]["target_dim"] = args.target_dim
 
-        # UNet
-        "num_blocks": trial.suggest_int("num_blocks", 2, 4),
-        "num_features": FEATURE_MAP[features_key],
-        "embedding_dim": trial.suggest_categorical("emb_dim", [128, 256, 512]), 
-        "image_size":  trial.suggest_categorical("image_size", [32, 64, 128])
-    }
+    # model
+    if args.timeemb is not None:
+        override["model"]["timeemb"] = args.timeemb
+    if args.featureemb is not None:
+        override["model"]["featureemb"] = args.featureemb
+    if args.is_unconditional is not None:
+        override["model"]["is_unconditional"] = args.is_unconditional
+    if args.sigma_data is not None:
+        override["model"]["sigma_data"] = args.sigma_data
 
-def make_objective(cfg):
-    def objective(trial):
-        wandb.init()
-        h = sample_hparams(trial)
+    # diffusion backbone
+    if args.channels is not None:
+        override["diffusion"]["channels"] = args.channels
+    if args.layers is not None:
+        override["diffusion"]["layers"] = args.layers
+    if args.nheads is not None:
+        override["diffusion"]["nheads"] = args.nheads
+    if args.diffusion_embedding_dim is not None:
+        override["diffusion"]["diffusion_embedding_dim"] = args.diffusion_embedding_dim
 
-        # --- aggiorna cfg ---
-        cfg.update({
-            "learning_rate": h["learning_rate"],
-            "batch_size": h["batch_size"],
-            "sigma_min": h["sigma_min"],
-            "sigma_max": h["sigma_max"],
-            "N": h["n_timesteps"],
-            "features": h["num_features"],
-            'num_blocks': h['num_blocks']
-        })
+    # process (written to saved config for sampler use; not consumed during training)
+    if args.sde_type is not None:
+        override["process"]["sde_type"] = args.sde_type
+    if args.noise_schedule is not None:
+        override["process"]["noise_schedule"] = args.noise_schedule
+    if args.sigma_min is not None:
+        override["process"]["sigma_min"] = args.sigma_min
+    if args.sigma_max is not None:
+        override["process"]["sigma_max"] = args.sigma_max
+    if args.beta_min is not None:
+        override["process"]["beta_min"] = args.beta_min
+    if args.beta_max is not None:
+        override["process"]["beta_max"] = args.beta_max
+    if args.model_steps is not None:
+        override["process"]["model_steps"] = args.model_steps
+    if args.N is not None:
+        override["process"]["N"] = args.N
 
-        #  training corto = proxy
-        cfg["epochs"] = 10
+    # EDM loss
+    if args.P_mean is not None:
+        override["edm"]["P_mean"] = args.P_mean
+    if args.P_std is not None:
+        override["edm"]["P_std"] = args.P_std
 
-        device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+    # train
+    if args.epochs is not None:
+        override["train"]["epochs"] = args.epochs
+    if args.batch_size is not None:
+        override["train"]["batch_size"] = args.batch_size
+    if args.lr is not None:
+        override["train"]["lr"] = args.lr
+    if args.weight_decay is not None:
+        override["train"]["weight_decay"] = args.weight_decay
+    if args.use_amp is not None:
+        override["train"]["use_amp"] = args.use_amp
+    if args.log_every_steps is not None:
+        override["train"]["log_every_steps"] = args.log_every_steps
+    if args.data_root is not None:
+        override["train"]["data_root"] = args.data_root
+    if args.out_dir is not None:
+        override["train"]["out_dir"] = args.out_dir
+    if args.seq_len is not None:
+        override["train"]["seq_len"] = args.seq_len
+    if args.stride is not None:
+        override["train"]["stride"] = args.stride
+    if args.mask_mode is not None:
+        override["train"]["mask_mode"] = args.mask_mode
+    if args.debug is not None:
+        override["train"]["debug"] = args.debug
+    if args.lr_cosine_annealing is not None:
+        override["train"]["lr_cosine_annealing"] = args.lr_cosine_annealing
+    if args.lr_eta_min is not None:
+        override["train"]["lr_eta_min"] = args.lr_eta_min
+    if args.train_subset_ratio is not None:
+        override["train"]["train_subset_ratio"] = args.train_subset_ratio
+    if args.train_subset_size is not None:
+        override["train"]["train_subset_size"] = args.train_subset_size
+    if args.val_split_ratio is not None:
+        override["train"]["val_split_ratio"] = args.val_split_ratio
+    if args.early_stop_patience is not None:
+        override["train"]["early_stop_patience"] = args.early_stop_patience
 
-        ldm_module, train_loader, val_loader = setup(cfg, device = device , data_path = None)
+    # wandb
+    if args.wandb_project is not None:
+        override["wandb"]["project"] = args.wandb_project
+    if args.wandb_entity is not None:
+        override["wandb"]["entity"] = args.wandb_entity
+    if args.wandb_run_name is not None:
+        override["wandb"]["run_name"] = args.wandb_run_name
 
-        self_attention = cfg['self_attention']
-        lr =  cfg['learning_rate']
-        lr_str = str(lr).replace('.', '')
-        N_timesteps = cfg['N']
-        epochs = cfg['epochs']
-
-        hyper_suffix = f"T{N_timesteps}_LR{lr_str}_E{epochs}"
-
-        if self_attention:
-            hyper_suffix += "_SA"
-
-        wandb_logger = WandbLogger(project = "LDM Training",
-        name=f"LDM_{hyper_suffix}", config=cfg)       
-        #project=os.getenv("WANDB_PROJECT", "LDM Training"), 
-        #log_model="all")
-    
-        #wandb_logger.experiment.log({"config_forward": cfg["ForwardConfig"]})
-
-        trainer = Trainer(
-            accelerator="cuda",
-            devices=1,
-            max_epochs=cfg["epochs"],
-            logger=wandb_logger,
-            callbacks=[
-                PyTorchLightningPruningCallback(trial, monitor="val_loss")
-            ],
-            limit_train_batches=1.0,
-            limit_val_batches=1.0,
-            enable_checkpointing=False
-        )
-        try:
-            trainer.fit(ldm_module, train_loader, val_loader)
-
-            # metrics = {}
-            # metrics["val_loss"] = trainer.callback_metrics["val_loss"].item()
-            # metrics["train_loss"] = trainer.callback_metrics["train_loss"].item()
-            # wandb.log(metrics)
-
-            wandb.finish()
-
-            return trainer.callback_metrics["val_loss"].item()
-        
-        except RuntimeError as e:
-            if "out of memory" in str(e):
-                torch.cuda.empty_cache()
-                raise optuna.exceptions.TrialPruned()
-            else:
-                raise e
-
-    return objective
+    return {k: v for k, v in override.items() if v}
 
 
+def get_final_config() -> Tuple[Dict[str, Any], Any]:
+    args = parse_args()
+    yaml_config = load_yaml_config(args.config)
+    cli_override = build_cli_override_dict(args)
+    return deep_update(yaml_config, cli_override), args
 
 
-# --- SETUP FUNCTION ---
-def setup(cfg, data_path: str, device: torch.device):
+# ----------------------------
+# Reproducibility
+# ----------------------------
+
+def set_seed(seed: int) -> None:
+    random.seed(seed)
+    np.random.seed(seed)
+    torch.manual_seed(seed)
+    torch.cuda.manual_seed_all(seed)
+
+
+# ----------------------------
+# Conditioning mask helpers
+# ----------------------------
+
+def get_randmask(observed_mask: torch.Tensor, min_ratio: float = 0.1, max_ratio: float = 0.9) -> torch.Tensor:
+    """Randomly hide min_ratio–max_ratio of observed entries as targets."""
+    B = observed_mask.shape[0]
+    miss_ratio = torch.empty(B, device=observed_mask.device).uniform_(min_ratio, max_ratio)
+    rand = torch.rand_like(observed_mask.float())
+    keep = (rand > miss_ratio.view(B, 1, 1)).float()
+    return (observed_mask.float() * keep).float()
+
+
+def get_predict_close_mask(observed_mask: torch.Tensor, close_idx: int = 3) -> torch.Tensor:
+    """Condition on Open/High/Low; always predict Close (feature index close_idx)."""
+    cond_mask = observed_mask.clone().float()
+    cond_mask[:, close_idx, :] = 0.0
+    return cond_mask
+
+
+# ----------------------------
+# Batch unpacking
+# ----------------------------
+
+def unpack_batch(batch: Any, device: torch.device) -> Tuple[torch.Tensor, torch.Tensor, torch.Tensor]:
     """
-    Sets up all model components, data loaders, and calculates the IS tensor.
-    
-    Args:
-        cfg (dict): Configuration dictionary loaded from YAML.
-        data_path (str): Path to the dataset (local path or GCS path for Dataloader).
-        device (torch.device): Target device ('cuda' or 'cpu').
-        
-    Returns:
-        tuple: (ldm_module, train_loader, val_loader)
+    Accept dict or tuple batches from the dataloader.
+    Returns observed_data (B,K,L), observed_mask (B,K,L), observed_tp (B,L) on device.
     """
-    
-    print(f"1. Initializing setup on {device}...")
-
-    # A. Data Loading & Splitting
-
-    forward_cfg = cfg
-    
-    try:
-
-        #full_dataset = LatentDataset(data_dir=data_path, image_size=forward_cfg['image_size'])
-        image_size = forward_cfg['image_size']
-        transform = transforms.Compose([transforms.CenterCrop(178), transforms.Resize((image_size, image_size)), transforms.ToTensor(), transforms.Normalize([0.5]*3, [0.5]*3)])
-
-        full_dataset = CelebA(
-            root="../data",
-            # root = data_path
-            split="train",
-            target_type="attr",
-            transform=transform,
-            download=False   
-        )
-
-        # indices = np.arange(128)  # Example indices for a small subset
-        # full_dataset = torch.utils.data.Subset(full_dataset, indices)
-        # Define split sizes
-        val_size = int(forward_cfg['validation_split_ratio'] * len(full_dataset))
-        train_size = len(full_dataset) - val_size
-        
-        # Deterministic Split for reproducibility
-        torch.manual_seed(forward_cfg['seed'])
-        train_dataset, val_dataset = random_split(
-            full_dataset, [train_size, val_size]
-        )
-        # train_dataset = full_dataset
-        # val_dataset = full_dataset
-        # Create DataLoaders
-
-
-        train_loader = DataLoader(train_dataset, batch_size=forward_cfg['batch_size'], shuffle=True, num_workers=forward_cfg['num_workers'])# CHange Batch size
-        val_loader = DataLoader(val_dataset, batch_size=forward_cfg['batch_size'], shuffle=False, num_workers=forward_cfg['num_workers']) # Change Batch size
-
-        print(f"Dataset loaded: Total {len(full_dataset)} images.")
-        print(f" -> Train Loader: {len(train_dataset)} images.")
-
-    except Exception as e:
-        print(f"ERROR: Could not load data from {data_path}. Check path and dataset class. {e}")
-        sys.exit(1)
-
-    # B. Model and Diffusion Setup
-    unet_model = UNet(in_channels=forward_cfg['latent_channels']).to(device)#, out_channels=forward_cfg['latent_channels'], features=forward_cfg['features'], ).to(device)
-    vae_encoder_func, vae_decoder_func = get_vae_encoder_func(device) # VAE Encoder function
-    ema_model = EMAModel(unet_model).to(device)
-
-    # Initialize ForwardProcess (contains the subVP_SDE instance)
-    forward_process = Diffusion_Processes(forward_cfg)
-    sde = SubVPSDE(beta_max=forward_cfg['beta_max'], beta_min=forward_cfg['beta_min'], N=forward_cfg['N'])
-
-    # C. Importance Sampling Calculation (IS)
-    is_probabilities = None
-    if forward_cfg['use_importance_sampling']:
-        print("2. Calculating Importance Sampling probabilities (g(t)^2 / lambda_orig(t))...")
-        # forward_process.sde_model is the subVP_SDE instance required for calculation
-        is_probabilities = calculate_importance_sampling_probabilities(
-            sde, 
-            forward_cfg['N'], 
-            device
-        )
+    if isinstance(batch, dict):
+        observed_data = batch["observed_data"]
+        observed_mask = batch["observed_mask"]
+        observed_tp   = batch["observed_tp"]
     else:
-        is_probabilities = torch.ones(forward_cfg['N'], device=device) / forward_cfg['N']
+        observed_data, observed_mask, observed_tp = batch
+    return observed_data.to(device), observed_mask.to(device), observed_tp.to(device)
 
-    # D. Prepare Hparams for PL Module & Early Stopping
-    hparams = {
-        'learning_rate': forward_cfg['learning_rate'],
-        'vae_scale_factor': forward_cfg['vae_scale_factor'],
-        'n_timesteps': forward_cfg['N'],
-        'is_probabilities': is_probabilities, # Pass the IS tensor through hparams for access in training_step
-        'batch_size': forward_cfg['batch_size'],
-        'data_path': data_path, 
-        'ema': ema_model 
+
+# ----------------------------
+# Checkpoint helpers
+# ----------------------------
+
+def get_checkpoint_save_interval(num_epochs: int) -> int:
+    """Save every 5 epochs when total < 10, otherwise every 10% of total epochs."""
+    if num_epochs < 10:
+        return 5
+    return max(1, num_epochs // 10)
+
+
+def build_run_metadata(config: Dict[str, Any]) -> Dict[str, Any]:
+    """Quick-access summary of the most important config values stored in each checkpoint."""
+    edm_cfg = config.get("edm", {})
+    return {
+        "train": {
+            "seed":           config["train"]["seed"],
+            "epochs":         config["train"]["epochs"],
+            "batch_size":     config["train"]["batch_size"],
+            "lr":             config["train"]["lr"],
+            "weight_decay":   config["train"]["weight_decay"],
+            "use_amp":        config["train"]["use_amp"],
+            "cond_min_ratio": config["train"]["cond_min_ratio"],
+            "cond_max_ratio": config["train"]["cond_max_ratio"],
+            "mask_mode":      config["train"].get("mask_mode", "random"),
+            "seq_len":        config["train"]["seq_len"],
+            "stride":         config["train"]["stride"],
+        },
+        "edm": {
+            "P_mean":     edm_cfg.get("P_mean",    -1.2),
+            "P_std":      edm_cfg.get("P_std",      1.2),
+            "sigma_data": config["model"].get("sigma_data", 1.0),
+        },
+        "diffusion": {
+            "num_steps":             config["diffusion"]["num_steps"],
+            "diffusion_embedding_dim": config["diffusion"]["diffusion_embedding_dim"],
+            "channels":              config["diffusion"]["channels"],
+            "layers":                config["diffusion"]["layers"],
+            "nheads":                config["diffusion"]["nheads"],
+            "is_linear":             config["diffusion"]["is_linear"],
+        },
+        "model": {
+            "timeemb":        config["model"]["timeemb"],
+            "featureemb":     config["model"]["featureemb"],
+            "is_unconditional": config["model"]["is_unconditional"],
+            "sigma_data":     config["model"].get("sigma_data", 1.0),
+        },
+        "data": {
+            "target_dim": config["data"]["target_dim"],
+        },
     }
 
 
+def make_checkpoint_payload(
+    model:        nn.Module,
+    optim:        torch.optim.Optimizer,
+    scaler:       torch.amp.GradScaler,
+    config:       Dict[str, Any],
+    epoch:        int,
+    global_step:  int,
+    history:      Dict[str, Any],
+    scheduler=None,
+) -> Dict[str, Any]:
+    payload = {
+        "epoch":        epoch,
+        "global_step":  global_step,
+        "model":        model.state_dict(),
+        "optim":        optim.state_dict(),
+        "scaler":       scaler.state_dict(),
+        "config":       config,
+        "run_metadata": build_run_metadata(config),
+        "history":      history,
+    }
+    if scheduler is not None:
+        payload["scheduler"] = scheduler.state_dict()
+    return payload
 
-    # E. Instantiate Lightning Module
-    ldm_module = LDMLightningModule(
-        unet_model=unet_model, 
-        forward_process=forward_process, 
-        vae_encoder=vae_encoder_func, 
-        vae_decoder=vae_decoder_func,
-        hparams=hparams, 
-        cfg = cfg
+
+def load_checkpoint(
+    ckpt_path: str,
+    model:     nn.Module,
+    optim:     torch.optim.Optimizer,
+    scaler:    torch.amp.GradScaler,
+    device:    torch.device,
+    scheduler=None,
+) -> Tuple[int, int, Dict[str, Any]]:
+    ckpt = torch.load(ckpt_path, map_location=device)
+    model.load_state_dict(ckpt["model"])
+    optim.load_state_dict(ckpt["optim"])
+    if "scaler" in ckpt and ckpt["scaler"] is not None:
+        scaler.load_state_dict(ckpt["scaler"])
+    if scheduler is not None and "scheduler" in ckpt:
+        scheduler.load_state_dict(ckpt["scheduler"])
+    start_epoch = int(ckpt["epoch"]) + 1
+    global_step = int(ckpt.get("global_step", 0))
+    history     = ckpt.get("history", {"epoch_losses": [], "val_losses": []})
+    return start_epoch, global_step, history
+
+
+def build_final_checkpoint_name(
+    config:       Dict[str, Any],
+    global_step:  int,
+    timestamp:    Optional[str] = None,
+    actual_epoch: Optional[int] = None,
+) -> str:
+    if timestamp is None:
+        timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+
+    # Abbreviated data-root tag
+    _root_map = {
+        "./data/sp500_individual_gbm":     "REAL",
+        "./data/fake_individual_gbm":      "FAKE",
+        "./data/fake_individual_gbm_close":"FAKE_REPL",
+        "./data/replication_returns":      "REPL_RET",
+        "./data/replication_returns_norm": "REPL_RET_NORM",
+        "./data/toy_gaussian":             "TOY_GAUSS",
+        "./data/toy_ar1":                  "TOY_AR1",
+        "./data/toy_studentt":             "TOY_STUDENTT",
+        "./data/toy_gbm":                  "TOY_GBM",
+        "./data/toy_gbm_norm":             "TOY_GBM_NORM",
+        "./data/fake_fts":                 "FAKE_FTS",
+        "./data/fake_fts_processed":       "FAKE_FTS_PROC",
+        "./data/replication_processed":    "REPL_PROC",
+    }
+    data_root = _root_map.get(str(config["train"]["data_root"]), "REPL_")
+
+    mask_mode = str(config["train"]["mask_mode"])
+    if mask_mode == "random":
+        mask_tag = "RAND"
+    elif mask_mode == "unconditional" or bool(config["model"]["is_unconditional"]):
+        mask_tag = "UNCO"
+    else:
+        mask_tag = "CLOS"
+
+    epochs   = actual_epoch if actual_epoch is not None else int(config["train"]["epochs"])
+    lr       = float(config["train"]["lr"])
+    channels = int(config["diffusion"]["channels"])
+    layers   = int(config["diffusion"]["layers"])
+    nheads   = int(config["diffusion"]["nheads"])
+    emb_dim  = int(config["diffusion"]["diffusion_embedding_dim"])
+    sd       = float(config["model"].get("sigma_data", 1.0))
+    P_mean   = float(config.get("edm", {}).get("P_mean", -1.2))
+
+    return (
+        f"EDM_"
+        f"{data_root}_"
+        f"{mask_tag}_"
+        f"ep-{epochs}_"
+        f"step-{global_step}_"
+        f"lr-{lr:.0e}_"
+        f"ch-{channels}_"
+        f"layers-{layers}_"
+        f"nheads-{nheads}_"
+        f"diffemb-{emb_dim}_"
+        f"sd-{sd:.1f}_"
+        f"Pm-{P_mean:.1f}_"
+        f"{timestamp}.pt"
     )
-    
-    return ldm_module, train_loader, val_loader

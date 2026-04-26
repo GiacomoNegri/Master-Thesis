@@ -30,3 +30,7 @@ image/
 err/
 out/
 images/
+
+jobs/
+replication/
+jobs_launcher.py

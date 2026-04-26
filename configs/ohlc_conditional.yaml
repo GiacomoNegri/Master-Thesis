@@ -6,6 +6,9 @@ model:
   timeemb: 128
   featureemb: 64
   is_unconditional: false                         # conditional mode: OHL observed, Close predicted
+  sigma_data: 1.0                                 # EDM: empirical std of the (window-normalised) training data
+                                                  # window-normalised log-returns are approx. unit-variance;
+                                                  # calibrate this to your actual data before Phase-2 training
 
 diffusion:
   num_steps: 100                                  # diffusion-time embedding size; keep = model_steps
@@ -66,6 +69,14 @@ train:
 
   # val_split_ratio: 0.1
   early_stop_patience: 20
+
+edm:
+  # Log-normal sigma-sampling distribution for the EDM training loss.
+  # ln sigma ~ N(P_mean, P_std^2).  Karras et al. 2022 defaults (tuned for ImageNet,
+  # sigma_data=0.5); should be recalibrated to the actual data distribution before
+  # a production training run.  sigma_data is read from model.sigma_data (above).
+  P_mean: -1.2
+  P_std: 1.2
 
 wandb:
   entity: thesis-giacomo-negri
