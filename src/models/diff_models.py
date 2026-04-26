@@ -11,9 +11,9 @@ from linear_attention_transformer import LinearAttentionTransformer
 
 def get_torch_trans(heads=8, layers=1, channels=64):
     encoder_layer = nn.TransformerEncoderLayer(
-        d_model=channels, nhead=heads, dim_feedforward=channels, activation="gelu"
+        d_model=channels, nhead=heads, dim_feedforward=channels *4 , activation="gelu"
     )
-    return nn.TransformerEncoder(encoder_layer, num_layers=layers)
+    return nn.TransformerEncoder(encoder_layer, num_layers=layers) #multiplied by dim_feedforward = channels * 4 as in transformers
 
 def get_linear_trans(heads=8,layers=1,channels=64,localheads=0,localwindow=0):
 
@@ -77,8 +77,8 @@ class diff_CSDI(nn.Module):
         self.output_projection1 = Conv1d_with_init(self.channels, self.channels, 1)
         self.output_projection2 = Conv1d_with_init(self.channels, 1, 1)
         # 0-initialization as in the papaer
-        nn.init.zeros_(self.output_projection2.weight)
-        # Normal initalization
+        # nn.init.zeros_(self.output_projection2.weight)
+        # Normal initalization: to avoid slow initial learning
         nn.init.normal_(self.output_projection2.bias, mean=0.0, std=0.01)
 
         # Stack of residual layers
@@ -100,7 +100,8 @@ class diff_CSDI(nn.Module):
 
         x = x.reshape(B, inputdim, K * L)
         x = self.input_projection(x)
-        x = F.relu(x)
+        # EDM EDITING
+        # x = F.relu(x) # also removed from the diagnostic 
         x = x.reshape(B, self.channels, K, L)
 
         diffusion_emb = self.diffusion_embedding(diffusion_step)
@@ -114,7 +115,9 @@ class diff_CSDI(nn.Module):
         x = torch.sum(torch.stack(skip), dim=0) / math.sqrt(len(self.residual_layers))
         x = x.reshape(B, self.channels, K * L)
         x = self.output_projection1(x)  # (B,channel,K*L)
-        x = F.relu(x)
+        
+        # EDM EDITING
+        # x = F.relu(x) # Not present in the paper and removed as in 'diagnostic'
         x = self.output_projection2(x)  # (B,1,K*L)
         x = x.reshape(B, K, L)
         return x

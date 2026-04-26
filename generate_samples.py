@@ -241,7 +241,9 @@ def run_split(
                      .expand(num_samples, -1)
             )
 
-            samples = processes.reverse_process(
+            # EDM EDITING: replaced legacy reverse_process (score-based Euler-Maruyama)
+            # with the EDM deterministic Heun sampler.
+            samples = processes.edm_sampler(
                 model         = model,
                 shape         = (num_samples, K, seq_len),
                 observed_data = obs,

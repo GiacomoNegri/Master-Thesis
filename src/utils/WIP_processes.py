@@ -345,3 +345,127 @@ class Diffusion_Processes:
         plt.show()
 
         return x
+
+    # ------------------------------------------------------------------
+    # EDM deterministic Heun sampler  (Karras et al. 2022, Algorithm 2)
+    # EDM EDITING
+    # ------------------------------------------------------------------
+
+    @torch.no_grad()
+    def edm_sampler(
+        self,
+        model: nn.Module,
+        shape,
+        observed_data: torch.Tensor,
+        cond_mask: torch.Tensor,
+        observed_tp: torch.Tensor,
+        num_steps: int = 100,
+        rho: float = 3.0,
+        sigma_min: float = None,
+        sigma_max: float = None,
+        device: torch.device = None,
+    ) -> torch.Tensor:
+        """
+        EDM deterministic Heun sampler (S_churn=0, purely deterministic).
+
+        Implements Algorithm 2 from Karras et al. 2022, adapted for the
+        conditional CSDI setting (B, K, L) with fixed OHL context.
+
+        Calls model.denoise(x_t, sigma, observed_data, cond_mask, observed_tp)
+        directly — no score function, no SDE reverse-time drift, no time-grid
+        conversion.  The sigma schedule is ρ-power spaced, which concentrates
+        steps at low sigma where the denoising is most sensitive.
+
+        Args:
+            model:         CSDIModel with EDM interface (Phase 1 forward/denoise).
+            shape:         (B, K, L) — shape of samples to generate.
+            observed_data: (B, K, L) — conditioning context (OHL channels).
+            cond_mask:     (B, K, L) — 1=conditioning, 0=target (Close).
+            observed_tp:   (B, L)    — absolute time-series positions.
+            num_steps:     Number of denoising steps.  18 is the EDM paper default;
+                           50–100 gives higher quality at moderate cost.
+            rho:           Schedule curvature.  7.0 is the EDM paper default.
+            sigma_min:     Minimum sigma.  Defaults to self.sde.sigma_schedule.sigma_min.
+                           NOTE: sigma_schedule only exists on VESDE / GBMLogSDE.
+                           For VP/subVP SDEs this argument must be supplied explicitly.
+            sigma_max:     Maximum sigma.  Same note as sigma_min.
+            device:        Inference device.  Inferred from model if None.
+
+        Returns:
+            x: (B, K, L) generated samples, with OHL channels replaced by
+               observed_data if self.enforce_observed is True.
+        """
+        assert num_steps >= 2, "edm_sampler requires num_steps >= 2"
+
+        if device is None:
+            device = next(model.parameters()).device
+
+        # Read sigma bounds from the SDE schedule when not provided explicitly.
+        # This ensures the sampler uses the same sigma range as training.
+        if sigma_min is None:
+            sigma_min = float(self.sde.sigma_schedule.sigma_min)
+        if sigma_max is None:
+            sigma_max = float(self.sde.sigma_schedule.sigma_max)
+
+        B = shape[0]
+
+        # ── 1. Sigma schedule: ρ-power spacing (Karras et al. 2022, Eq. 5) ──────
+        # sigma decreases from sigma_max (i=0) to sigma_min (i=num_steps-1).
+        # A final sigma_N = 0 is appended so the last Euler step outputs D_x exactly:
+        #   x_next = x + (0 - sigma_min) * d_cur = x - (x - D_x) = D_x
+        step_idx = torch.arange(num_steps, device=device, dtype=torch.float32)
+        sigmas = (
+            sigma_max ** (1.0 / rho)
+            + step_idx / (num_steps - 1)
+            * (sigma_min ** (1.0 / rho) - sigma_max ** (1.0 / rho))
+        ) ** rho                                          # (num_steps,)  decreasing
+        sigmas = torch.cat([sigmas, sigmas.new_zeros(1)]) # append 0 → (num_steps+1,)
+
+        # ── 2. Initialize from the prior: x ~ N(0, sigma_max² I) ─────────────────
+        x = torch.randn(*shape, device=device) * sigmas[0]  # (B, K, L)
+
+        # ── 3. Heun loop ──────────────────────────────────────────────────────────
+        for i in range(num_steps):
+            sigma_cur  = sigmas[i]                             # scalar tensor
+            sigma_next = sigmas[i + 1]                         # scalar tensor (0 at last step)
+
+            # Broadcast scalar sigma to (B,) as required by model.denoise
+            sigma_cur_b = sigma_cur.reshape(1).expand(B)       # (B,)
+
+            # ── Euler step ────────────────────────────────────────────────────────
+            # D_x ≈ E[x0 | x_t, sigma]: the model's denoised estimate at sigma_cur.
+            D_x_cur = model.denoise(
+                x_t=x,
+                sigma=sigma_cur_b,
+                observed_data=observed_data,
+                cond_mask=cond_mask,
+                observed_tp=observed_tp,
+            )                                                   # (B, K, L)
+
+            # Probability-flow ODE direction: d = (x - D_x) / sigma
+            d_cur  = (x - D_x_cur) / sigma_cur
+            x_next = x + (sigma_next - sigma_cur) * d_cur
+
+            # ── 2nd-order Heun correction ─────────────────────────────────────────
+            # Skipped at the last step where sigma_next = 0 to avoid log(0) and
+            # division-by-zero inside the preconditioning.  The Euler step at that
+            # final step already produces x_next = D_x_cur exactly.
+            if i < num_steps - 1:
+                sigma_next_b = sigma_next.reshape(1).expand(B)  # (B,)
+                D_x_next = model.denoise(
+                    x_t=x_next,
+                    sigma=sigma_next_b,
+                    observed_data=observed_data,
+                    cond_mask=cond_mask,
+                    observed_tp=observed_tp,
+                )                                               # (B, K, L)
+                d_prime = (x_next - D_x_next) / sigma_next
+                x_next  = x + (sigma_next - sigma_cur) * (0.5 * d_cur + 0.5 * d_prime)
+
+            x = x_next
+
+        # ── 4. Enforce conditioning: replace OHL with ground truth ────────────────
+        if self.enforce_observed:
+            x = cond_mask * observed_data + (1.0 - cond_mask) * x
+
+        return x
