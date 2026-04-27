@@ -113,6 +113,8 @@ class Diffusion_Processes:
 
         self.enforce_observed = bool(cfg.get("enforce_observed", True))
         self.round_times = bool(cfg.get("round_times", False))
+        self.time_num_bins = int(cfg.get("time_num_bins", 10))
+        self.time_multiplier = float(cfg.get("time_multiplier", 1.0))
         self.freeze_eps = bool(cfg.get("freeze_eps", False))
         # self.conditional = cfg.get("conditional", False)
         # self.num_attributes = cfg.get("num_attributes", 0)
@@ -200,15 +202,22 @@ class Diffusion_Processes:
 
 
         if self.round_times:
-            bins = torch.linspace(self.eps_time, self.sde.T, 1, device=device)
-            t = bins[(t.unsqueeze(1) - bins.unsqueeze(0)).abs().argmin(dim=1)]
+            bins = torch.linspace(self.eps_time, self.sde.T, self.time_num_bins, device=device) * self.time_multiplier
+            # Pick one bin uniformly at random and broadcast to the entire batch,
+            # so every sample in the batch shares the same noise level.
+            # This lets you evaluate per-bin difficulty cleanly.
+            bin_idx = torch.randint(0, self.time_num_bins, (1,), device=device).item()
+            t = bins[bin_idx].expand(B)
 
+        print(f"Forward process: sampling t with shape {t.shape} and range [{t.min().item():.4f}, {t.max().item():.4f}], t_mean={t.mean().item():.4f}")
         # Get closed-form mean and std of p_t(z | z0)
         mean, std = self.sde.marginal_prob(x0, t)  # mean: (B, ...), std: (B,)
 
         # Sample noise
-        eps = torch.zeros_like(x0) if self.freeze_eps else torch.randn_like(x0)
+        freeze_eps_value = 0.5
+        eps = torch.full_like(x0, freeze_eps_value) if self.freeze_eps else torch.randn_like(x0)
 
+        print(f"Noise sampled with shape {eps.min().item():.4f}, {eps.max().item():.4f}, mean={eps.mean().item():.4f}, std={eps.std().item():.4f}")
         # Broadcast std to match z0
 
         # Construct z_t

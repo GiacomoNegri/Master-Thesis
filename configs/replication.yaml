@@ -26,6 +26,8 @@ process:
   eps: 1.0e-3
   enforce_observed: true
   round_times: false
+  time_num_bins: 10
+  time_multiplier: 1
 
 train:
   seed: 42

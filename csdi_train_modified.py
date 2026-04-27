@@ -12,7 +12,7 @@ import numpy as np
 import torch
 import torch.nn as nn
 from torch.optim import AdamW
-from torch.utils.data import DataLoader, Subset
+from torch.utils.data import DataLoader, RandomSampler, Subset
 
 from src.models.model_core import CSDIModel
 from src.utils.WIP_processes import Diffusion_Processes
@@ -117,11 +117,16 @@ def parse_args():
     parser.add_argument("--beta_max", type=float, default=None,
                         help="Maximum beta for VP/subVP SDEs (overrides config)")
     parser.add_argument("--round_times", type=str2bool, default=None,
-                        help="If true, round sampled diffusion times to the nearest of 100 "
-                             "evenly spaced bins in [eps, T] instead of sampling continuously.")
+                        help="If true, round sampled diffusion times to the nearest of "
+                             "time_num_bins evenly spaced bins in [eps, T].")
+    parser.add_argument("--time_num_bins", type=int, default=None,
+                        help="Number of discrete time bins when round_times=true (default: 10).")
     parser.add_argument("--freeze_eps", type=str2bool, default=None,
                         help="If true, the forward process always uses eps=0 instead of "
                              "sampling Gaussian noise (collapses stochasticity for debugging).")
+    parser.add_argument("--time_multiplier", type=float, default=None,
+                        help="Scalar applied to the time bins after linspace(eps, T, time_num_bins). "
+                             "Default 1 (no scaling).")
 
     # model overrides
     parser.add_argument("--is_unconditional", type=str2bool, default=None)
@@ -273,8 +278,12 @@ def build_cli_override_dict(args) -> Dict[str, Any]:
         override["process"]["beta_max"] = args.beta_max
     if args.round_times is not None:
         override["process"]["round_times"] = args.round_times
+    if args.time_num_bins is not None:
+        override["process"]["time_num_bins"] = args.time_num_bins
     if args.freeze_eps is not None:
         override["process"]["freeze_eps"] = args.freeze_eps
+    if args.time_multiplier is not None:
+        override["process"]["time_multiplier"] = args.time_multiplier
 
     # train
     if args.seed is not None:
@@ -1974,15 +1983,38 @@ if __name__ == "__main__":
         subset_size = min(subset_size, len(train_pool))
         train_indices = train_pool[:subset_size]
         subset_dataset = Subset(dataset, train_indices)
-        train_loader = DataLoader(
-            subset_dataset,
-            batch_size=config["train"]["batch_size"],
-            shuffle=config["train"]["shuffle"],
-            num_workers=config["train"]["num_workers"],
-            pin_memory=config["train"]["pin_memory"],
-            collate_fn=getattr(train_loader, "collate_fn", None),
-        )
-        print(f"Using subset of dataset: {subset_size}/{dataset_size} samples (excl. val)")
+        _batch_size = config["train"]["batch_size"]
+        _collate_fn = getattr(train_loader, "collate_fn", None)
+        if subset_size < _batch_size:
+            # Subset is smaller than one batch: without replacement PyTorch yields
+            # batches of size subset_size, ignoring batch_size entirely.
+            # Use replacement so each epoch produces exactly one full batch of
+            # _batch_size copies, each receiving independent (t, eps) draws in
+            # forward_process — equivalent to B independent augmentations of x0.
+            _sampler = RandomSampler(
+                subset_dataset,
+                replacement=True,
+                num_samples=_batch_size,
+            )
+            train_loader = DataLoader(
+                subset_dataset,
+                batch_size=_batch_size,
+                sampler=_sampler,
+                num_workers=config["train"]["num_workers"],
+                pin_memory=config["train"]["pin_memory"],
+                collate_fn=_collate_fn,
+            )
+        else:
+            train_loader = DataLoader(
+                subset_dataset,
+                batch_size=_batch_size,
+                shuffle=config["train"]["shuffle"],
+                num_workers=config["train"]["num_workers"],
+                pin_memory=config["train"]["pin_memory"],
+                collate_fn=_collate_fn,
+            )
+        print(f"Using subset of dataset: {subset_size}/{dataset_size} samples (excl. val)"
+              + (f" — replacement sampler active (subset < batch_size)" if subset_size < _batch_size else ""))
     else:
         if val_split_ratio is not None:
             # Rebuild train_loader excluding val indices
