@@ -125,8 +125,6 @@ def main():
     _parts     = ckpt_stem.split("_")
     _noise_idx = next((i for i, p in enumerate(_parts) if p.startswith("noise-")), len(_parts) - 3)
     _short_stem = "_".join(_parts[:_noise_idx + 1]) + "_" + "_".join(_parts[-2:])
-    out_dir   = os.path.join(args.out_dir, f"{_sampler_label}_{_short_stem}")
-    os.makedirs(out_dir, exist_ok=True)
 
     # ── Device ────────────────────────────────────────────────────────────────
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
@@ -187,6 +185,8 @@ def main():
     # ── Diffusion processes ───────────────────────────────────────────────────
     processes = Diffusion_Processes(config["process"])
     num_reverse_steps = args.num_reverse_steps if args.num_reverse_steps is not None else processes.N
+    out_dir = os.path.join(args.out_dir, f"{_sampler_label}_{_short_stem}_N{num_reverse_steps}_seed{args.seed}")
+    os.makedirs(out_dir, exist_ok=True)
     print(f"Diffusion_Processes — SDE: {processes.sde_type}, N: {processes.N}, "
           f"model_steps: {processes.model_steps}")
     print(f"Reverse steps to use: {num_reverse_steps}")

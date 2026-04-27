@@ -1370,6 +1370,7 @@ if __name__ == "__main__":
             collate_fn=train_loader.collate_fn,
         )
         if is_main:
+            print(f"Root dir: {config["train"]["data_root"]}")
             print(f"Validation set: {val_size}/{dataset_size} samples")
     else:
         train_pool = all_indices
