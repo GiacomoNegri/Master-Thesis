@@ -119,6 +119,9 @@ def parse_args():
     parser.add_argument("--round_times", type=str2bool, default=None,
                         help="If true, round sampled diffusion times to the nearest of 100 "
                              "evenly spaced bins in [eps, T] instead of sampling continuously.")
+    parser.add_argument("--freeze_eps", type=str2bool, default=None,
+                        help="If true, the forward process always uses eps=0 instead of "
+                             "sampling Gaussian noise (collapses stochasticity for debugging).")
 
     # model overrides
     parser.add_argument("--is_unconditional", type=str2bool, default=None)
@@ -270,6 +273,8 @@ def build_cli_override_dict(args) -> Dict[str, Any]:
         override["process"]["beta_max"] = args.beta_max
     if args.round_times is not None:
         override["process"]["round_times"] = args.round_times
+    if args.freeze_eps is not None:
+        override["process"]["freeze_eps"] = args.freeze_eps
 
     # train
     if args.seed is not None:

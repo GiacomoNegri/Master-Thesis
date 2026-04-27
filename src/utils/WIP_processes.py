@@ -113,6 +113,7 @@ class Diffusion_Processes:
 
         self.enforce_observed = bool(cfg.get("enforce_observed", True))
         self.round_times = bool(cfg.get("round_times", False))
+        self.freeze_eps = bool(cfg.get("freeze_eps", False))
         # self.conditional = cfg.get("conditional", False)
         # self.num_attributes = cfg.get("num_attributes", 0)
         # self.guidance_scale = cfg.get("guidance_scale", 1.5)
@@ -206,7 +207,7 @@ class Diffusion_Processes:
         mean, std = self.sde.marginal_prob(x0, t)  # mean: (B, ...), std: (B,)
 
         # Sample noise
-        eps = torch.randn_like(x0)
+        eps = torch.zeros_like(x0) if self.freeze_eps else torch.randn_like(x0)
 
         # Broadcast std to match z0
 
