@@ -199,7 +199,7 @@ class Diffusion_Processes:
 
 
         if self.round_times:
-            bins = torch.linspace(self.eps_time, self.sde.T, 100, device=device)
+            bins = torch.linspace(self.eps_time, self.sde.T, 10, device=device)
             t = bins[(t.unsqueeze(1) - bins.unsqueeze(0)).abs().argmin(dim=1)]
 
         # Get closed-form mean and std of p_t(z | z0)
