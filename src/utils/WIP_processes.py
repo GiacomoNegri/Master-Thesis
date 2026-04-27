@@ -112,6 +112,7 @@ class Diffusion_Processes:
         self.eps_time = float(cfg.get("eps", 1e-3))
 
         self.enforce_observed = bool(cfg.get("enforce_observed", True))
+        self.round_times = bool(cfg.get("round_times", False))
         # self.conditional = cfg.get("conditional", False)
         # self.num_attributes = cfg.get("num_attributes", 0)
         # self.guidance_scale = cfg.get("guidance_scale", 1.5)
@@ -196,6 +197,10 @@ class Diffusion_Processes:
                 # Default: uniform sampling over [eps_time, T]
                 t = self.eps_time + torch.rand(B, device=device) * (self.sde.T - self.eps_time)
 
+
+        if self.round_times:
+            bins = torch.linspace(self.eps_time, self.sde.T, 100, device=device)
+            t = bins[(t.unsqueeze(1) - bins.unsqueeze(0)).abs().argmin(dim=1)]
 
         # Get closed-form mean and std of p_t(z | z0)
         mean, std = self.sde.marginal_prob(x0, t)  # mean: (B, ...), std: (B,)

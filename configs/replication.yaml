@@ -25,6 +25,7 @@ process:
   model_steps: 200
   eps: 1.0e-3
   enforce_observed: true
+  round_times: false
 
 train:
   seed: 42

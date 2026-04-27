@@ -116,6 +116,9 @@ def parse_args():
                         help="Minimum beta for VP/subVP SDEs (overrides config)")
     parser.add_argument("--beta_max", type=float, default=None,
                         help="Maximum beta for VP/subVP SDEs (overrides config)")
+    parser.add_argument("--round_times", type=str2bool, default=None,
+                        help="If true, round sampled diffusion times to the nearest of 100 "
+                             "evenly spaced bins in [eps, T] instead of sampling continuously.")
 
     # model overrides
     parser.add_argument("--is_unconditional", type=str2bool, default=None)
@@ -265,6 +268,8 @@ def build_cli_override_dict(args) -> Dict[str, Any]:
         override["process"]["beta_min"] = args.beta_min
     if args.beta_max is not None:
         override["process"]["beta_max"] = args.beta_max
+    if args.round_times is not None:
+        override["process"]["round_times"] = args.round_times
 
     # train
     if args.seed is not None:
