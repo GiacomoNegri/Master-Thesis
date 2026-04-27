@@ -79,6 +79,8 @@ def parse_args():
     parser.add_argument("--train_subset_size",  type=int,    default=None)
     parser.add_argument("--val_split_ratio",    type=float,  default=None)
     parser.add_argument("--early_stop_patience", type=int,   default=None)
+    parser.add_argument("--loss_spike_factor",   type=float, default=None,
+                        help="When loss > loss_spike_factor * EMA loss, print batch stats (requires --debug true)")
 
     # EDM loss overrides (map to config["edm"] and config["model"])
     parser.add_argument("--P_mean",     type=float, default=None,
@@ -214,6 +216,8 @@ def build_cli_override_dict(args) -> Dict[str, Any]:
         override["train"]["val_split_ratio"] = args.val_split_ratio
     if args.early_stop_patience is not None:
         override["train"]["early_stop_patience"] = args.early_stop_patience
+    if args.loss_spike_factor is not None:
+        override["train"]["loss_spike_factor"] = args.loss_spike_factor
 
     # wandb
     if args.wandb_project is not None:

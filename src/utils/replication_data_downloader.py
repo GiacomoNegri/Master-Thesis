@@ -1,12 +1,11 @@
 import os
 import re
-import numpy as np
 import pandas as pd
 import requests
 import yfinance as yf
 
-OUTPUT_DIR = os.path.join(os.path.dirname(__file__), "../../data/replication/")
-MIN_YEARS = 40
+OUTPUT_DIR = os.path.join(os.path.dirname(__file__), "../../data/SNP500_individual/")
+MIN_TRADING_DAYS = 1000
 
 os.makedirs(OUTPUT_DIR, exist_ok=True)
 
@@ -54,27 +53,24 @@ def main():
             df = df.sort_index()
             df = df[~df.index.duplicated(keep="first")]
 
-            # Require at least MIN_YEARS of history
-            last_date = df.index[-1]
-            cutoff = last_date - pd.DateOffset(years=MIN_YEARS)
+            # Require at least MIN_TRADING_DAYS of history
+            cols = ["Open", "High", "Low", "Close"]
+            available = [c for c in cols if c in df.columns]
+            df = df[available].dropna()
 
-            if df.index[0] > cutoff:
-                span_years = (df.index[-1] - df.index[0]).days / 365.25
-                print(f"Skipping {ticker}: only {span_years:.1f} years of data.")
+            if len(df) < MIN_TRADING_DAYS:
+                print(f"Skipping {ticker}: only {len(df)} trading days.")
                 continue
 
-            close = df["Close"].dropna()
+            # yfinance auto_adjust=True already returns adjusted prices;
+            # expose them as both "Close" and "Adj Close" for clarity
+            result = df[available].copy()
+            result.columns = [c.lower().replace(" ", "_") for c in available]
+            result.insert(0, "date", df.index)
+            result["adj_close"] = result["close"]
 
-            # Log-transform the adjusted close price
-            log_close = np.log(close)
-
-            result = pd.DataFrame({
-                "date": log_close.index,
-                "log_adj_close": log_close.values,
-            })
-
-            first_day = log_close.index[0].strftime("%Y-%m-%d")
-            last_day = log_close.index[-1].strftime("%Y-%m-%d")
+            first_day = df.index[0].strftime("%Y-%m-%d")
+            last_day = df.index[-1].strftime("%Y-%m-%d")
             file_path = os.path.join(OUTPUT_DIR, f"{ticker}_{first_day}_{last_day}.csv")
             result.to_csv(file_path, index=False)
             print(f"Saved {ticker}: {len(result)} rows ({first_day} to {last_day}).")

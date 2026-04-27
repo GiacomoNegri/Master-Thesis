@@ -194,8 +194,11 @@ def train(
         ema_loss  = None
         _grad_buf = []
         _loss_buf = []
-        ema_beta  = float(config["train"].get("ema_beta", 0.98))
-        debug     = bool(config["train"].get("debug", False))
+        ema_beta          = float(config["train"].get("ema_beta", 0.98))
+        debug             = bool(config["train"].get("debug", False))
+        loss_spike_factor = config["train"].get("loss_spike_factor", None)
+        if loss_spike_factor is not None:
+            loss_spike_factor = float(loss_spike_factor)
         mask_mode = config["train"].get("mask_mode", "random")
         t0 = time.time()
 
@@ -248,12 +251,34 @@ def train(
                 )
 
             loss_val = float(loss.detach().item())
-            if log_this_batch:
+            if batch_idx == 0 and is_main:
+                print(f"  [batch 0] loss={loss_val:.6f}  "
+                      f"sigma | min={sigma_t.float().min():.4f}  max={sigma_t.float().max():.4f}  "
+                      f"mean={sigma_t.float().mean():.4f}  median={sigma_t.float().median():.4f}")
+            elif log_this_batch:
                 print(f"  sigma | min={sigma_t.float().min():.4f}  max={sigma_t.float().max():.4f}  "
                       f"mean={sigma_t.float().mean():.4f}  median={sigma_t.float().median():.4f}")
             epoch_loss_sum   += loss_val
             epoch_loss_count += 1
             ema_loss = loss_val if ema_loss is None else (ema_beta * ema_loss + (1.0 - ema_beta) * loss_val)
+
+            if (debug and is_main and loss_spike_factor is not None and ema_loss is not None
+                    and loss_val > loss_spike_factor * ema_loss):
+                print(f"\n[loss spike | epoch {epoch+1} | batch {batch_idx}]  "
+                      f"loss={loss_val:.6f}  ema={ema_loss:.6f}  ratio={loss_val/ema_loss:.2f}x")
+                _d    = observed_data.float()
+                _flat = _d.flatten()
+                print(f"  data  | mean={_flat.mean():.4f}  std={_flat.std():.4f}  "
+                      f"min={_flat.min():.4f}  max={_flat.max():.4f}  "
+                      f"p5={_flat.quantile(0.05):.4f}  p50={_flat.quantile(0.50):.4f}  p95={_flat.quantile(0.95):.4f}")
+                _win_mean = _d.mean(dim=-1).flatten()
+                _win_std  = _d.std(dim=-1).flatten()
+                print(f"  win μ | mean={_win_mean.mean():.4f}  std={_win_mean.std():.4f}  "
+                      f"p5={_win_mean.quantile(0.05):.4f}  p50={_win_mean.quantile(0.50):.4f}  p95={_win_mean.quantile(0.95):.4f}")
+                print(f"  win σ | mean={_win_std.mean():.4f}  std={_win_std.std():.4f}  "
+                      f"p5={_win_std.quantile(0.05):.4f}  p50={_win_std.quantile(0.50):.4f}  p95={_win_std.quantile(0.95):.4f}")
+                print(f"  sigma | min={sigma_t.float().min():.4f}  max={sigma_t.float().max():.4f}  "
+                      f"mean={sigma_t.float().mean():.4f}  median={sigma_t.float().median():.4f}")
 
             optim.zero_grad(set_to_none=True)
             scaler.scale(loss).backward()

@@ -120,12 +120,12 @@ class EDMLoss:
 
         if debug:
             masked_err = sq_err[target_mask.bool()]
-            print(
-                f"EDM | sigma min={sigma.min():.4f}  max={sigma.max():.4f}  "
-                f"mean={sigma.mean():.4f}  "
-                f"sq_err(target) mean={masked_err.mean():.6f}  "
-                f"weight mean={weight.mean():.4f}"
-            )
+            # print(
+            #     f"EDM | sigma min={sigma.min():.4f}  max={sigma.max():.4f}  "
+            #     f"mean={sigma.mean():.4f}  "
+            #     f"sq_err(target) mean={masked_err.mean():.6f}  "
+            #     f"weight mean={weight.mean():.4f}"
+            # )
 
         # Weighted mean: each entry's squared error is weighted by lambda(sigma) of its sample.
         # The denominator sums lambda(sigma_b) * target_mask to normalise correctly.
