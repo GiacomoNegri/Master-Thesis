@@ -112,6 +112,8 @@ class Diffusion_Processes:
         self.eps_time = float(cfg.get("eps", 1e-3))
 
         self.enforce_observed = bool(cfg.get("enforce_observed", True))
+        self.min_eps = cfg.get("min_eps", None)
+        self.max_eps = cfg.get("max_eps", None)
         self.round_times = bool(cfg.get("round_times", False))
         self.time_num_bins = int(cfg.get("time_num_bins", 10))
         self.time_multiplier = float(cfg.get("time_multiplier", 1.0))
@@ -216,6 +218,11 @@ class Diffusion_Processes:
         # Sample noise
         freeze_eps_value = 0.5
         eps = torch.full_like(x0, freeze_eps_value) if self.freeze_eps else torch.randn_like(x0)
+        if self.min_eps is not None or self.max_eps is not None:
+            eps = eps.clamp(
+                min=self.min_eps if self.min_eps is not None else -float("inf"),
+                max=self.max_eps if self.max_eps is not None else  float("inf"),
+            )
 
         print(f"Noise sampled with shape {eps.min().item():.4f}, {eps.max().item():.4f}, mean={eps.mean().item():.4f}, std={eps.std().item():.4f}")
         # Broadcast std to match z0

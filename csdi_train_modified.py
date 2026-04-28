@@ -124,6 +124,12 @@ def parse_args():
     parser.add_argument("--freeze_eps", type=str2bool, default=None,
                         help="If true, the forward process always uses eps=0 instead of "
                              "sampling Gaussian noise (collapses stochasticity for debugging).")
+    parser.add_argument("--min_eps", type=float, default=None,
+                        help="Lower clamp bound applied to sampled Gaussian noise in the forward process. "
+                             "null/omit to disable (default: no clipping).")
+    parser.add_argument("--max_eps", type=float, default=None,
+                        help="Upper clamp bound applied to sampled Gaussian noise in the forward process. "
+                             "null/omit to disable (default: no clipping).")
     parser.add_argument("--time_multiplier", type=float, default=None,
                         help="Scalar applied to the time bins after linspace(eps, T, time_num_bins). "
                              "Default 1 (no scaling).")
@@ -282,6 +288,10 @@ def build_cli_override_dict(args) -> Dict[str, Any]:
         override["process"]["time_num_bins"] = args.time_num_bins
     if args.freeze_eps is not None:
         override["process"]["freeze_eps"] = args.freeze_eps
+    if args.min_eps is not None:
+        override["process"]["min_eps"] = args.min_eps
+    if args.max_eps is not None:
+        override["process"]["max_eps"] = args.max_eps
     if args.time_multiplier is not None:
         override["process"]["time_multiplier"] = args.time_multiplier
 

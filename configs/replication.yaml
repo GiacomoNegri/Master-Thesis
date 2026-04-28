@@ -28,6 +28,8 @@ process:
   round_times: false
   time_num_bins: 10
   time_multiplier: 1
+  min_eps: null            # lower clamp for sampled noise in forward process (null = no clip)
+  max_eps: null            # upper clamp for sampled noise in forward process (null = no clip)
 
 train:
   seed: 42
