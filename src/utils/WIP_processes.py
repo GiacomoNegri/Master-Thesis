@@ -117,6 +117,8 @@ class Diffusion_Processes:
         self.round_times = bool(cfg.get("round_times", False))
         self.time_num_bins = int(cfg.get("time_num_bins", 10))
         self.time_multiplier = float(cfg.get("time_multiplier", 1.0))
+        self.t_min = cfg.get("t_min", None)
+        self.t_max = cfg.get("t_max", None)
         self.freeze_eps = bool(cfg.get("freeze_eps", False))
         self.round_eps = bool(cfg.get("round_eps", False))
         self.eps_num_bins = int(cfg.get("eps_num_bins", 10))
@@ -206,10 +208,9 @@ class Diffusion_Processes:
 
 
         if self.round_times:
-            bins = torch.linspace(self.eps_time, self.sde.T, self.time_num_bins, device=device) * self.time_multiplier
-            # Pick one bin uniformly at random and broadcast to the entire batch,
-            # so every sample in the batch shares the same noise level.
-            # This lets you evaluate per-bin difficulty cleanly.
+            t_lo = float(self.t_min) if self.t_min is not None else self.eps_time
+            t_hi = float(self.t_max) if self.t_max is not None else self.sde.T
+            bins = torch.linspace(t_lo, t_hi, self.time_num_bins, device=device) * self.time_multiplier
             bin_idx = torch.randint(0, self.time_num_bins, (1,), device=device).item()
             t = bins[bin_idx].expand(B)
 
