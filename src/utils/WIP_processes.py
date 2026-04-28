@@ -192,6 +192,7 @@ class Diffusion_Processes:
         device = x0.device
         B = x0.size(0)
 
+        _from_is = False
         if t is None:
             if t_probs is not None and t_grid is not None:
                 # Importance sampling: draw one index per batch element from the IS
@@ -202,17 +203,23 @@ class Diffusion_Processes:
                     replacement=True,
                 ).squeeze(-1)  # (B,)
                 t = t_grid[indices]
+                _from_is = True
             else:
                 # Default: uniform sampling over [eps_time, T]
                 t = self.eps_time + torch.rand(B, device=device) * (self.sde.T - self.eps_time)
-
 
         if self.round_times:
             t_lo = float(self.t_min) if self.t_min is not None else self.eps_time
             t_hi = float(self.t_max) if self.t_max is not None else self.sde.T
             bins = torch.linspace(t_lo, t_hi, self.time_num_bins, device=device) * self.time_multiplier
-            bin_idx = torch.randint(0, self.time_num_bins, (1,), device=device).item()
-            t = bins[bin_idx].expand(B)
+            if _from_is:
+                # Snap each per-sample IS time to the nearest bin, preserving diversity.
+                # bins: (time_num_bins,), t: (B,) → dists: (B, time_num_bins)
+                dists = (t.unsqueeze(1) - bins.unsqueeze(0)).abs()
+                t = bins[dists.argmin(dim=1)]  # (B,)
+            else:
+                bin_idx = torch.randint(0, self.time_num_bins, (1,), device=device).item()
+                t = bins[bin_idx].expand(B)
 
         print(f"Forward process: sampling t with shape {t.shape} and range [{t.min().item():.4f}, {t.max().item():.4f}], t_mean={t.mean().item():.4f}")
         # Get closed-form mean and std of p_t(z | z0)
