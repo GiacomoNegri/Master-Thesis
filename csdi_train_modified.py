@@ -133,6 +133,11 @@ def parse_args():
     parser.add_argument("--time_multiplier", type=float, default=None,
                         help="Scalar applied to the time bins after linspace(eps, T, time_num_bins). "
                              "Default 1 (no scaling).")
+    parser.add_argument("--round_eps", type=str2bool, default=None,
+                        help="If true, quantise the sampled noise to eps_num_bins evenly spaced bins "
+                             "in [min_eps, max_eps]. Requires both --min_eps and --max_eps.")
+    parser.add_argument("--eps_num_bins", type=int, default=None,
+                        help="Number of discrete noise bins when round_eps=true (default: 10).")
 
     # model overrides
     parser.add_argument("--is_unconditional", type=str2bool, default=None)
@@ -294,6 +299,10 @@ def build_cli_override_dict(args) -> Dict[str, Any]:
         override["process"]["max_eps"] = args.max_eps
     if args.time_multiplier is not None:
         override["process"]["time_multiplier"] = args.time_multiplier
+    if args.round_eps is not None:
+        override["process"]["round_eps"] = args.round_eps
+    if args.eps_num_bins is not None:
+        override["process"]["eps_num_bins"] = args.eps_num_bins
 
     # train
     if args.seed is not None:

@@ -30,7 +30,7 @@ OVERRIDES: dict[str, str] = {
     "--epochs": "30",
     "--use_amp": "false",
     "--print_plots": "false",
-    "--wandb_project": "diagnostic-local",
+    "--wandb_project": "overfit-local",
 }
 
 

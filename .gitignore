@@ -34,3 +34,4 @@ replication/
 
 #specific files
 jobs_launcher.py
+run_diagnostics_locally.py
