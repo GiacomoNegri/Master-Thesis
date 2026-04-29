@@ -209,6 +209,11 @@ class Diffusion_Processes:
                     replacement=True,
                 ).squeeze(-1)  # (B,)
                 t = filtered_grid[indices]
+            elif self.t_min is not None or self.t_max is not None:
+                # t_min/t_max set but no IS: uniform sampling over the restricted window
+                t_lo = float(self.t_min) if self.t_min is not None else self.eps_time
+                t_hi = float(self.t_max) if self.t_max is not None else self.sde.T
+                t = t_lo + torch.rand(B, device=device) * (t_hi - t_lo)
             else:
                 # Default: uniform sampling over [eps_time, T]
                 t = self.eps_time + torch.rand(B, device=device) * (self.sde.T - self.eps_time)
