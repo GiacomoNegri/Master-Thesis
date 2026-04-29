@@ -144,6 +144,9 @@ def parse_args():
                              "in [min_eps, max_eps]. Requires both --min_eps and --max_eps.")
     parser.add_argument("--eps_num_bins", type=int, default=None,
                         help="Number of discrete noise bins when round_eps=true (default: 10).")
+    parser.add_argument("--eps_multiplier", type=float, default=None,
+                        help="Scale factor applied to sampled noise after clipping/rounding. "
+                             "Values < 1 reduce noise magnitude without hard clipping (default: 1.0).")
 
     # model overrides
     parser.add_argument("--is_unconditional", type=str2bool, default=None)
@@ -313,6 +316,8 @@ def build_cli_override_dict(args) -> Dict[str, Any]:
         override["process"]["round_eps"] = args.round_eps
     if args.eps_num_bins is not None:
         override["process"]["eps_num_bins"] = args.eps_num_bins
+    if args.eps_multiplier is not None:
+        override["process"]["eps_multiplier"] = args.eps_multiplier
 
     # train
     if args.seed is not None:

@@ -122,6 +122,7 @@ class Diffusion_Processes:
         self.freeze_eps = bool(cfg.get("freeze_eps", False))
         self.round_eps = bool(cfg.get("round_eps", False))
         self.eps_num_bins = int(cfg.get("eps_num_bins", 10))
+        self.eps_multiplier = float(cfg.get("eps_multiplier", 1.0))
         # self.conditional = cfg.get("conditional", False)
         # self.num_attributes = cfg.get("num_attributes", 0)
         # self.guidance_scale = cfg.get("guidance_scale", 1.5)
@@ -238,6 +239,9 @@ class Diffusion_Processes:
             bins = torch.linspace(self.min_eps, self.max_eps, self.eps_num_bins, device=x0.device)
             bin_idx = torch.randint(0, self.eps_num_bins, (1,), device=x0.device).item()
             eps = torch.full_like(x0, bins[bin_idx].item())
+
+        if self.eps_multiplier != 1.0:
+            eps = eps * self.eps_multiplier
 
         print(f"Noise sampled with shape {eps.min().item():.4f}, {eps.max().item():.4f}, mean={eps.mean().item():.4f}, std={eps.std().item():.4f}")
         # Broadcast std to match z0

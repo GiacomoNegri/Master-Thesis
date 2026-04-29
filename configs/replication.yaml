@@ -30,6 +30,7 @@ process:
   time_multiplier: 1
   min_eps: null            # lower clamp for sampled noise in forward process (null = no clip)
   max_eps: null            # upper clamp for sampled noise in forward process (null = no clip)
+  eps_multiplier: 1.0      # scale factor applied to sampled noise after clipping/rounding (1 = no scaling)
 
 train:
   seed: 42
