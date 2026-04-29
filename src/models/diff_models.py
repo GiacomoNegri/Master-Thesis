@@ -88,7 +88,8 @@ class diff_CSDI(nn.Module):
         # Small-normal init retained from the original two-stage head: avoids the zero-output
         # trap of the vanilla CSDI initialisation (nn.init.zeros_) while keeping early
         # predictions near zero to prevent large initial loss spikes.
-        nn.init.normal_(self.output_projection.weight, mean=0.0, std=0.01)
+        # nn.init.normal_(self.output_projection.weight, mean=0.0, std=0.01)
+        nn.init.kaiming_normal_(self.output_projection.weight)  # [CHANGE 1] Kaiming init replaces normal init, raising initial output variance from ~0.01 to ~0.5 and accelerating early training progress.
 
 
         # Stack of residual layers

@@ -59,7 +59,6 @@ class SigmaSchedule:
             return amp * t.new_tensor(math.pi) * torch.sin(math.pi * t)
 
         raise ValueError("SigmaSchedule.schedule must be one of: 'linear', 'exponential', 'cosine'")
-
     def g(self, t: torch.Tensor) -> torch.Tensor:
         """
         Diffusion coefficient g(t) such that the marginal std is sigma(t).
