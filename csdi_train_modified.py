@@ -560,6 +560,7 @@ class DiagnosticsCollector:
         # raw signed values from target-masked entries (subsampled per batch)
         self.eps_hat_vals:   list = []  # ε̂  values — for histogram and scatter
         self.eps_vals:       list = []  # ε   values — for scatter (paired with eps_hat_vals)
+        self.sigma_vals:     list = []  # σ(t) per element — aligned with eps_hat_vals/eps_vals
         # per-step scalars (one value per optimisation step / batch)
         self.grad_norms:     list = []  # gradient norm after clipping
         self.batch_mean_t:   list = []  # mean t of the batch (for scatter vs grad norm)
@@ -645,15 +646,18 @@ class DiagnosticsCollector:
 
             # raw signed values inside the target mask — subsampled to 300 per batch
             # so memory stays bounded regardless of B, K, L.  Paired so scatter is valid.
-            flat_hat = eps_hat_f[mask_f.bool()].cpu().numpy()
-            flat_eps = eps_f[mask_f.bool()].cpu().numpy()
+            flat_hat   = eps_hat_f[mask_f.bool()].cpu().numpy()
+            flat_eps   = eps_f[mask_f.bool()].cpu().numpy()
+            flat_sigma = sigma_f[:, None, None].expand_as(eps_hat_f)[mask_f.bool()].cpu().numpy()
             _max_per_batch = 300
             if len(flat_hat) > _max_per_batch:
                 idx = np.random.choice(len(flat_hat), _max_per_batch, replace=False)
-                flat_hat = flat_hat[idx]
-                flat_eps = flat_eps[idx]
+                flat_hat   = flat_hat[idx]
+                flat_eps   = flat_eps[idx]
+                flat_sigma = flat_sigma[idx]
             self.eps_hat_vals.append(flat_hat)
             self.eps_vals.append(flat_eps)
+            self.sigma_vals.append(flat_sigma)
 
             # the following three has length N
             self.grad_norms.append(float(grad_norm))
@@ -679,6 +683,7 @@ class DiagnosticsCollector:
             "x0_mse":       cat(self.x0_mse_batch),
             "eps_hat_vals": cat(self.eps_hat_vals),
             "eps_vals":     cat(self.eps_vals),
+            "sigma_vals":   cat(self.sigma_vals),
             "grad":     np.array(self.grad_norms),
             "t_mean":   np.array(self.batch_mean_t),
             "err_mean": np.array(self.batch_mean_err),
@@ -711,6 +716,88 @@ def error_by_t_bins(
     for lo, hi in zip(edges[:-1], edges[1:]):
         in_bin = (t >= lo) & (t < hi)
         means.append(float(err[in_bin].mean()) if in_bin.any() else float("nan"))
+    return edges, np.array(means)
+
+
+def stats_by_sigma_bins(
+    sigma:  "np.ndarray",
+    values: "np.ndarray",
+    n_bins: int = 10,
+    max_per_bin: int = 200,
+) -> tuple:
+    """
+    Compute per-σ-bin statistics for an array of values aligned with sigma.
+
+    Parameters
+    ----------
+    sigma       : (N,) array of σ(t) values
+    values      : (N,) array of quantities to aggregate (same length as sigma)
+    n_bins      : number of equal-width bins over [sigma.min(), sigma.max()]
+    max_per_bin : max elements used per bin (random subsample when exceeded)
+
+    Returns
+    -------
+    edges    : (n_bins+1,) bin boundaries
+    bin_stat : dict with keys 'mean', 'std', 'corr' — each (n_bins,) array of
+               per-bin statistics (NaN for empty bins). 'corr' key is omitted
+               unless a second array is provided via the `values2` parameter.
+    """
+    s_min = float(sigma.min())
+    s_max = float(sigma.max())
+    edges = np.linspace(s_min, s_max, n_bins + 1)
+    means, stds = [], []
+    for lo, hi in zip(edges[:-1], edges[1:]):
+        mask = (sigma >= lo) & (sigma < hi)
+        v = values[mask]
+        if len(v) > max_per_bin:
+            v = v[np.random.choice(len(v), max_per_bin, replace=False)]
+        if len(v) == 0:
+            means.append(float("nan"))
+            stds.append(float("nan"))
+        else:
+            means.append(float(v.mean()))
+            stds.append(float(v.std()))
+    return edges, np.array(means), np.array(stds)
+
+
+def corr_by_sigma_bins(
+    sigma:  "np.ndarray",
+    a:      "np.ndarray",
+    b:      "np.ndarray",
+    n_bins: int = 10,
+    max_per_bin: int = 200,
+) -> tuple:
+    """Per-σ-bin Pearson correlation between arrays a and b (same shape as sigma)."""
+    s_min = float(sigma.min())
+    s_max = float(sigma.max())
+    edges = np.linspace(s_min, s_max, n_bins + 1)
+    corrs = []
+    for lo, hi in zip(edges[:-1], edges[1:]):
+        mask = (sigma >= lo) & (sigma < hi)
+        av, bv = a[mask], b[mask]
+        if len(av) > max_per_bin:
+            idx = np.random.choice(len(av), max_per_bin, replace=False)
+            av, bv = av[idx], bv[idx]
+        if len(av) < 2 or np.std(av) < 1e-12 or np.std(bv) < 1e-12:
+            corrs.append(float("nan"))
+        else:
+            corrs.append(float(np.corrcoef(av, bv)[0, 1]))
+    return edges, np.array(corrs)
+
+
+def mse_by_sigma_bins(
+    sigma:  "np.ndarray",
+    x0_mse: "np.ndarray",
+    n_bins: int = 10,
+) -> tuple:
+    """Per-σ-bin mean of x0_mse (per-sample values aligned with sigma)."""
+    s_min = float(sigma.min())
+    s_max = float(sigma.max())
+    edges = np.linspace(s_min, s_max, n_bins + 1)
+    means = []
+    for lo, hi in zip(edges[:-1], edges[1:]):
+        mask = (sigma >= lo) & (sigma < hi)
+        means.append(float(x0_mse[mask].mean()) if mask.any() else float("nan"))
     return edges, np.array(means)
 
 
@@ -770,12 +857,23 @@ def plot_and_save_diagnostics(
     x0_mse                 = d["x0_mse"]
     eps_hat_vals           = d["eps_hat_vals"]
     eps_vals               = d["eps_vals"]
+    sigma_vals             = d["sigma_vals"]
     grad, t_mean, err_mean = d["grad"],  d["t_mean"], d["err_mean"]
 
-    # pre-compute binned error — used for plot 12 and optional W&B table
-    t_max_val = float(t.max()) if len(t) > 0 else 1.0
-    bin_edges, bin_means = error_by_t_bins(t, err, n_bins=10, t_max=t_max_val)
-    bin_centers = 0.5 * (bin_edges[:-1] + bin_edges[1:])
+    # pre-compute sigma-binned statistics — used for plots 12, 19-22 and W&B table
+    _have_sigma_bins = len(sigma) > 0 and len(err) == len(sigma)
+    if _have_sigma_bins:
+        _sb_edges, _sb_mae_means, _ = stats_by_sigma_bins(sigma, err, n_bins=10)
+        _sb_centers = 0.5 * (_sb_edges[:-1] + _sb_edges[1:])
+        _, _sb_mse = mse_by_sigma_bins(sigma, x0_mse, n_bins=10) if len(x0_mse) == len(sigma) else (None, np.full(10, float("nan")))
+    _have_elem_sigma = (
+        len(sigma_vals) > 0
+        and len(eps_hat_vals) == len(sigma_vals)
+        and len(eps_vals) == len(sigma_vals)
+    )
+    if _have_elem_sigma:
+        _, _sb_corr = corr_by_sigma_bins(sigma_vals, eps_vals, eps_hat_vals, n_bins=10)
+        _, _sb_eps_hat_mean, _sb_eps_hat_std = stats_by_sigma_bins(sigma_vals, eps_hat_vals, n_bins=10)
 
     # Interpretable x-axis for per-sample scatter plots (03b, 17).
     # log σ(t) / log-SNR are more informative than raw t because they directly
@@ -900,29 +998,28 @@ def plot_and_save_diagnostics(
     #     _save(fig, f"{epoch}_10_scatter_g_vs_sigma")
 
     # ---- 11. Histogram of inferred score = −ε̂ / σ(t) ---------------
-    if len(score) > 0:
-        fig, ax = plt.subplots(figsize=(6, 4))
-        _hist(ax, score, "score = −ε̂ / σ(t)  (per-sample mean)", color="slategray", bins=60)
-        ax.set_title(f"{ep} — Inferred score distribution")
-        _save(fig, f"{epoch}_11_hist_score")
+    # if len(score) > 0:
+    #     fig, ax = plt.subplots(figsize=(6, 4))
+    #     _hist(ax, score, "score = −ε̂ / σ(t)  (per-sample mean)", color="slategray", bins=60)
+    #     ax.set_title(f"{ep} — Inferred score distribution")
+    #     _save(fig, f"{epoch}_11_hist_score")
 
-    # ---- 12. Bar chart: mean abs error per uniform t-bin -------------
-    # Gives a numerical summary of where in [0, T] the model is failing,
+    # ---- 12. Bar chart: mean abs error per uniform σ-bin -------------
+    # Gives a numerical summary of where in [σ_min, σ_max] the model is failing,
     # complementing the scatter in 03b.
-    if len(t) > 0:
+    if _have_sigma_bins:
         fig, ax = plt.subplots(figsize=(7, 4))
-        bar_width = (bin_edges[1] - bin_edges[0]) * 0.85
-        bars = ax.bar(bin_centers, bin_means, width=bar_width,
+        bar_width = (_sb_edges[1] - _sb_edges[0]) * 0.85
+        bars = ax.bar(_sb_centers, _sb_mae_means, width=bar_width,
                       color="steelblue", edgecolor="none")
-        # mark empty bins so they don't silently disappear
-        for bar, val in zip(bars, bin_means):
+        for bar, val in zip(bars, _sb_mae_means):
             if np.isnan(val):
                 ax.text(bar.get_x() + bar.get_width() / 2, 0,
                         "∅", ha="center", va="bottom", fontsize=8, color="gray")
-        ax.set_xlabel("t  (bin centre)")
+        ax.set_xlabel("σ(t)  (bin centre)")
         ax.set_ylabel("mean |ε̂ − ε|  per bin")
-        ax.set_title(f"{ep} — Binned error by t")
-        _save(fig, f"{epoch}_12_bar_binned_err_vs_t")
+        ax.set_title(f"{ep} — Binned MAE by σ(t)")
+        _save(fig, f"{epoch}_12_bar_binned_mae_vs_sigma")
 
     # ---- 13. Histogram of process SNR = 1 / σ²(t) -------------------
     # REDUNDANT: SNR = 1/σ²(t) is a monotone function of t, so this histogram
@@ -947,97 +1044,174 @@ def plot_and_save_diagnostics(
     # ---- 15. Scatter: ε̂ vs ε  (signed, subsampled) ------------------
     # Identity line y=x means perfect prediction; cloud width = residual noise.
     # Systematic bias (cloud above/below y=x) reveals directional mis-prediction.
-    if len(eps_hat_vals) > 0 and len(eps_hat_vals) == len(eps_vals):
-        v_min = float(np.nanpercentile(eps_vals, 1))
-        v_max = float(np.nanpercentile(eps_vals, 99))
-        fig, ax = plt.subplots(figsize=(6, 6))
-        _scatter(ax, eps_vals, eps_hat_vals, "ε  (true noise)", "ε̂  (predicted noise)",
-                 color="steelblue", s=2, alpha=0.2)
-        ax.plot([v_min, v_max], [v_min, v_max], color="crimson", lw=1, linestyle="--",
-                label="y = x")
-        ax.set_xlim(v_min, v_max)
-        ax.set_ylim(v_min, v_max)
-        ax.legend(fontsize=8)
-        ax.set_title(f"{ep} — ε̂ vs ε  (signed, subsampled)")
-        ax.set_aspect("equal", adjustable="box")
-        _save(fig, f"{epoch}_15_scatter_eps_hat_vs_eps")
+    # if len(eps_hat_vals) > 0 and len(eps_hat_vals) == len(eps_vals):
+    #     v_min = float(np.nanpercentile(eps_vals, 1))
+    #     v_max = float(np.nanpercentile(eps_vals, 99))
+    #     fig, ax = plt.subplots(figsize=(6, 6))
+    #     _scatter(ax, eps_vals, eps_hat_vals, "ε  (true noise)", "ε̂  (predicted noise)",
+    #              color="steelblue", s=2, alpha=0.2)
+    #     ax.plot([v_min, v_max], [v_min, v_max], color="crimson", lw=1, linestyle="--",
+    #             label="y = x")
+    #     ax.set_xlim(v_min, v_max)
+    #     ax.set_ylim(v_min, v_max)
+    #     ax.legend(fontsize=8)
+    #     ax.set_title(f"{ep} — ε̂ vs ε  (signed, subsampled)")
+    #     ax.set_aspect("equal", adjustable="box")
+    #     _save(fig, f"{epoch}_15_scatter_eps_hat_vs_eps")
 
     # ---- 16. Histogram of ε̂  (signed) -------------------------------
     # Should look like N(0,1) for a well-trained model.
     # Collapse toward 0, heavy tails, or asymmetry all signal training issues.
-    if len(eps_hat_vals) > 0:
-        fig, ax = plt.subplots(figsize=(6, 4))
-        _hist(ax, eps_hat_vals, "ε̂  (predicted noise, signed)", color="darkorange", bins=80)
-        # overlay reference N(0,1) curve
-        x_ref = np.linspace(eps_hat_vals.min(), eps_hat_vals.max(), 300)
-        n_total = len(eps_hat_vals)
-        bin_width = (eps_hat_vals.max() - eps_hat_vals.min()) / 80
-        ref_density = (n_total * bin_width *
-                       np.exp(-0.5 * x_ref ** 2) / np.sqrt(2 * np.pi))
-        ax.plot(x_ref, ref_density, color="crimson", lw=1.5, linestyle="--",
-                label="N(0,1) ref")
-        ax.legend(fontsize=8)
-        ax.set_title(f"{ep} — ε̂ distribution  (vs N(0,1) reference)")
-        _save(fig, f"{epoch}_16_hist_eps_hat")
+    # if len(eps_hat_vals) > 0:
+    #     fig, ax = plt.subplots(figsize=(6, 4))
+    #     _hist(ax, eps_hat_vals, "ε̂  (predicted noise, signed)", color="darkorange", bins=80)
+    #     # overlay reference N(0,1) curve
+    #     x_ref = np.linspace(eps_hat_vals.min(), eps_hat_vals.max(), 300)
+    #     n_total = len(eps_hat_vals)
+    #     bin_width = (eps_hat_vals.max() - eps_hat_vals.min()) / 80
+    #     ref_density = (n_total * bin_width *
+    #                    np.exp(-0.5 * x_ref ** 2) / np.sqrt(2 * np.pi))
+    #     ax.plot(x_ref, ref_density, color="crimson", lw=1.5, linestyle="--",
+    #             label="N(0,1) ref")
+    #     ax.legend(fontsize=8)
+    #     ax.set_title(f"{ep} — ε̂ distribution  (vs N(0,1) reference)")
+    #     _save(fig, f"{epoch}_16_hist_eps_hat")
 
     # ---- 17. Scatter: reverse-step drift error vs t ------------------
     # err_rev(t) = g²(t)/σ(t) · mean_abs_err · Δt
     # = per-element RMS displacement error in one Euler-Maruyama reverse step.
     # Steep rise at large t → coarse-scale reconstruction is unreliable.
     # Steep rise at small t → fine-structure prediction is unreliable.
-    if len(err_rev) > 0 and len(err_rev) == len(t) and len(x_interp) == len(err_rev):
-        fig, ax = plt.subplots(figsize=(6, 4))
-        _scatter(ax, x_interp, err_rev,
-                 x_label, "err_rev = g²/σ · mean|ε̂−ε| · Δt  per sample",
-                 color="mediumorchid")
-        ax.set_title(f"{ep} — Reverse-step drift error vs {x_label}")
-        _save(fig, f"{epoch}_17_scatter_err_rev_vs_noise_level")
-        # print a concise numerical summary so the log captures R statistics
-        # even without opening the plot
-        if len(rel_stoch) > 0:
-            print(
-                f"  [rev-err] err_rev | mean={err_rev.mean():.3e}  "
-                f"p50={np.median(err_rev):.3e}  p95={np.percentile(err_rev, 95):.3e}  "
-                f"max={err_rev.max():.3e}\n"
-                f"  [rev-err] R=err_rev/(g√Δt) | mean={rel_stoch.mean():.3e}  "
-                f"p50={np.median(rel_stoch):.3e}  p95={np.percentile(rel_stoch, 95):.3e}  "
-                f"max={rel_stoch.max():.3e}  "
-                f"— fraction R≥1: {(rel_stoch >= 1.0).mean()*100:.1f}%"
-            )
+    # if len(err_rev) > 0 and len(err_rev) == len(t) and len(x_interp) == len(err_rev):
+    #     fig, ax = plt.subplots(figsize=(6, 4))
+    #     _scatter(ax, x_interp, err_rev,
+    #              x_label, "err_rev = g²/σ · mean|ε̂−ε| · Δt  per sample",
+    #              color="mediumorchid")
+    #     ax.set_title(f"{ep} — Reverse-step drift error vs {x_label}")
+    #     _save(fig, f"{epoch}_17_scatter_err_rev_vs_noise_level")
+    #     # print a concise numerical summary so the log captures R statistics
+    #     # even without opening the plot
+    #     if len(rel_stoch) > 0:
+    #         print(
+    #             f"  [rev-err] err_rev | mean={err_rev.mean():.3e}  "
+    #             f"p50={np.median(err_rev):.3e}  p95={np.percentile(err_rev, 95):.3e}  "
+    #             f"max={err_rev.max():.3e}\n"
+    #             f"  [rev-err] R=err_rev/(g√Δt) | mean={rel_stoch.mean():.3e}  "
+    #             f"p50={np.median(rel_stoch):.3e}  p95={np.percentile(rel_stoch, 95):.3e}  "
+    #             f"max={rel_stoch.max():.3e}  "
+    #             f"— fraction R≥1: {(rel_stoch >= 1.0).mean()*100:.1f}%"
+    #         )
 
     # ---- 18. Bar chart: x0 reconstruction MSE per σ(t) bin ----------
     # Uses ||hat_x0 - x0||^2 = (σ/mean_coeff)^2 · ||ε - ε̂||^2 (algebraic identity).
     # Bins by actual σ(t) value rather than by t, so the x-axis directly shows
     # the noise level at which the model struggles to reconstruct x0.
-    if len(x0_mse) > 0 and len(sigma) == len(x0_mse):
-        _s_min = float(sigma.min())
-        _s_max = float(sigma.max())
-        _n_bins = 10
-        _edges = np.linspace(_s_min, _s_max, _n_bins + 1)
-        _centers = 0.5 * (_edges[:-1] + _edges[1:])
-        _bin_mse = []
-        for _lo, _hi in zip(_edges[:-1], _edges[1:]):
-            _in = (sigma >= _lo) & (sigma < _hi)
-            _bin_mse.append(float(x0_mse[_in].mean()) if _in.any() else float("nan"))
-        _bin_mse = np.array(_bin_mse)
+    # if len(x0_mse) > 0 and len(sigma) == len(x0_mse):
 
+    #     _s_min = float(sigma.min())
+    #     _s_max = float(sigma.max())
+    #     _n_bins = 10
+    #     _edges = np.linspace(_s_min, _s_max, _n_bins + 1)
+    #     _centers = 0.5 * (_edges[:-1] + _edges[1:])
+    #     _bin_mse = []
+    #     for _lo, _hi in zip(_edges[:-1], _edges[1:]):
+    #         _in = (sigma >= _lo) & (sigma < _hi)
+    #         _bin_mse.append(float(x0_mse[_in].mean()) if _in.any() else float("nan"))
+    #     _bin_mse = np.array(_bin_mse)
+
+    #     fig, ax = plt.subplots(figsize=(7, 4))
+    #     _bw = (_edges[1] - _edges[0]) * 0.85
+    #     _bars = ax.bar(_centers, _bin_mse, width=_bw, color="teal", edgecolor="none")
+    #     for _bar, _val in zip(_bars, _bin_mse):
+    #         if np.isnan(_val):
+    #             ax.text(_bar.get_x() + _bar.get_width() / 2, 0,
+    #                     "∅", ha="center", va="bottom", fontsize=8, color="gray")
+    #     ax.set_xlabel("σ(t)  (bin centre)")
+    #     ax.set_ylabel("mean ||x̂₀ − x₀||²  per bin")
+    #     ax.set_title(f"{ep} — x₀ reconstruction MSE by σ(t)")
+    #     _save(fig, f"{epoch}_18_bar_x0_mse_vs_sigma")
+
+    #     # text summary — printed even without opening the PNG
+    #     _valid = [(c, m) for c, m in zip(_centers, _bin_mse) if not np.isnan(m)]
+    #     if _valid:
+    #         _parts = "  ".join(f"σ≈{c:.3f}:{m:.3e}" for c, m in _valid)
+    #         print(f"  [x0-mse] per-σ bin: {_parts}")
+
+    # ---- 19. Bar chart: MSE by σ-bin ------------------------------------
+    if _have_sigma_bins and len(x0_mse) == len(sigma):
         fig, ax = plt.subplots(figsize=(7, 4))
-        _bw = (_edges[1] - _edges[0]) * 0.85
-        _bars = ax.bar(_centers, _bin_mse, width=_bw, color="teal", edgecolor="none")
-        for _bar, _val in zip(_bars, _bin_mse):
-            if np.isnan(_val):
-                ax.text(_bar.get_x() + _bar.get_width() / 2, 0,
+        _bw19 = (_sb_edges[1] - _sb_edges[0]) * 0.85
+        bars = ax.bar(_sb_centers, _sb_mse, width=_bw19, color="teal", edgecolor="none")
+        for bar, val in zip(bars, _sb_mse):
+            if np.isnan(val):
+                ax.text(bar.get_x() + bar.get_width() / 2, 0,
                         "∅", ha="center", va="bottom", fontsize=8, color="gray")
         ax.set_xlabel("σ(t)  (bin centre)")
-        ax.set_ylabel("mean ||x̂₀ − x₀||²  per bin")
-        ax.set_title(f"{ep} — x₀ reconstruction MSE by σ(t)")
-        _save(fig, f"{epoch}_18_bar_x0_mse_vs_sigma")
+        ax.set_ylabel("mean MSE  per bin")
+        ax.set_title(f"{ep} — MSE by σ(t)")
+        _save(fig, f"{epoch}_19_bar_mse_vs_sigma")
 
-        # text summary — printed even without opening the PNG
-        _valid = [(c, m) for c, m in zip(_centers, _bin_mse) if not np.isnan(m)]
-        if _valid:
-            _parts = "  ".join(f"σ≈{c:.3f}:{m:.3e}" for c, m in _valid)
-            print(f"  [x0-mse] per-σ bin: {_parts}")
+    # ---- 20. Bar chart: corr(ε, ε̂) by σ-bin ---------------------------
+    if _have_elem_sigma:
+        _bw_elem = (sigma_vals.max() - sigma_vals.min()) / 10 * 0.85
+        fig, ax = plt.subplots(figsize=(7, 4))
+        bars = ax.bar(_sb_centers, _sb_corr, width=_bw_elem, color="mediumseagreen", edgecolor="none")
+        for bar, val in zip(bars, _sb_corr):
+            if np.isnan(val):
+                ax.text(bar.get_x() + bar.get_width() / 2, 0,
+                        "∅", ha="center", va="bottom", fontsize=8, color="gray")
+        ax.axhline(0, color="black", lw=0.8, linestyle="--")
+        ax.set_ylim(-1.05, 1.05)
+        ax.set_xlabel("σ(t)  (bin centre)")
+        ax.set_ylabel("Pearson r(ε, ε̂)")
+        ax.set_title(f"{ep} — corr(ε, ε̂) by σ(t)")
+        _save(fig, f"{epoch}_20_bar_corr_eps_vs_sigma")
+
+    # ---- 21. Bar chart: mean(ε̂) by σ-bin --------------------------------
+    if _have_elem_sigma:
+        fig, ax = plt.subplots(figsize=(7, 4))
+        bars = ax.bar(_sb_centers, _sb_eps_hat_mean, width=_bw_elem,
+                      color="darkorange", edgecolor="none")
+        for bar, val in zip(bars, _sb_eps_hat_mean):
+            if np.isnan(val):
+                ax.text(bar.get_x() + bar.get_width() / 2, 0,
+                        "∅", ha="center", va="bottom", fontsize=8, color="gray")
+        ax.axhline(0, color="black", lw=0.8, linestyle="--")
+        ax.set_xlabel("σ(t)  (bin centre)")
+        ax.set_ylabel("mean(ε̂)  per bin")
+        ax.set_title(f"{ep} — mean(ε̂) by σ(t)")
+        _save(fig, f"{epoch}_21_bar_mean_eps_hat_vs_sigma")
+
+    # ---- 22. Bar chart: std(ε̂) by σ-bin ---------------------------------
+    if _have_elem_sigma:
+        fig, ax = plt.subplots(figsize=(7, 4))
+        bars = ax.bar(_sb_centers, _sb_eps_hat_std, width=_bw_elem,
+                      color="slateblue", edgecolor="none")
+        for bar, val in zip(bars, _sb_eps_hat_std):
+            if np.isnan(val):
+                ax.text(bar.get_x() + bar.get_width() / 2, 0,
+                        "∅", ha="center", va="bottom", fontsize=8, color="gray")
+        ax.set_xlabel("σ(t)  (bin centre)")
+        ax.set_ylabel("std(ε̂)  per bin")
+        ax.set_title(f"{ep} — std(ε̂) by σ(t)")
+        _save(fig, f"{epoch}_22_bar_std_eps_hat_vs_sigma")
+
+    # ---- debug printout: per-σ-bin summary (printed once with each plot set) ----
+    if _have_sigma_bins:
+        _hdr = "  [sigma-bins] centres: " + "  ".join(f"{c:.3f}" for c in _sb_centers)
+        print(_hdr)
+        _mae_str = "  ".join(f"{v:.3e}" if not np.isnan(v) else "nan" for v in _sb_mae_means)
+        print(f"  [sigma-bins] MAE:       {_mae_str}")
+        if len(x0_mse) == len(sigma):
+            _mse_str = "  ".join(f"{v:.3e}" if not np.isnan(v) else "nan" for v in _sb_mse)
+            print(f"  [sigma-bins] MSE:       {_mse_str}")
+    if _have_elem_sigma:
+        _corr_str = "  ".join(f"{v:.3f}" if not np.isnan(v) else "nan" for v in _sb_corr)
+        print(f"  [sigma-bins] corr(ε,ε̂): {_corr_str}")
+        _mean_str = "  ".join(f"{v:.3e}" if not np.isnan(v) else "nan" for v in _sb_eps_hat_mean)
+        print(f"  [sigma-bins] mean(ε̂):   {_mean_str}")
+        _std_str = "  ".join(f"{v:.3e}" if not np.isnan(v) else "nan" for v in _sb_eps_hat_std)
+        print(f"  [sigma-bins] std(ε̂):    {_std_str}")
 
     print(f"  [diagnostics] {len(saved)} plots saved → {diag_dir}")
 
@@ -1061,21 +1235,22 @@ def plot_and_save_diagnostics(
             print(f"  [diagnostics] W&B image upload failed: {exc}")
 
         # binned error table — logged separately so it's queryable in W&B
-        try:
-            valid_rows = [
-                [float(c), float(m)]
-                for c, m in zip(bin_centers, bin_means)
-                if not np.isnan(m)
-            ]
-            if valid_rows:
-                tbl = wandb.Table(
-                    columns=["t_bin_center", "mean_abs_error"],
-                    data=valid_rows,
-                )
-                wandb.log({"diagnostics/binned_err_vs_t": tbl}, step=global_step)
-                print(f"  [diagnostics] binned-error table ({len(valid_rows)} bins) uploaded to W&B")
-        except Exception as exc:
-            print(f"  [diagnostics] W&B binned-error table upload failed: {exc}")
+        if _have_sigma_bins:
+            try:
+                valid_rows = [
+                    [float(c), float(m)]
+                    for c, m in zip(_sb_centers, _sb_mae_means)
+                    if not np.isnan(m)
+                ]
+                if valid_rows:
+                    tbl = wandb.Table(
+                        columns=["sigma_bin_center", "mean_abs_error"],
+                        data=valid_rows,
+                    )
+                    wandb.log({"diagnostics/binned_mae_vs_sigma": tbl}, step=global_step)
+                    print(f"  [diagnostics] binned-MAE table ({len(valid_rows)} bins) uploaded to W&B")
+            except Exception as exc:
+                print(f"  [diagnostics] W&B binned-MAE table upload failed: {exc}")
 
 
 # ----------------------------
