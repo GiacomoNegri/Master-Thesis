@@ -26,7 +26,7 @@ class SP500WindowDataset(Dataset):
         stride: int = 1,
         columns: Tuple[str, ...] = ("date", "log_adj_close"),
         date_format: str = "%d/%m/%Y",
-        time_mode: str = "index_norm",  # "index", "index_norm", "date_ordinal"
+        time_mode: str = "global_index",  # "index_norm", "global_index"
         cache_data: bool = True, # set True if you have enough RAM to speed up loading (stores file data in self._cache), otherwise we trigger a reload and re-read of csv
         drop_incomplete: bool = True,
     ):
@@ -43,13 +43,24 @@ class SP500WindowDataset(Dataset):
         if len(self.files) == 0:
             raise FileNotFoundError(f"No CSV files found in: {root_dir}")
 
-        # Optional cache: file_path -> np.ndarray shape (T, K)
-        self._cache: Dict[str, np.ndarray] = {}
+        # Optional cache: file_path -> (x: np.ndarray (T,K), dates: np.ndarray (T,) str)
+        self._cache: Dict[str, Any] = {}
+
+        # Single pass: collect all dates and file lengths together
+        all_dates: set = set()
+        file_lengths: List[int] = []
+        for fp in self.files:
+            df = pd.read_csv(fp, usecols=[self.columns[0]])
+            all_dates.update(df[self.columns[0]].tolist())
+            file_lengths.append(len(df))
+        self.date_to_idx: Dict[str, int] = {
+            d: i for i, d in enumerate(sorted(all_dates))
+        }
 
         # Build an index of all windows across all files: (file_idx, start)
         self.index: List[Tuple[int, int]] = []
         for fi, fp in enumerate(self.files): #fi = file id, fp = file path
-            T = self._get_length(fp)
+            T = file_lengths[fi]
             if drop_incomplete:
                 max_start = T - self.seq_len
                 # if the sequence cannot be complete in length is skipped
@@ -72,10 +83,11 @@ class SP500WindowDataset(Dataset):
         df = pd.read_csv(fp, usecols=[self.columns[0]])
         return len(df)
 
-    def _load_file(self, fp: str) -> np.ndarray:
+    def _load_file(self, fp: str) -> Tuple[np.ndarray, np.ndarray]:
         """
         Returns:
-          x: (T, K) float32
+          x:     (T, K) float32
+          dates: (T,)   str — date strings in the order they appear in the file
         """
         if self.cache_data and fp in self._cache:
             return self._cache[fp]
@@ -88,8 +100,12 @@ class SP500WindowDataset(Dataset):
 
         x_cols = list(self.columns[1:])
         x = df[x_cols].to_numpy(dtype=np.float32)  # (T, K)
+        dates = df[self.columns[0]].to_numpy(dtype=str)  # (T,)
 
-        return x
+        if self.cache_data:
+            self._cache[fp] = (x, dates)
+
+        return x, dates
 
     def __len__(self) -> int:
         return len(self.index)
@@ -97,13 +113,15 @@ class SP500WindowDataset(Dataset):
     def __getitem__(self, idx: int) -> Dict[str, Any]:
         file_idx, start = self.index[idx]
         fp = self.files[file_idx]
-        x = self._load_file(fp)  # (T, K)
+        x, dates = self._load_file(fp)  # (T, K), (T,)
 
         end = start + self.seq_len
         if end <= len(x):
-            x_win  = x[start:end]                                                   # (L, K)
-            tp_win = np.linspace(0.0, 1.0, self.seq_len, dtype=np.float32)          # (L,) window-local
-            mask   = np.ones_like(x_win, dtype=np.float32)
+            x_win    = x[start:end]                                                 # (L, K)
+            dates_win = dates[start:end]                                            # (L,)
+            tp_win   = np.array([self.date_to_idx[d] for d in dates_win],
+                                dtype=np.float32)                                   # (L,) global ints
+            mask     = np.ones_like(x_win, dtype=np.float32)
         # else:
         #     # Padding path (only if drop_incomplete=False)
         #     x_win = x[start:]             # (<=L,K)
@@ -156,7 +174,7 @@ def make_dataloader(
         root_dir=root_dir,
         seq_len=seq_len,
         stride=stride,
-        time_mode="index_norm",   # keep tp stable; Date feature still included in observed_data
+        time_mode="global_index",  # global calendar position shared across all tickers
         cache_data=False,         # set True if you have enough RAM
         drop_incomplete=True,
     )
