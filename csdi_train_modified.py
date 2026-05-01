@@ -1868,7 +1868,7 @@ def train(
 
             grad_norm_val = float(grad_norm)
             _grad_buf.append(grad_norm_val)
-            _loss_buf.append(loss_val)
+            _loss_buf.append((batch_idx, loss_val))
 
             #Activated after 50 batches to allow EMA to stabilize, and only if a spike factor is set in config
             if _spike_factor is not None and ema_loss is not None and batch_idx >= 50:
@@ -1914,7 +1914,8 @@ def train(
         # --- Epoch-level gradient stats (text replacement for plots 04/05/06) ---
         if _grad_buf:
             _gn = np.array(_grad_buf)
-            _lb = np.array(_loss_buf)
+            _lb_pairs = _loss_buf  # list of (batch_idx, loss_val)
+            _lb = np.array([v for _, v in _lb_pairs])
             _clip_pct = (_gn >= 4.99).mean() * 100
             _r_str = ""
             if len(_gn) > 1 and _gn.std() > 1e-12 and _lb.std() > 1e-12:
@@ -1925,6 +1926,14 @@ def train(
                 f"  [grad] mean={_gn.mean():.4f}  std={_gn.std():.4f}  "
                 f"p50={np.median(_gn):.4f}  p95={np.percentile(_gn, 95):.4f}  "
                 f"max={_gn.max():.4f}  clipped={_clip_pct:.1f}%{_r_str}"
+            )
+            # --- Loss distribution across printed batches ---
+            _hardest_idx, _hardest_loss = max(_lb_pairs, key=lambda x: x[1])
+            print(
+                f"  [loss] mean={_lb.mean():.4f}  std={_lb.std():.4f}  "
+                f"p25={np.percentile(_lb, 25):.4f}  p50={np.percentile(_lb, 50):.4f}  "
+                f"p75={np.percentile(_lb, 75):.4f}  p95={np.percentile(_lb, 95):.4f}  "
+                f"max={_lb.max():.4f}  hardest_batch=#{_hardest_idx} (loss={_hardest_loss:.4f})"
             )
 
         # validation
