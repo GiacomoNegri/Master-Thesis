@@ -54,7 +54,9 @@ class SP500WindowDataset(Dataset):
             all_dates.update(df[self.columns[0]].tolist())
             file_lengths.append(len(df))
         self.date_to_idx: Dict[str, int] = {
-            d: i for i, d in enumerate(sorted(all_dates))
+            d: i for i, d in enumerate(
+                sorted(all_dates, key=lambda s: pd.to_datetime(s, format=self.date_format))
+            )
         }
 
         # Build an index of all windows across all files: (file_idx, start)

@@ -17,11 +17,11 @@ diffusion:
 process:
   N: 2000
   sde_type: ve
-  noise_schedule: exponential
+  noise_schedule: linear
   sigma_min: 0.01
   sigma_max: 1.5
   beta_min: 0.01
-  beta_max: 5.0
+  beta_max: 1.0
   model_steps: 200
   eps: 1.0e-3
   enforce_observed: true

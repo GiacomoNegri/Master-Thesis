@@ -171,7 +171,11 @@ def save_per_ticker_concatenated(
         filtered = full_df.iloc[sorted(kept_indices)].copy()
 
         # Sort descending by date (most recent first)
+        # filtered = filtered.sort_values("date", ascending=False).reset_index(drop=True)
+        # after
+        filtered["date"] = pd.to_datetime(filtered["date"], format="%d/%m/%Y")
         filtered = filtered.sort_values("date", ascending=False).reset_index(drop=True)
+        filtered["date"] = filtered["date"].dt.strftime("%d/%m/%Y")  # preserve original format
 
         out_path = os.path.join(out_dir, f"{ticker}_concatenated.csv")
         filtered.to_csv(out_path, index=False)
