@@ -248,7 +248,7 @@ class Diffusion_Processes:
         if self.eps_multiplier != 1.0:
             eps = eps * self.eps_multiplier
 
-        print(f"Noise sampled with shape {eps.min().item():.4f}, {eps.max().item():.4f}, mean={eps.mean().item():.4f}, std={eps.std().item():.4f}")
+        # print(f"Noise sampled with shape {eps.min().item():.4f}, {eps.max().item():.4f}, mean={eps.mean().item():.4f}, std={eps.std().item():.4f}")
         # Broadcast std to match z0
 
         # Construct z_t
