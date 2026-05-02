@@ -75,11 +75,11 @@ class diff_CSDI(nn.Module):
 
         self.input_projection = Conv1d_with_init(inputdim, self.channels, 1)
         self.output_projection1 = Conv1d_with_init(self.channels, self.channels, 1)
-        self.output_projection2 = Conv1d_with_init(self.channels, 1, 1)
+        # self.output_projection2 = Conv1d_with_init(self.channels, 1, 1) # removed to match paper
         # 0-initialization as in the papaer
         # nn.init.zeros_(self.output_projection2.weight)
         # Normal initalization: to avoid slow initial learning
-        nn.init.normal_(self.output_projection2.bias, mean=0.0, std=0.01)
+        nn.init.normal_(self.output_projection1.bias, mean=0.0, std=0.01)
 
         # Stack of residual layers
         self.residual_layers = nn.ModuleList(
@@ -118,7 +118,7 @@ class diff_CSDI(nn.Module):
         
         # EDM EDITING
         # x = F.relu(x) # Not present in the paper and removed as in 'diagnostic'
-        x = self.output_projection2(x)  # (B,1,K*L)
+        # x = self.output_projection2(x)  # (B,1,K*L) not present in the paper
         x = x.reshape(B, K, L)
         return x
 
