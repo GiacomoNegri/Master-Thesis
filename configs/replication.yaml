@@ -23,7 +23,7 @@ process:
   beta_min: 0.01
   beta_max: 1.0
   model_steps: 200
-  eps: 1.0e-3
+  eps: 1.0e-2
   enforce_observed: true
   round_times: false
   time_num_bins: 10
