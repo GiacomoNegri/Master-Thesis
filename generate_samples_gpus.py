@@ -19,10 +19,12 @@ saved to PNG files instead of being displayed interactively.
 """
 
 import argparse
+import glob
 import json
 import os
 import sys
 import warnings
+from collections import Counter
 
 import matplotlib
 from datetime import timedelta
@@ -63,9 +65,13 @@ def parse_args():
     # Volume
     p.add_argument("--n_samples", type=int, default=100)
 
-    # Date range
-    p.add_argument("--start_date", type=str, default="1986-01-01")
-    p.add_argument("--end_date",   type=str, default="2025-12-31")
+    # Training data root — used to build the global date index and window frequency weights
+    p.add_argument("--data_root",   type=str, default="data/replication_returns_other",
+                   help="Directory of training CSVs; used to replicate the date index from training.")
+    p.add_argument("--date_format", type=str, default="%d/%m/%Y",
+                   help="strptime format for the 'date' column in training CSVs (default: %%d/%%m/%%Y).")
+    p.add_argument("--stride",      type=int, default=None,
+                   help="Window stride for collecting valid start dates (default: from checkpoint config).")
     p.add_argument("--seed", type=int, default=42)
 
     # Reverse diffusion
@@ -145,6 +151,7 @@ def main():
 
     target_dim = int(config["data"]["target_dim"])
     seq_len    = int(config["train"]["seq_len"])
+    stride     = args.stride if args.stride is not None else int(config["train"].get("stride", 1))
 
     # No DDP wrapper needed — inference only, no gradients, no all-reduce.
     model = CSDIModel(target_dim=target_dim, config=config, device=device).to(device)
@@ -171,14 +178,15 @@ def main():
                 "mask_mode":          "unconditional",
                 "n_samples":          args.n_samples,
                 "num_reverse_steps":  args.num_reverse_steps,
-                "start_date":         args.start_date,
-                "end_date":           args.end_date,
+                "data_root":          args.data_root,
+                "date_format":        args.date_format,
                 "sde_type":           config["process"]["sde_type"],
                 "noise_schedule":     config["process"]["noise_schedule"],
                 "sde_N":              config["process"]["N"],
                 "model_steps":        config["process"]["model_steps"],
                 "target_dim":         target_dim,
                 "seq_len":            seq_len,
+                "stride":             stride,
                 "world_size":         world_size,
             },
         )
@@ -199,6 +207,55 @@ def main():
         os.makedirs(out_dir, exist_ok=True)
     dist.barrier()
 
+    # ── Build global date index from training CSVs (all ranks) ───────────────
+    # Every rank builds the same deterministic index; no communication needed.
+    _csv_files = sorted(glob.glob(os.path.join(args.data_root, "*.csv")))
+    if not _csv_files:
+        raise FileNotFoundError(f"No CSV files found in: {args.data_root}")
+    if is_main:
+        print(f"Building date index from {len(_csv_files)} CSV files in '{args.data_root}' ...")
+
+    _all_dates_set: set = set()
+    _file_date_lists = []
+    for _fp in _csv_files:
+        _df = pd.read_csv(_fp, usecols=["date"])
+        _raw = _df["date"].tolist()
+        _all_dates_set.update(_raw)
+        _file_date_lists.append(
+            sorted(_raw, key=lambda s: pd.to_datetime(s, format=args.date_format))
+        )
+
+    # Identical to SP500WindowDataset.date_to_idx
+    all_dates_sorted = sorted(
+        _all_dates_set, key=lambda s: pd.to_datetime(s, format=args.date_format)
+    )
+    date_to_idx = {d: i for i, d in enumerate(all_dates_sorted)}
+    if is_main:
+        print(f"Global date range: {all_dates_sorted[0]} → {all_dates_sorted[-1]}"
+              f"  ({len(all_dates_sorted)} unique dates)")
+
+    # Collect valid window start dates weighted by their occurrence across files,
+    # replicating the exact window enumeration of SP500WindowDataset
+    _start_counts: Counter = Counter()
+    for _dates in _file_date_lists:
+        _T = len(_dates)
+        _max_s = _T - seq_len
+        if _max_s < 0:
+            continue
+        for _s in range(0, _max_s + 1, stride):
+            _start_counts[_dates[_s]] += 1
+
+    if not _start_counts:
+        raise RuntimeError(
+            "No valid window start dates found — check --data_root, seq_len, and --stride."
+        )
+
+    _valid_starts  = sorted(_start_counts, key=lambda s: pd.to_datetime(s, format=args.date_format))
+    _freq_weights  = np.array([_start_counts[d] for d in _valid_starts], dtype=np.float64)
+    _freq_weights /= _freq_weights.sum()
+    if is_main:
+        print(f"Valid window start dates: {len(_valid_starts)}  (stride={stride})")
+
     # ── Split N_SAMPLES across ranks ──────────────────────────────────────────
     # Distribute as evenly as possible.  The first (N_TOTAL % world_size) ranks
     # get one extra sample so every sample is generated exactly once.
@@ -213,15 +270,30 @@ def main():
     print(f"[rank {local_rank}] generating {rank_n_samples} samples "
           f"(global idx {rank_offset}–{rank_offset + rank_n_samples - 1})")
 
+    # ── Sample window starts weighted by training frequency → observed_tp ────
+    # Sample ALL N_TOTAL dates with the original (non-rank-offset) seed so the
+    # global sample-to-date assignment is identical regardless of world size,
+    # then slice this rank's portion — mirroring the rank_start_indices pattern.
+    rng_seed             = None if args.seed == -1 else args.seed
+    rng                  = np.random.default_rng(rng_seed)
+    all_sampled_starts   = rng.choice(_valid_starts, size=N_TOTAL, p=_freq_weights)
+    rank_sampled_starts  = all_sampled_starts[rank_offset : rank_offset + rank_n_samples]
+
+    # For each sample: seq_len consecutive global date indices starting at the
+    # sampled start date — identical to how tp_win is built in SP500WindowDataset.
+    _tp_np = np.stack([
+        np.array(
+            [date_to_idx[d]
+             for d in all_dates_sorted[date_to_idx[sd]: date_to_idx[sd] + seq_len]],
+            dtype=np.float32,
+        )
+        for sd in rank_sampled_starts
+    ])  # (rank_n_samples, seq_len)
+    observed_tp = torch.from_numpy(_tp_np).to(device)
+
     # ── Unconditional inputs ──────────────────────────────────────────────────
     observed_data = torch.zeros(rank_n_samples, target_dim, seq_len, device=device)
     cond_mask     = torch.zeros(rank_n_samples, target_dim, seq_len, device=device)
-
-    observed_tp = (
-        torch.linspace(0.0, 1.0, seq_len, device=device)
-             .unsqueeze(0)
-             .expand(rank_n_samples, -1)
-    )
 
     # ── Run reverse diffusion ─────────────────────────────────────────────────
     use_ode   = args.probability_flow
@@ -384,37 +456,19 @@ def main():
         print(f"Std   : {samples_local.std().item():.4f}")
         print(f"Range : [{samples_local.min().item():.4f}, {samples_local.max().item():.4f}]")
 
-    # ── Build date pool — all ranks, same rng, same global assignment ─────────
-    # Re-compute the full N_TOTAL start_indices with the original seed (not the
-    # rank-offset seed) so the per-sample dates are identical to a single-GPU run.
-    all_bdays    = pd.bdate_range(start=args.start_date, end=args.end_date)
-    valid_starts = all_bdays[:-seq_len + 1] if seq_len > 1 else all_bdays
-    if is_main:
-        print(f"Number of valid starts: {len(valid_starts)} "
-              f"(from {valid_starts[0].date()} to {valid_starts[-1].date()})")
-    if len(valid_starts) == 0:
-        raise ValueError(
-            f"No valid start dates: the date range {args.start_date}–{args.end_date} "
-            f"is shorter than seq_len={seq_len} business days. Widen the range."
-        )
-
-    rng_seed           = None if args.seed == -1 else args.seed
-    rng                = np.random.default_rng(rng_seed)
-    all_start_indices  = rng.integers(0, len(valid_starts), size=N_TOTAL)
-    rank_start_indices = all_start_indices[rank_offset : rank_offset + rank_n_samples]
-
     # ── Write per-rank temporary CSV ─────────────────────────────────────────
     samples_np = samples.detach().cpu().numpy()  # (rank_n_samples, 1, L)
     step_cols  = [f"step_{t:03d}" for t in range(seq_len)]
     rows = []
     for i in range(rank_n_samples):
-        series       = samples_np[i, 0, :]
-        sample_start = valid_starts[rank_start_indices[i]]
-        dates        = pd.bdate_range(start=sample_start, periods=seq_len)
+        series     = samples_np[i, 0, :]
+        _sd        = rank_sampled_starts[i]
+        _pos       = date_to_idx[_sd]
+        _win_dates = all_dates_sorted[_pos: _pos + seq_len]
         row = {
             "sample_idx": rank_offset + i,        # global index — used for merge sort
-            "start_date": dates[0].strftime("%Y-%m-%d"),
-            "end_date":   dates[-1].strftime("%Y-%m-%d"),
+            "start_date": pd.to_datetime(_win_dates[0],  format=args.date_format).strftime("%Y-%m-%d"),
+            "end_date":   pd.to_datetime(_win_dates[-1], format=args.date_format).strftime("%Y-%m-%d"),
         }
         row.update(zip(step_cols, series))
         rows.append(row)
