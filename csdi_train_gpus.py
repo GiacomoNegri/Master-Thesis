@@ -121,6 +121,37 @@ def parse_args():
                         help="Minimum beta for VP/subVP SDEs (overrides config)")
     parser.add_argument("--beta_max", type=float, default=None,
                         help="Maximum beta for VP/subVP SDEs (overrides config)")
+    parser.add_argument("--round_times", type=str2bool, default=None,
+                        help="If true, round sampled diffusion times to the nearest of "
+                             "time_num_bins evenly spaced bins in [eps, T].")
+    parser.add_argument("--time_num_bins", type=int, default=None,
+                        help="Number of discrete time bins when round_times=true (default: 10).")
+    parser.add_argument("--freeze_eps", type=str2bool, default=None,
+                        help="If true, the forward process always uses eps=0 instead of "
+                             "sampling Gaussian noise (collapses stochasticity for debugging).")
+    parser.add_argument("--min_eps", type=float, default=None,
+                        help="Lower clamp bound applied to sampled Gaussian noise in the forward process. "
+                             "null/omit to disable (default: no clipping).")
+    parser.add_argument("--max_eps", type=float, default=None,
+                        help="Upper clamp bound applied to sampled Gaussian noise in the forward process. "
+                             "null/omit to disable (default: no clipping).")
+    parser.add_argument("--time_multiplier", type=float, default=None,
+                        help="Scalar applied to the time bins after linspace(eps, T, time_num_bins). "
+                             "Default 1 (no scaling).")
+    parser.add_argument("--t_min", type=float, default=None,
+                        help="Lower bound of the time bin range when round_times=true. "
+                             "Defaults to eps_time when omitted.")
+    parser.add_argument("--t_max", type=float, default=None,
+                        help="Upper bound of the time bin range when round_times=true. "
+                             "Defaults to T (sde.T) when omitted.")
+    parser.add_argument("--round_eps", type=str2bool, default=None,
+                        help="If true, quantise the sampled noise to eps_num_bins evenly spaced bins "
+                             "in [min_eps, max_eps]. Requires both --min_eps and --max_eps.")
+    parser.add_argument("--eps_num_bins", type=int, default=None,
+                        help="Number of discrete noise bins when round_eps=true (default: 10).")
+    parser.add_argument("--eps_multiplier", type=float, default=None,
+                        help="Scale factor applied to sampled noise after clipping/rounding. "
+                             "Values < 1 reduce noise magnitude without hard clipping (default: 1.0).")
 
     # model overrides
     parser.add_argument("--is_unconditional", type=str2bool, default=None)
@@ -184,9 +215,6 @@ def parse_args():
                         help="Patience epochs for reduce-on-plateau: reduce LR after this many "
                              "epochs with no val-loss improvement. Only used when "
                              "--lr_scheduler=reduce-on-plateau.")
-    parser.add_argument("--lr_gamma", type=float, default=None,
-                        help="Multiplicative factor for reduce-on-plateau (default 0.5). "
-                             "Only used when --lr_scheduler=reduce-on-plateau.")
     parser.add_argument("--loss_spike_factor", type=float, default=None,
                         help="Print a line whenever loss > factor × ema_loss (e.g. 5.0). null/omit to disable.")
     parser.add_argument(
@@ -266,6 +294,28 @@ def build_cli_override_dict(args) -> Dict[str, Any]:
         override["process"]["beta_min"] = args.beta_min
     if args.beta_max is not None:
         override["process"]["beta_max"] = args.beta_max
+    if args.round_times is not None:
+        override["process"]["round_times"] = args.round_times
+    if args.time_num_bins is not None:
+        override["process"]["time_num_bins"] = args.time_num_bins
+    if args.freeze_eps is not None:
+        override["process"]["freeze_eps"] = args.freeze_eps
+    if args.min_eps is not None:
+        override["process"]["min_eps"] = args.min_eps
+    if args.max_eps is not None:
+        override["process"]["max_eps"] = args.max_eps
+    if args.time_multiplier is not None:
+        override["process"]["time_multiplier"] = args.time_multiplier
+    if args.t_min is not None:
+        override["process"]["t_min"] = args.t_min
+    if args.t_max is not None:
+        override["process"]["t_max"] = args.t_max
+    if args.round_eps is not None:
+        override["process"]["round_eps"] = args.round_eps
+    if args.eps_num_bins is not None:
+        override["process"]["eps_num_bins"] = args.eps_num_bins
+    if args.eps_multiplier is not None:
+        override["process"]["eps_multiplier"] = args.eps_multiplier
 
     # train
     if args.seed is not None:
@@ -312,8 +362,6 @@ def build_cli_override_dict(args) -> Dict[str, Any]:
         override["train"]["lr_scheduler"] = args.lr_scheduler
     if args.lr_patience is not None:
         override["train"]["lr_patience"] = args.lr_patience
-    if args.lr_gamma is not None:
-        override["train"]["lr_gamma"] = args.lr_gamma
     if args.loss_spike_factor is not None:
         override["train"]["loss_spike_factor"] = args.loss_spike_factor
     if args.seq_len is not None:
@@ -686,9 +734,14 @@ def build_final_checkpoint_name(
     seq_len = int(config["train"].get("seq_len", 128))
     stride = int(config["train"].get("stride", 128))
 
-    cosine_annealing = bool(config["train"].get("lr_cosine_annealing", False))
-    if cosine_annealing:
+    _sched_key = config["train"].get("lr_scheduler", None)
+    if _sched_key is None:
+        # legacy fallback
+        _sched_key = "cosine-annealing" if bool(config["train"].get("lr_cosine_annealing", False)) else "none"
+    if _sched_key == "cosine-annealing":
         cosine_annealing = "COSAN"
+    elif _sched_key == "reduce-on-plateau":
+        cosine_annealing = "ROP"
     else:
         cosine_annealing = "NOAN"
 
@@ -1029,7 +1082,7 @@ def train(
 
             grad_norm_val = float(grad_norm)
             _grad_buf.append(grad_norm_val)
-            _loss_buf.append(loss_val)
+            _loss_buf.append((batch_idx, loss_val))
 
             if log_this_batch and is_main:
                 _clip_flag = "CLIPPED" if grad_norm_val >= max_norm - 0.01 else "ok"
@@ -1076,7 +1129,8 @@ def train(
         # --- Epoch-level gradient stats ---
         if is_main and _grad_buf:
             _gn = np.array(_grad_buf)
-            _lb = np.array(_loss_buf)
+            _lb_pairs = _loss_buf  # list of (batch_idx, loss_val)
+            _lb = np.array([v for _, v in _lb_pairs])
             _clip_pct = (_gn >= 4.99).mean() * 100
             _r_str = ""
             if len(_gn) > 1 and _gn.std() > 1e-12 and _lb.std() > 1e-12:
@@ -1087,6 +1141,14 @@ def train(
                 f"  [grad] mean={_gn.mean():.4f}  std={_gn.std():.4f}  "
                 f"p50={np.median(_gn):.4f}  p95={np.percentile(_gn, 95):.4f}  "
                 f"max={_gn.max():.4f}  clipped={_clip_pct:.1f}%{_r_str}"
+            )
+            # --- Loss distribution across batches ---
+            _hardest_idx, _hardest_loss = max(_lb_pairs, key=lambda x: x[1])
+            print(
+                f"  [loss] mean={_lb.mean():.4f}  std={_lb.std():.4f}  "
+                f"p25={np.percentile(_lb, 25):.4f}  p50={np.percentile(_lb, 50):.4f}  "
+                f"p75={np.percentile(_lb, 75):.4f}  p95={np.percentile(_lb, 95):.4f}  "
+                f"max={_lb.max():.4f}  hardest_batch=#{_hardest_idx} (loss={_hardest_loss:.4f})"
             )
 
         # validation — all ranks evaluate their shard, then all-reduce the average
@@ -1370,7 +1432,6 @@ if __name__ == "__main__":
             collate_fn=train_loader.collate_fn,
         )
         if is_main:
-            print(f"Root dir: {config["train"]["data_root"]}")
             print(f"Validation set: {val_size}/{dataset_size} samples")
     else:
         train_pool = all_indices
