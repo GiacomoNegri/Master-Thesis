@@ -66,8 +66,8 @@ def main():
             # expose them as both "Close" and "Adj Close" for clarity
             result = df[available].copy()
             result.columns = [c.lower().replace(" ", "_") for c in available]
-            result.insert(0, "date", df.index)
-            result["adj_close"] = result["close"]
+            result.insert(0, "date", df.index.strftime("%d/%m/%Y"))
+
 
             first_day = df.index[0].strftime("%Y-%m-%d")
             last_day = df.index[-1].strftime("%Y-%m-%d")
