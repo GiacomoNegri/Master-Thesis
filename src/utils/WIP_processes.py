@@ -18,6 +18,7 @@ def _ode_consistency_discrepancy(
     t_i: torch.Tensor,
     f_full: torch.Tensor,
     t_next: torch.Tensor,
+    dt: float = None,
 ) -> dict:
     """
     Local reverse-step consistency check for deterministic ODE sampling.
@@ -51,7 +52,7 @@ def _ode_consistency_discrepancy(
 
     # Second half step — one extra model call at the midpoint time
     t_mid = 0.5 * (t_i + t_next)
-    f2, _ = rsde.discretize(x_mid, t_mid, labels=None)
+    f2, _ = rsde.discretize(x_mid, t_mid, labels=None, dt=dt / 2 if dt is not None else None)
     x_2h = x_mid - f2 * 0.5
 
     diff = (x_full - x_2h).float()
@@ -315,6 +316,13 @@ class Diffusion_Processes:
         print(f"This is the value of T: {T}")
 
 
+        # Populated by score_fn on its first call each step so the logging block
+        # can compute x0_hat without an extra model call.
+        # _cache_locked prevents the Heun second-call (at x_pred, t_next) from
+        # overwriting the primary (x, t_i) values.
+        _cache: dict = {}
+        _cache_locked: list = [False]
+
         def score_fn(x: torch.Tensor, t: torch.Tensor, labels: torch.Tensor = None) -> torch.Tensor:
             """
             Computes the score using the pre-trained model.
@@ -344,7 +352,10 @@ class Diffusion_Processes:
             _, std = self.sde.marginal_prob(x, t)
             std_b = _expand_batch_vector_to(x, std)
             score = -eps_hat / (std_b + 1e-6)
-            # model_input_t = t
+            if not _cache_locked[0]:
+                _cache["eps_hat"] = eps_hat.detach()
+                _cache["std_b"]   = std_b.detach()
+                _cache_locked[0]  = True
             return score
 
             # 3. Forward Pass
@@ -409,12 +420,14 @@ class Diffusion_Processes:
 
         # Time discretization from T -> 0
         for i in range(num_steps-1):
+            _cache_locked[0] = False  # allow score_fn to refresh the cache this step
             t_i = ts[i].expand(B)
-            f, G = rsde.discretize(x, t_i, labels=None)  # f: (B, ...), G: (B,)
+            dt = (ts[i] - ts[i + 1]).item()  # positive: grid runs T → ε
+            f, G = rsde.discretize(x, t_i, labels=None, dt=dt)  # f: (B, ...), G: (B,)
 
             # ---- ODE consistency diagnostic (debug + probability_flow only) ----
             if _run_consistency and (i % k == 0):
-                disc = _ode_consistency_discrepancy(rsde, x, t_i, f, ts[i + 1].expand(B))
+                disc = _ode_consistency_discrepancy(rsde, x, t_i, f, ts[i + 1].expand(B), dt=dt)
                 disc["step"] = i
                 disc["t"]    = t_i[0].item()
 
@@ -434,7 +447,7 @@ class Diffusion_Processes:
 
             # Shadow ODE: get drift at shadow state (free reuse at i=0 since x_ode == x)
             if _run_cmp:
-                f_ode = f if i == 0 else rsde.discretize(x_ode, t_i, labels=None)[0]
+                f_ode = f if i == 0 else rsde.discretize(x_ode, t_i, labels=None, dt=dt)[0]
 
             G_b = _expand_batch_vector_to(x, G)
 
@@ -446,7 +459,7 @@ class Diffusion_Processes:
             if use_heun and i < num_steps - 2:
                 x_pred = x - f
                 t_next = ts[i + 1].expand(B)
-                f2, _  = rsde.discretize(x_pred, t_next, labels=None)
+                f2, _  = rsde.discretize(x_pred, t_next, labels=None, dt=dt)
                 dx     = -0.5 * (f + f2)
                 if _run_cmp:
                     # Pure solver correction: what Heun adds over ODE-Euler at the same state.
@@ -554,6 +567,20 @@ class Diffusion_Processes:
                     f"  per-feat std: {feat_str}\n"
                     f"  elapsed {elapsed_time:.1f}s\n"
                 )
+
+                if _cache:
+                    # x0_hat = x_t - sigma(t) * eps_hat  (valid for VE/GBM where mean = x0)
+                    x0_hat = (x_cpu - _cache["std_b"].cpu() * _cache["eps_hat"].cpu()).flatten()
+                    x0_mu  = x0_hat.mean()
+                    x0_d   = x0_hat - x0_mu
+                    x0_var = (x0_d ** 2).mean()
+                    x0_skew = ((x0_d ** 3).mean() / (x0_var ** 1.5 + 1e-8)).item()
+                    x0_kurt = ((x0_d ** 4).mean() / (x0_var ** 2  + 1e-8) - 3.0).item()
+                    print(
+                        f"  x0_hat: mean={x0_mu:.4f}  std={x0_hat.std():.4f}  "
+                        f"min={x0_hat.min():.4f}  max={x0_hat.max():.4f}  "
+                        f"skew={x0_skew:.4f}  kurt(excess)={x0_kurt:.4f}\n"
+                    )
 
                 # ---- inline snapshot plot every 10% checkpoint (not for early steps) ----
                 # if i % k == 0:

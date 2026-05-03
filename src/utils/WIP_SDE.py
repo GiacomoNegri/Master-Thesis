@@ -139,7 +139,7 @@ class SDE(abc.ABC):
         """
         pass
 
-    def discretize(self, x: torch.Tensor, t: torch.Tensor):
+    def discretize(self, x: torch.Tensor, t: torch.Tensor, dt: float = None):
         """
         Euler–Maruyama discretization:
 
@@ -148,14 +148,15 @@ class SDE(abc.ABC):
         where f_i and G_i come from self.sde(x, t).
 
         Args:
-            x: state, shape (B, C, H, W) or similar
-            t: time, shape (B,)
+            x:  state, shape (B, C, H, W) or similar
+            t:  time, shape (B,)
+            dt: step size; defaults to T/N if None (kept for back-compat)
 
         Returns:
             f: drift * dt, same shape as x
             G: diffusion * sqrt(dt), shape (B,)
         """
-        dt = self.T / self.N
+        dt = self.T / self.N if dt is None else dt
         drift, diffusion = self.sde(x, t)
         # diffusion is assumed (B,) or broadcastable, keep Song's pattern
         f = drift * dt
@@ -200,9 +201,9 @@ class SDE(abc.ABC):
                 diffusion_rev = 0.0 if self.probability_flow else diffusion
                 return drift, diffusion_rev
 
-            def discretize(self, x, t, labels):
+            def discretize(self, x, t, labels, dt=None):
                 # For VE SDE f is zero, so this is just G * z for SDE case.
-                f, G = discretize_fn(x, t)
+                f, G = discretize_fn(x, t, dt=dt)
                 score = score_fn(x, t, labels)
                 factor = 0.5 if self.probability_flow else 1.0
                 # G_sq = G[:, None, None] ** 2
