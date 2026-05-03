@@ -74,11 +74,10 @@ class diff_CSDI(nn.Module):
         )
 
         self.input_projection = Conv1d_with_init(inputdim, self.channels, 1)
-        self.output_projection1 = Conv1d_with_init(self.channels, self.channels, 1)
-        # self.output_projection2 = Conv1d_with_init(self.channels, 1, 1) # removed to match paper
-        # 0-initialization as in the papaer
-        # nn.init.zeros_(self.output_projection2.weight)
-        # Normal initalization: to avoid slow initial learning
+        # output_projection2 (channels→1) was removed to match the paper.
+        # output_projection1 therefore takes over the final channel reduction: channels→1.
+        # The resulting (B,1,K*L) tensor reshapes cleanly to (B,K,L).
+        self.output_projection1 = Conv1d_with_init(self.channels, 1, 1)
         nn.init.normal_(self.output_projection1.bias, mean=0.0, std=0.01)
 
         # Stack of residual layers
@@ -114,11 +113,7 @@ class diff_CSDI(nn.Module):
 
         x = torch.sum(torch.stack(skip), dim=0) / math.sqrt(len(self.residual_layers))
         x = x.reshape(B, self.channels, K * L)
-        x = self.output_projection1(x)  # (B,channel,K*L)
-        
-        # EDM EDITING
-        # x = F.relu(x) # Not present in the paper and removed as in 'diagnostic'
-        # x = self.output_projection2(x)  # (B,1,K*L) not present in the paper
+        x = self.output_projection1(x)  # (B,1,K*L)
         x = x.reshape(B, K, L)
         return x
 
