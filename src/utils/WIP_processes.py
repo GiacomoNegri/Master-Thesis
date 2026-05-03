@@ -226,7 +226,7 @@ class Diffusion_Processes:
             bin_idx = torch.randint(0, self.time_num_bins, (1,), device=device).item()
             t = bins[bin_idx].expand(B)
 
-        print(f"Forward process: sampling t with shape {t.shape} and range [{t.min().item():.4f}, {t.max().item():.4f}], t_mean={t.mean().item():.4f}")
+        # print(f"Forward process: sampling t with shape {t.shape} and range [{t.min().item():.4f}, {t.max().item():.4f}], t_mean={t.mean().item():.4f}")
         # Get closed-form mean and std of p_t(z | z0)
         mean, std = self.sde.marginal_prob(x0, t)  # mean: (B, ...), std: (B,)
 
