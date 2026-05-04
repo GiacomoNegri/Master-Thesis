@@ -86,11 +86,12 @@ def train(
 
     if resume_checkpoint is not None:
         print(f"Resuming from: {resume_checkpoint}")
+        _ckpt_keys = set(torch.load(resume_checkpoint, map_location="cpu").keys())
         start_epoch, global_step, history = load_checkpoint(
             resume_checkpoint, model, optim, scaler, device, scheduler=scheduler
         )
         print(f"Resumed at epoch={start_epoch}, global_step={global_step}")
-        if use_cosine and "scheduler": # not in torch.load(resume_checkpoint, map_location="cpu"):
+        if use_cosine and "scheduler" not in _ckpt_keys:
             for _ in range(start_epoch):
                 scheduler.step()
             print(f"  [scheduler] Fast-forwarded cosine to epoch {start_epoch}")
@@ -136,6 +137,7 @@ def train(
         ema_loss = None
         _grad_buf = []
         _loss_buf = []
+        _sigma_buf = []
         ema_beta         = float(config["train"].get("ema_beta", 0.98))
         debug            = bool(config["train"].get("debug", False))
         loss_spike_factor = config["train"].get("loss_spike_factor", None)
@@ -236,6 +238,7 @@ def train(
             grad_norm_v = float(grad_norm)
             _grad_buf.append(grad_norm_v)
             _loss_buf.append(loss_val)
+            _sigma_buf.append(sigma_t.float().mean().item())
             if log_this_batch:
                 _clip_flag = "CLIPPED" if grad_norm_v >= 4.99 else "ok"
                 print(f"  grad_norm | {grad_norm_v:.4f}  ({_clip_flag})")
@@ -278,6 +281,13 @@ def train(
                 f"  [grad] mean={_gn.mean():.4f}  std={_gn.std():.4f}  "
                 f"p50={np.median(_gn):.4f}  p95={np.percentile(_gn, 95):.4f}  "
                 f"max={_gn.max():.4f}  clipped={_clip_pct:.1f}%{_r_str}"
+            )
+        if _sigma_buf:
+            _sb = np.array(_sigma_buf)
+            print(
+                f"  [sigma] mean={_sb.mean():.4f}  p5={np.percentile(_sb,5):.4f}  "
+                f"p50={np.median(_sb):.4f}  p95={np.percentile(_sb,95):.4f}  "
+                f"min={_sb.min():.4f}  max={_sb.max():.4f}"
             )
         epoch_avg = epoch_loss_sum / max(epoch_loss_count, 1)
 
