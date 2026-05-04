@@ -126,7 +126,6 @@ class EDMLoss:
             #     f"sq_err(target) mean={masked_err.mean():.6f}  "
             #     f"weight mean={weight.mean():.4f}"
             # )
-
         # Weighted mean: each entry's squared error is weighted by lambda(sigma) of its sample.
         # The denominator sums lambda(sigma_b) * target_mask to normalise correctly.
         denom = (target_mask.float() * weight).sum().clamp(min=1e-10)

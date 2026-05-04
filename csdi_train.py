@@ -180,7 +180,7 @@ def train(
             assert target_mask.sum() > 0, "No target entries — check conditioning mask logic."
 
             if epoch == 0 and batch_idx == 0:
-                print("cond_mask   per feature (mean over B,L):", cond_mask.float().mean(dim=(0, 2)))
+                print("cond_mask per feature (mean over B,L):", cond_mask.float().mean(dim=(0, 2)))
                 print("target_mask per feature (mean over B,L):", target_mask.float().mean(dim=(0, 2)))
 
             # EDM forward + loss

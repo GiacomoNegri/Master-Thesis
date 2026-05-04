@@ -360,7 +360,7 @@ class Diffusion_Processes:
         cond_mask: torch.Tensor,
         observed_tp: torch.Tensor,
         num_steps: int = 100,
-        rho: float = 3.0,
+        rho: float = 7.0,
         sigma_min: float = None,
         sigma_max: float = None,
         device: torch.device = None,

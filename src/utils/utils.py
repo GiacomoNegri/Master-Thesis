@@ -89,6 +89,8 @@ def parse_args():
                         help="Log-normal std for EDM sigma sampling (default: 1.2)")
     parser.add_argument("--sigma_data", type=float, default=None,
                         help="Empirical data std for EDM preconditioning; must match model.sigma_data")
+    parser.add_argument("--rho",        type=float, default=None,
+                        help="EDM sampler schedule curvature (default: 7.0, Karras et al. 2022)")
 
     # model overrides
     parser.add_argument("--is_unconditional",      type=str2bool, default=None)
@@ -173,11 +175,13 @@ def build_cli_override_dict(args) -> Dict[str, Any]:
     if args.N is not None:
         override["process"]["N"] = args.N
 
-    # EDM loss
+    # EDM loss / sampler
     if args.P_mean is not None:
         override["edm"]["P_mean"] = args.P_mean
     if args.P_std is not None:
         override["edm"]["P_std"] = args.P_std
+    if args.rho is not None:
+        override["edm"]["rho"] = args.rho
 
     # train
     if args.epochs is not None:

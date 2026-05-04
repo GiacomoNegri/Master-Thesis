@@ -78,6 +78,7 @@ edm:
   # a production training run.  sigma_data is read from model.sigma_data (above).
   P_mean: -1.2
   P_std: 1.2
+  rho: 7.0                                        # sampler schedule curvature (Karras et al. 2022 default)
 
 wandb:
   entity: thesis-giacomo-negri

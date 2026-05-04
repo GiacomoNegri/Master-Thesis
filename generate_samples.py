@@ -250,6 +250,7 @@ def run_split(
                 cond_mask     = cond_mask,
                 observed_tp   = observed_tp,
                 num_steps     = num_steps,
+                rho           = float(config.get("edm", {}).get("rho", 7.0)),
                 device        = device,
             )   # (B, K, L)
 
