@@ -101,6 +101,12 @@ def parse_args():
                    default=os.path.join("data", "generated", "conditional"),
                    help="Base directory; a sub-folder named after the checkpoint is created here.")
 
+    # Date format — must match the format used in the training CSVs so that
+    # date_to_idx is built with the same sort order as SP500WindowDataset.
+    p.add_argument("--date_format", type=str, default="%d/%m/%Y",
+                   help="strptime format of the date column in the training CSVs "
+                        "(default: %%d/%%m/%%Y). Must match the format used at training time.")
+
     # W&B (all optional)
     p.add_argument("--wandb_project",  type=str, default=None)
     p.add_argument("--wandb_entity",   type=str, default=None)
@@ -113,7 +119,7 @@ def parse_args():
 # Dataset split reconstruction (mirrors SP500WindowDataset + training script)
 # ---------------------------------------------------------------------------
 
-def reconstruct_split(config, repo_root):
+def reconstruct_split(config, repo_root, date_format="%d/%m/%Y"):
     """
     Rebuild the exact train/val window indices from the checkpoint config.
 
@@ -121,12 +127,17 @@ def reconstruct_split(config, repo_root):
     csdi_train_modified.py and SP500WindowDataset.__init__ so that the
     returned indices are identical to those used during training.
 
+    Also builds date_to_idx — the same global calendar-date → integer mapping
+    that SP500WindowDataset constructs, required for correct observed_tp values.
+
     Returns
     -------
     files         : sorted list of absolute CSV paths
     flat_index    : list of (file_idx, start_row) for every valid window
     train_indices : list of dataset indices used for training
     val_indices   : list of dataset indices used for validation (may be empty)
+    date_to_idx   : dict mapping date string → global integer index (matches training)
+    date_col      : name of the date column in the CSVs
     """
     # ── Config fields ─────────────────────────────────────────────────────────
     seq_len      = int(config["train"]["seq_len"])
@@ -146,10 +157,26 @@ def reconstruct_split(config, repo_root):
     assert len(files) > 0, f"No CSVs found in {abs_root}"
     print(f"Data root   : {abs_root}  ({len(files)} files)")
 
-    # ── Build flat index ──────────────────────────────────────────────────────
+    # ── Single pass: collect all dates + file lengths (mirrors SP500WindowDataset.__init__) ──
+    all_dates_set = set()
+    file_lengths  = []
+    for fp in files:
+        df = pd.read_csv(fp, usecols=[date_col])
+        all_dates_set.update(df[date_col].tolist())
+        file_lengths.append(len(df))
+
+    # Identical sort to SP500WindowDataset.date_to_idx
+    all_dates_sorted = sorted(
+        all_dates_set,
+        key=lambda s: pd.to_datetime(s, format=date_format),
+    )
+    date_to_idx = {d: i for i, d in enumerate(all_dates_sorted)}
+    print(f"Global date range: {all_dates_sorted[0]} → {all_dates_sorted[-1]}"
+          f"  ({len(all_dates_sorted)} unique dates)")
+
+    # ── Build flat index (reuses file_lengths already collected above) ────────
     flat_index = []
-    for fi, fp in enumerate(files):
-        T         = len(pd.read_csv(fp, usecols=[date_col]))
+    for fi, T in enumerate(file_lengths):
         max_start = T - seq_len
         if max_start < 0:
             continue
@@ -186,7 +213,7 @@ def reconstruct_split(config, repo_root):
     train_indices = train_pool[:n_train]
     print(f"Train windows: {n_train}")
 
-    return files, flat_index, train_indices, val_indices
+    return files, flat_index, train_indices, val_indices, date_to_idx, date_col
 
 
 # ---------------------------------------------------------------------------
@@ -197,7 +224,8 @@ def run_split(
     split_name, window_indices, flat_index, files,
     feat_cols, close_idx, K, seq_len,
     processes, model, num_samples, num_steps,
-    device, out_dir,
+    device, out_dir, rho,
+    date_to_idx, date_col,
 ):
     """
     For each window in window_indices:
@@ -214,13 +242,16 @@ def run_split(
     n_windows = len(window_indices)
     step_cols = [f"step_{t:03d}" for t in range(seq_len)]
 
-    # ── Load ground-truth windows ─────────────────────────────────────────────
+    # ── Load ground-truth windows + calendar time positions ──────────────────
     gt_windows = []
+    gt_tp      = []   # list of (L,) float32 arrays of global date indices
     for idx in window_indices:
         fi, start = flat_index[idx]
         df  = pd.read_csv(files[fi])
         win = df[feat_cols].to_numpy(dtype=np.float32)[start : start + seq_len]  # (L, K)
         gt_windows.append(win.T)   # (K, L)
+        dates_win = df[date_col].iloc[start : start + seq_len].tolist()
+        gt_tp.append(np.array([date_to_idx[d] for d in dates_win], dtype=np.float32))
     gt_windows = np.stack(gt_windows)   # (n_windows, K, L)
 
     # ── Reverse process (conditioned on OHL, masking Close) ───────────────────
@@ -236,10 +267,11 @@ def run_split(
             cond_mask[:, close_idx, :] = 0.0
 
             observed_tp = (
-                torch.linspace(0.0, 1.0, seq_len, device=device)
+                torch.from_numpy(gt_tp[w_idx])
+                     .to(device)
                      .unsqueeze(0)
                      .expand(num_samples, -1)
-            )
+            )  # (B, L) — global calendar indices, identical to SP500WindowDataset
 
             # EDM EDITING: replaced legacy reverse_process (score-based Euler-Maruyama)
             # with the EDM deterministic Heun sampler.
@@ -250,7 +282,7 @@ def run_split(
                 cond_mask     = cond_mask,
                 observed_tp   = observed_tp,
                 num_steps     = num_steps,
-                rho           = float(config.get("edm", {}).get("rho", 7.0)),
+                rho           = rho,
                 device        = device,
             )   # (B, K, L)
 
@@ -359,13 +391,16 @@ def main():
     # ── Diffusion processes ───────────────────────────────────────────────────
     processes = Diffusion_Processes(config["process"])
     num_steps = args.num_reverse_steps if args.num_reverse_steps is not None else processes.N
+    rho       = float(config.get("edm", {}).get("rho", 7.0))
     print(f"Diffusion_Processes — SDE: {processes.sde_type}, N: {processes.N}, "
           f"model_steps: {processes.model_steps}")
-    print(f"Reverse steps to use: {num_steps}")
+    print(f"Reverse steps to use: {num_steps}  |  rho: {rho}")
 
     # ── Reconstruct train/val split from checkpoint config ────────────────────
     repo_root = os.path.abspath(os.path.dirname(__file__))
-    files, flat_index, train_indices, val_indices = reconstruct_split(config, repo_root)
+    files, flat_index, train_indices, val_indices, date_to_idx, date_col = reconstruct_split(
+        config, repo_root, date_format=args.date_format,
+    )
 
     # ── Select num_csv windows from each split ────────────────────────────────
     n_train_use = min(args.num_csv, len(train_indices))
@@ -431,6 +466,9 @@ def main():
         num_steps      = num_steps,
         device         = device,
         out_dir        = out_dir,
+        rho            = rho,
+        date_to_idx    = date_to_idx,
+        date_col       = date_col,
     )
 
     # ── Generate for VAL split ────────────────────────────────────────────────
@@ -452,6 +490,9 @@ def main():
             num_steps      = num_steps,
             device         = device,
             out_dir        = out_dir,
+            rho            = rho,
+            date_to_idx    = date_to_idx,
+            date_col       = date_col,
         )
 
     plt.close("all")
