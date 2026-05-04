@@ -19,7 +19,7 @@ import yaml
 import wandb
 
 from src.models.model_core import CSDIModel
-from src.utils.dataloader import make_dataloader
+from src.utils.dataloader import csdi_collate_fn, make_dataloader
 from src.training.edm_loss import EDMLoss
 
 from src.utils.utils import set_seed, get_checkpoint_save_interval, load_checkpoint, build_final_checkpoint_name, build_run_metadata, unpack_batch, get_predict_close_mask, get_randmask, make_checkpoint_payload, get_final_config
@@ -90,7 +90,7 @@ def train(
             resume_checkpoint, model, optim, scaler, device, scheduler=scheduler
         )
         print(f"Resumed at epoch={start_epoch}, global_step={global_step}")
-        if use_cosine and "scheduler" not in torch.load(resume_checkpoint, map_location="cpu"):
+        if use_cosine and "scheduler": # not in torch.load(resume_checkpoint, map_location="cpu"):
             for _ in range(start_epoch):
                 scheduler.step()
             print(f"  [scheduler] Fast-forwarded cosine to epoch {start_epoch}")
@@ -119,6 +119,8 @@ def train(
         early_stop_patience = int(early_stop_patience) if int(early_stop_patience) > 0 else None
     best_val_loss   = float("inf")
     epochs_no_improve = 0
+
+    close_idx = int(config["data"].get("close_idx", 3))
 
     # ---- epoch loop ----
     for epoch in range(start_epoch, num_epochs):
@@ -164,7 +166,7 @@ def train(
             if config["model"]["is_unconditional"] or mask_mode == "unconditional":
                 cond_mask = torch.zeros_like(observed_mask)
             elif mask_mode == "predict_close":
-                cond_mask = get_predict_close_mask(observed_mask)
+                cond_mask = get_predict_close_mask(observed_mask, close_idx=close_idx)
             else:
                 cond_mask = get_randmask(
                     observed_mask,
@@ -306,7 +308,7 @@ def train(
                     if config["model"]["is_unconditional"] or mask_mode == "unconditional":
                         cond_mask = torch.zeros_like(observed_mask)
                     elif mask_mode == "predict_close":
-                        cond_mask = get_predict_close_mask(observed_mask)
+                        cond_mask = get_predict_close_mask(observed_mask, close_idx=close_idx)
                     else:
                         cond_mask = get_randmask(
                             observed_mask,
@@ -457,13 +459,15 @@ def _real_main():
         val_size    = max(1, int(dataset_size * val_split_ratio))
         val_indices = all_indices[:val_size]
         train_pool  = all_indices[val_size:]
-        val_loader  = DataLoader(
+        val_loader = DataLoader(
             Subset(dataset, val_indices),
             batch_size=config["train"]["batch_size"],
             shuffle=False,
             num_workers=config["train"]["num_workers"],
             pin_memory=config["train"]["pin_memory"],
-        )
+            collate_fn=csdi_collate_fn,
+            )
+
         print(f"Validation set: {val_size}/{dataset_size} samples")
     else:
         train_pool = all_indices

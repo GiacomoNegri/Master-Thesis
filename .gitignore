@@ -34,3 +34,4 @@ images/
 jobs/
 replication/
 jobs_launcher.py
+.claude/

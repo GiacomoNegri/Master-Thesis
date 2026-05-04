@@ -118,8 +118,8 @@ class EDMLoss:
         # Contributions from O/H/L (where target_mask == 0) are zeroed out.
         sq_err = (D_x - observed_data) ** 2                  # (B, K, L)
 
-        if debug:
-            masked_err = sq_err[target_mask.bool()]
+        # if debug:
+            # masked_err = sq_err[target_mask.bool()]
             # print(
             #     f"EDM | sigma min={sigma.min():.4f}  max={sigma.max():.4f}  "
             #     f"mean={sigma.mean():.4f}  "

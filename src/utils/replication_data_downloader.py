@@ -25,6 +25,8 @@ def get_sp500_tickers():
     tickers = df["Symbol"].astype(str).tolist()
     # Keep only clean tickers (no dots, dashes, slashes, etc.)
     tickers = [t for t in tickers if re.fullmatch(r"[A-Z0-9]+", t)]
+    _EXCLUDED = {"FOX", "GOOG", "NWS"} # Less liquid share classes for the respective companies
+    tickers = [t for t in tickers if t not in _EXCLUDED]
     return tickers
 
 

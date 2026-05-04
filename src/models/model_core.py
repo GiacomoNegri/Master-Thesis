@@ -114,7 +114,7 @@ class CSDIModel(nn.Module):
         side_info = side_info.permute(0, 3, 2, 1)                   # (B,side_dim,K,L)
 
         if not self.is_unconditional:
-            side_info = torch.cat([side_info, cond_mask.unsqueeze(1)], dim=1)
+            side_info = torch.cat([side_info, cond_mask.unsqueeze(1)], dim=1) # we are appending one more channel for the conditioning mask
         return side_info
 
     def make_diff_input(self, x_t, observed_data, cond_mask):

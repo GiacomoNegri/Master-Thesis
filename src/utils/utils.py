@@ -261,7 +261,7 @@ def get_randmask(observed_mask: torch.Tensor, min_ratio: float = 0.1, max_ratio:
     return (observed_mask.float() * keep).float()
 
 
-def get_predict_close_mask(observed_mask: torch.Tensor, close_idx: int = 3) -> torch.Tensor:
+def get_predict_close_mask(observed_mask: torch.Tensor, close_idx: int = 0) -> torch.Tensor:
     """Condition on Open/High/Low; always predict Close (feature index close_idx)."""
     cond_mask = observed_mask.clone().float()
     cond_mask[:, close_idx, :] = 0.0
@@ -409,6 +409,8 @@ def build_final_checkpoint_name(
         "./data/fake_fts":                 "FAKE_FTS",
         "./data/fake_fts_processed":       "FAKE_FTS_PROC",
         "./data/replication_processed":    "REPL_PROC",
+        "./data/SNP500_individual_processed": "SP500_PROC",
+        "./data/SNP500_individual_normalized": "SP500_PROC_NORM",
     }
     data_root = _root_map.get(str(config["train"]["data_root"]), "REPL_")
 
