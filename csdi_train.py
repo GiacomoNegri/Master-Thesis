@@ -485,15 +485,25 @@ def _real_main():
     # Training subset from the remaining pool
     if subset_size is not None:
         subset_size = min(subset_size, len(train_pool))
+        batch_size = config["train"]["batch_size"]
+        subset_indices = train_pool[:subset_size]
+
+        # If subset is smaller than batch_size, duplicate indices to fill batches
+        if subset_size < batch_size:
+            repeats = (batch_size + subset_size - 1) // subset_size  # ceil division
+            subset_indices = subset_indices * repeats
+
         train_loader = DataLoader(
-            Subset(dataset, train_pool[:subset_size]),
-            batch_size=config["train"]["batch_size"],
+            Subset(dataset, subset_indices),
+            batch_size=batch_size,
             shuffle=config["train"]["shuffle"],
             num_workers=config["train"]["num_workers"],
             pin_memory=config["train"]["pin_memory"],
             collate_fn=getattr(train_loader, "collate_fn", None),
         )
         print(f"Training subset: {subset_size}/{dataset_size} samples (excl. val)")
+        if len(subset_indices) > subset_size:
+            print(f"  (expanded to {len(subset_indices)} indices to fill batch_size={batch_size})")
     elif val_split_ratio is not None:
         train_loader = DataLoader(
             Subset(dataset, train_pool),
