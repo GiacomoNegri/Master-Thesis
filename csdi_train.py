@@ -240,7 +240,7 @@ def train(
             grad_norm_v = float(grad_norm)
             _grad_buf.append(grad_norm_v)
             _loss_buf.append(loss_val)
-            _sigma_buf.append(sigma_t.float().mean().item())
+            _sigma_buf.extend(sigma_t.float().cpu().numpy())
             if log_this_batch:
                 _clip_flag = "CLIPPED" if grad_norm_v >= 4.99 else "ok"
                 print(f"  grad_norm | {grad_norm_v:.4f}  ({_clip_flag})")
@@ -287,9 +287,21 @@ def train(
         if _sigma_buf:
             _sb = np.array(_sigma_buf)
             print(
-                f"  [sigma] mean={_sb.mean():.4f}  p5={np.percentile(_sb,5):.4f}  "
-                f"p50={np.median(_sb):.4f}  p95={np.percentile(_sb,95):.4f}  "
+                f"  [sigma] mean={_sb.mean():.4f}  "
+                f"q25={np.quantile(_sb, 0.25):.4f}  q50={np.quantile(_sb, 0.50):.4f}  q75={np.quantile(_sb, 0.75):.4f}  "
+                f"p5={np.percentile(_sb,5):.4f}  p95={np.percentile(_sb,95):.4f}  "
                 f"min={_sb.min():.4f}  max={_sb.max():.4f}"
+            )
+        if _loss_buf:
+            _lb = np.array(_loss_buf)
+            _q25 = np.quantile(_lb, 0.25)
+            _q75 = np.quantile(_lb, 0.75)
+            _iqr = _q75 - _q25
+            print(
+                f"  [loss] mean={_lb.mean():.6f}  std={_lb.std():.6f}  median={np.median(_lb):.6f}  "
+                f"iqr={_iqr:.6f}  q25={_q25:.6f}  q75={_q75:.6f}  "
+                f"p5={np.quantile(_lb, 0.05):.6f}  p95={np.quantile(_lb, 0.95):.6f}  "
+                f"min={_lb.min():.6f}  max={_lb.max():.6f}"
             )
         epoch_avg = epoch_loss_sum / max(epoch_loss_count, 1)
 
