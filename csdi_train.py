@@ -11,6 +11,8 @@ import time
 
 import numpy as np
 import torch
+torch.backends.cuda.matmul.allow_tf32 = False
+torch.backends.cudnn.allow_tf32 = False
 import torch.nn as nn
 from torch.optim import AdamW
 from torch.utils.data import DataLoader, Subset
