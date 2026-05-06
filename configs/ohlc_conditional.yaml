@@ -63,7 +63,7 @@ train:
 
   num_workers: 0
   shuffle: true
-  pin_memory: false
+  pin_memory: true
 
   data_root: ./data/fake_fts_processed
   out_dir: ./checkpoints/edm
