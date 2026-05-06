@@ -20,6 +20,7 @@ import torch.distributed as dist
 from torch.nn.parallel import DistributedDataParallel as DDP
 from torch.utils.data.distributed import DistributedSampler
 
+import numpy as np
 import wandb
 
 from src.models.model_core import CSDIModel
@@ -170,6 +171,8 @@ def train(
     best_val_loss     = float("inf")
     epochs_no_improve = 0
 
+    close_idx = int(config["data"].get("close_idx", 3))
+
     # DDP: signal used by all ranks to synchronise early-stop decision
     stop_signal = torch.zeros(1, device=device)
 
@@ -194,6 +197,8 @@ def train(
         ema_loss  = None
         _grad_buf = []
         _loss_buf = []
+        _sigma_buf = []
+        _sigma_mean_buf = []
         ema_beta          = float(config["train"].get("ema_beta", 0.98))
         debug             = bool(config["train"].get("debug", False))
         loss_spike_factor = config["train"].get("loss_spike_factor", None)
@@ -224,7 +229,7 @@ def train(
             if config["model"]["is_unconditional"] or mask_mode == "unconditional":
                 cond_mask = torch.zeros_like(observed_mask)
             elif mask_mode == "predict_close":
-                cond_mask = get_predict_close_mask(observed_mask)
+                cond_mask = get_predict_close_mask(observed_mask, close_idx=close_idx)
             else:
                 cond_mask = get_randmask(
                     observed_mask,
@@ -241,7 +246,7 @@ def train(
 
             # EDM forward + loss
             with torch.amp.autocast("cuda", enabled=use_amp):
-                loss, sigma_t = edm_loss_fn(
+                loss, sigma_t, x_t = edm_loss_fn(
                     model=model,
                     observed_data=observed_data,
                     cond_mask=cond_mask,
@@ -255,9 +260,14 @@ def train(
                 print(f"  [batch 0] loss={loss_val:.6f}  "
                       f"sigma | min={sigma_t.float().min():.4f}  max={sigma_t.float().max():.4f}  "
                       f"mean={sigma_t.float().mean():.4f}  median={sigma_t.float().median():.4f}")
-            elif log_this_batch:
+            elif log_this_batch and is_main:
                 print(f"  sigma | min={sigma_t.float().min():.4f}  max={sigma_t.float().max():.4f}  "
                       f"mean={sigma_t.float().mean():.4f}  median={sigma_t.float().median():.4f}")
+            if log_this_batch:
+                _xt_flat = x_t.float().flatten()
+                print(f"  x_t   | mean={_xt_flat.mean():.4g}  std={_xt_flat.std():.4g}  "
+                      f"min={_xt_flat.min():.4g}  max={_xt_flat.max():.4g}  "
+                      f"p5={_xt_flat.quantile(0.05):.4g}  p95={_xt_flat.quantile(0.95):.4g}")
             epoch_loss_sum   += loss_val
             epoch_loss_count += 1
             ema_loss = loss_val if ema_loss is None else (ema_beta * ema_loss + (1.0 - ema_beta) * loss_val)
@@ -279,6 +289,19 @@ def train(
                       f"p5={_win_std.quantile(0.05):.4f}  p50={_win_std.quantile(0.50):.4f}  p95={_win_std.quantile(0.95):.4f}")
                 print(f"  sigma | min={sigma_t.float().min():.4f}  max={sigma_t.float().max():.4f}  "
                       f"mean={sigma_t.float().mean():.4f}  median={sigma_t.float().median():.4f}")
+                # Noised data stats: exact x_t from the forward pass
+                _xt_flat = x_t.float().flatten()
+                print(f"  x_t   | mean={_xt_flat.mean():.4g}  std={_xt_flat.std():.4g}  "
+                      f"min={_xt_flat.min():.4g}  max={_xt_flat.max():.4g}  "
+                      f"p5={_xt_flat.quantile(0.05):.4g}  p95={_xt_flat.quantile(0.95):.4g}")
+                # Per-sigma bin: how many samples fall in each noise level range
+                _sig_np = sigma_t.float().cpu().numpy()
+                _spike_bins = [(0.0, 0.1, "<0.1"), (0.1, 0.5, "0.1-0.5"), (0.5, 1.0, "0.5-1.0"), (1.0, float("inf"), ">1.0")]
+                _bin_str = "  sigma bins | " + "  ".join(
+                    f"{lbl}:{int(((s >= lo) & (s < hi)).sum())}" for lo, hi, lbl in _spike_bins
+                    for s in [_sig_np]
+                )
+                print(_bin_str)
 
             optim.zero_grad(set_to_none=True)
             scaler.scale(loss).backward()
@@ -294,6 +317,8 @@ def train(
             grad_norm_v = float(grad_norm)
             _grad_buf.append(grad_norm_v)
             _loss_buf.append(loss_val)
+            _sigma_buf.extend(sigma_t.float().cpu().numpy())
+            _sigma_mean_buf.append(sigma_t.float().mean().item())
             if log_this_batch:
                 _clip_flag = "CLIPPED" if grad_norm_v >= 4.99 else "ok"
                 print(f"  grad_norm | {grad_norm_v:.4f}  ({_clip_flag})")
@@ -305,7 +330,7 @@ def train(
                     "ema":   f"{ema_loss:.4f}",
                     "avg":   f"{(epoch_loss_sum / epoch_loss_count):.4f}",
                     "it/s":  f"{it_per_s:.2f}",
-                    "σ":     f"{sigma_t.float().mean().item():.3f}",
+                    "σ":     f"{_sigma_mean_buf[-1]:.3f}",
                     "gnorm": f"{grad_norm_v:.2f}",
                 })
 
@@ -326,18 +351,55 @@ def train(
 
         # ---- end of epoch ----
         if is_main and _grad_buf:
-            import numpy as _np
-            _gn = _np.array(_grad_buf)
-            _lb = _np.array(_loss_buf)
+            _gn = np.array(_grad_buf)
+            _lb = np.array(_loss_buf)
             _clip_pct = (_gn >= 4.99).mean() * 100
             _r_str = ""
             if len(_gn) > 1 and _gn.std() > 1e-12 and _lb.std() > 1e-12:
-                _r = float(_np.corrcoef(_lb, _gn)[0, 1])
+                _r = float(np.corrcoef(_lb, _gn)[0, 1])
                 _r_str = f"  Pearson r(loss, grad_norm)={_r:.3f}"
             print(
                 f"  [grad] mean={_gn.mean():.4f}  std={_gn.std():.4f}  "
-                f"p50={_np.median(_gn):.4f}  p95={_np.percentile(_gn, 95):.4f}  "
+                f"p50={np.median(_gn):.4f}  p95={np.percentile(_gn, 95):.4f}  "
                 f"max={_gn.max():.4f}  clipped={_clip_pct:.1f}%{_r_str}"
+            )
+        if is_main and _sigma_buf:
+            _sb = np.array(_sigma_buf)
+            print(
+                f"  [sigma] mean={_sb.mean():.4f}  "
+                f"q25={np.quantile(_sb, 0.25):.4f}  q50={np.quantile(_sb, 0.50):.4f}  q75={np.quantile(_sb, 0.75):.4f}  "
+                f"p5={np.percentile(_sb,5):.4f}  p95={np.percentile(_sb,95):.4f}  "
+                f"min={_sb.min():.4f}  max={_sb.max():.4f}"
+            )
+        # Pearson r(sigma_mean, loss) — batch-level, aligned arrays
+        if is_main and len(_sigma_mean_buf) > 1 and len(_loss_buf) == len(_sigma_mean_buf):
+            _sm = np.array(_sigma_mean_buf)
+            _lb2 = np.array(_loss_buf)
+            if _sm.std() > 1e-12 and _lb2.std() > 1e-12:
+                _r_sl = float(np.corrcoef(_sm, _lb2)[0, 1])
+                print(f"  [sigma-loss] Pearson r(sigma_mean, loss)={_r_sl:.4f}")
+            # Per-sigma-bin loss stats (batch-level)
+            _epoch_bins = [(0.0, 0.1, "<0.1"), (0.1, 0.5, "0.1-0.5"), (0.5, 1.0, "0.5-1.0"), (1.0, float("inf"), ">1.0")]
+            _bin_parts = []
+            for lo, hi, lbl in _epoch_bins:
+                _mask = (_sm >= lo) & (_sm < hi)
+                if _mask.sum() > 0:
+                    _bl = _lb2[_mask]
+                    _bin_parts.append(f"{lbl}: n={_mask.sum()}  mean={_bl.mean():.4g}  med={np.median(_bl):.4g}  max={_bl.max():.4g}")
+            if _bin_parts:
+                print("  [sigma bins]")
+                for _bp in _bin_parts:
+                    print(f"    {_bp}")
+        if is_main and _loss_buf:
+            _lb = np.array(_loss_buf)
+            _q25 = np.quantile(_lb, 0.25)
+            _q75 = np.quantile(_lb, 0.75)
+            _iqr = _q75 - _q25
+            print(
+                f"  [loss] mean={_lb.mean():.6f}  std={_lb.std():.6f}  median={np.median(_lb):.6f}  "
+                f"iqr={_iqr:.6f}  q25={_q25:.6f}  q75={_q75:.6f}  "
+                f"p5={np.quantile(_lb, 0.05):.6f}  p95={np.quantile(_lb, 0.95):.6f}  "
+                f"min={_lb.min():.6f}  max={_lb.max():.6f}"
             )
         epoch_avg = epoch_loss_sum / max(epoch_loss_count, 1)
 
@@ -368,7 +430,7 @@ def train(
                     if config["model"]["is_unconditional"] or mask_mode == "unconditional":
                         cond_mask = torch.zeros_like(observed_mask)
                     elif mask_mode == "predict_close":
-                        cond_mask = get_predict_close_mask(observed_mask)
+                        cond_mask = get_predict_close_mask(observed_mask, close_idx=close_idx)
                     else:
                         cond_mask = get_randmask(
                             observed_mask,
@@ -378,7 +440,7 @@ def train(
                     target_mask = (observed_mask.float() * (1.0 - cond_mask.float())).float()
 
                     with torch.amp.autocast("cuda", enabled=use_amp):
-                        val_loss, val_sigma_t = edm_loss_fn(
+                        val_loss, val_sigma_t, _ = edm_loss_fn(
                             model=model,
                             observed_data=observed_data,
                             cond_mask=cond_mask,
