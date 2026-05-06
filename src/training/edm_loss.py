@@ -131,4 +131,4 @@ class EDMLoss:
         denom = (target_mask.float() * weight).sum().clamp(min=1e-10)
         loss = (sq_err * weight * target_mask).sum() / denom
 
-        return loss, sigma
+        return loss, sigma, x_t

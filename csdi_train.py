@@ -188,7 +188,7 @@ def train(
 
             # EDM forward + loss
             with torch.amp.autocast("cuda", enabled=use_amp):
-                loss, sigma_t = edm_loss_fn(
+                loss, sigma_t, x_t = edm_loss_fn(
                     model=model,
                     observed_data=observed_data,
                     cond_mask=cond_mask,
@@ -205,6 +205,11 @@ def train(
             elif log_this_batch:
                 print(f"  sigma | min={sigma_t.float().min():.4f}  max={sigma_t.float().max():.4f}  "
                       f"mean={sigma_t.float().mean():.4f}  median={sigma_t.float().median():.4f}")
+            if log_this_batch:
+                _xt_flat = x_t.float().flatten()
+                print(f"  x_t   | mean={_xt_flat.mean():.4g}  std={_xt_flat.std():.4g}  "
+                      f"min={_xt_flat.min():.4g}  max={_xt_flat.max():.4g}  "
+                      f"p5={_xt_flat.quantile(0.05):.4g}  p95={_xt_flat.quantile(0.95):.4g}")
             epoch_loss_sum   += loss_val
             epoch_loss_count += 1
             ema_loss = loss_val if ema_loss is None else (ema_beta * ema_loss + (1.0 - ema_beta) * loss_val)
@@ -226,10 +231,8 @@ def train(
                       f"p5={_win_std.quantile(0.05):.4f}  p50={_win_std.quantile(0.50):.4f}  p95={_win_std.quantile(0.95):.4f}")
                 print(f"  sigma | min={sigma_t.float().min():.4f}  max={sigma_t.float().max():.4f}  "
                       f"mean={sigma_t.float().mean():.4f}  median={sigma_t.float().median():.4f}")
-                # Noised data stats: x_t = x + sigma * eps (new noise draw, same sigmas — representative)
-                _sig_view = sigma_t.float().view(-1, 1, 1)
-                _xt = observed_data.float() + _sig_view * torch.randn_like(observed_data.float())
-                _xt_flat = _xt.flatten()
+                # Noised data stats: exact x_t from the forward pass
+                _xt_flat = x_t.float().flatten()
                 print(f"  x_t   | mean={_xt_flat.mean():.4g}  std={_xt_flat.std():.4g}  "
                       f"min={_xt_flat.min():.4g}  max={_xt_flat.max():.4g}  "
                       f"p5={_xt_flat.quantile(0.05):.4g}  p95={_xt_flat.quantile(0.95):.4g}")
@@ -378,7 +381,7 @@ def train(
                     target_mask = (observed_mask.float() * (1.0 - cond_mask.float())).float()
 
                     with torch.amp.autocast("cuda", enabled=use_amp):
-                        val_loss, val_sigma_t = edm_loss_fn(
+                        val_loss, val_sigma_t, _ = edm_loss_fn(
                             model=model,
                             observed_data=observed_data,
                             cond_mask=cond_mask,
