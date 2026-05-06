@@ -140,6 +140,7 @@ def train(
         _grad_buf = []
         _loss_buf = []
         _sigma_buf = []
+        _sigma_mean_buf = []
         ema_beta         = float(config["train"].get("ema_beta", 0.98))
         debug            = bool(config["train"].get("debug", False))
         loss_spike_factor = config["train"].get("loss_spike_factor", None)
@@ -225,6 +226,21 @@ def train(
                       f"p5={_win_std.quantile(0.05):.4f}  p50={_win_std.quantile(0.50):.4f}  p95={_win_std.quantile(0.95):.4f}")
                 print(f"  sigma | min={sigma_t.float().min():.4f}  max={sigma_t.float().max():.4f}  "
                       f"mean={sigma_t.float().mean():.4f}  median={sigma_t.float().median():.4f}")
+                # Noised data stats: x_t = x + sigma * eps (new noise draw, same sigmas — representative)
+                _sig_view = sigma_t.float().view(-1, 1, 1)
+                _xt = observed_data.float() + _sig_view * torch.randn_like(observed_data.float())
+                _xt_flat = _xt.flatten()
+                print(f"  x_t   | mean={_xt_flat.mean():.4g}  std={_xt_flat.std():.4g}  "
+                      f"min={_xt_flat.min():.4g}  max={_xt_flat.max():.4g}  "
+                      f"p5={_xt_flat.quantile(0.05):.4g}  p95={_xt_flat.quantile(0.95):.4g}")
+                # Per-sigma bin: how many samples fall in each noise level range
+                _sig_np = sigma_t.float().cpu().numpy()
+                _spike_bins = [(0.0, 0.1, "<0.1"), (0.1, 0.5, "0.1-0.5"), (0.5, 1.0, "0.5-1.0"), (1.0, float("inf"), ">1.0")]
+                _bin_str = "  sigma bins | " + "  ".join(
+                    f"{lbl}:{int(((s >= lo) & (s < hi)).sum())}" for lo, hi, lbl in _spike_bins
+                    for s in [_sig_np]
+                )
+                print(_bin_str)
 
             optim.zero_grad(set_to_none=True)
             scaler.scale(loss).backward()
@@ -241,6 +257,7 @@ def train(
             _grad_buf.append(grad_norm_v)
             _loss_buf.append(loss_val)
             _sigma_buf.extend(sigma_t.float().cpu().numpy())
+            _sigma_mean_buf.append(sigma_t.float().mean().item())
             if log_this_batch:
                 _clip_flag = "CLIPPED" if grad_norm_v >= 4.99 else "ok"
                 print(f"  grad_norm | {grad_norm_v:.4f}  ({_clip_flag})")
@@ -292,6 +309,25 @@ def train(
                 f"p5={np.percentile(_sb,5):.4f}  p95={np.percentile(_sb,95):.4f}  "
                 f"min={_sb.min():.4f}  max={_sb.max():.4f}"
             )
+        # Pearson r(sigma_mean, loss) — batch-level, aligned arrays
+        if len(_sigma_mean_buf) > 1 and len(_loss_buf) == len(_sigma_mean_buf):
+            _sm = np.array(_sigma_mean_buf)
+            _lb2 = np.array(_loss_buf)
+            if _sm.std() > 1e-12 and _lb2.std() > 1e-12:
+                _r_sl = float(np.corrcoef(_sm, _lb2)[0, 1])
+                print(f"  [sigma-loss] Pearson r(sigma_mean, loss)={_r_sl:.4f}")
+            # Per-sigma-bin loss stats (batch-level)
+            _epoch_bins = [(0.0, 0.1, "<0.1"), (0.1, 0.5, "0.1-0.5"), (0.5, 1.0, "0.5-1.0"), (1.0, float("inf"), ">1.0")]
+            _bin_parts = []
+            for lo, hi, lbl in _epoch_bins:
+                _mask = (_sm >= lo) & (_sm < hi)
+                if _mask.sum() > 0:
+                    _bl = _lb2[_mask]
+                    _bin_parts.append(f"{lbl}: n={_mask.sum()}  mean={_bl.mean():.4g}  med={np.median(_bl):.4g}  max={_bl.max():.4g}")
+            if _bin_parts:
+                print("  [sigma bins]")
+                for _bp in _bin_parts:
+                    print(f"    {_bp}")
         if _loss_buf:
             _lb = np.array(_loss_buf)
             _q25 = np.quantile(_lb, 0.25)
