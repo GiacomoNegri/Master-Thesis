@@ -30,8 +30,10 @@ image/
 err/
 out/
 images/
+garch_parameters/
 
 jobs/
 replication/
 jobs_launcher.py
+run_diagnostics_locally.py
 .claude/

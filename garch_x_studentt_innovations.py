@@ -1,3 +1,5 @@
+import os
+
 import numpy as np
 import pandas as pd
 from scipy.optimize import minimize
@@ -5,6 +7,8 @@ from scipy.special import gammaln
 from scipy.stats import norm
 
 path = "./data/SNP500_individual_normalized/BAX_1981-10-27_2026-05-01.csv"
+START   = None   # first row to keep (0-based); None = beginning of file
+SEQ_LEN = None   # number of rows to keep after START; None = all remaining rows
 
 PRINT_EVERY = 25
 
@@ -434,13 +438,21 @@ def fit_log_garch_x(y, X_mean=None, Q_var=None):
 
 
 # CONSTUCTING Q_t
-def construct_Q(path):
+def construct_Q(path, start=None, seq_len=None):
 
     print("Loading:", path)
 
     df = pd.read_csv(path)
     df["date"] = pd.to_datetime(df["date"])
     df = df.sort_values("date").set_index("date")
+
+    if start is None and seq_len is None:
+        print(f"No row filter applied — retaining all {len(df)} rows")
+    else:
+        s = start or 0
+        e = (s + seq_len) if seq_len is not None else len(df)
+        df = df.iloc[s:e]
+        print(f"Filtered to rows [{s}:{e}]  ({len(df)} rows remaining)")
 
     print("Loaded rows:", len(df))
     print("Columns:", list(df.columns))
@@ -507,7 +519,7 @@ def construct_Q(path):
 
 
 # RUNNING THE FULL PIPELINE GIVEN THE PATH AS INPUT
-returns_train, returns_test, Q_train, Q_test, q_mu, q_sd = construct_Q(path)
+returns_train, returns_test, Q_train, Q_test, q_mu, q_sd = construct_Q(path, start=START, seq_len=SEQ_LEN)
 
 # Scale by 100 for numerical stability in GARCH
 y_train = returns_train.values #* 100.0
@@ -527,6 +539,12 @@ result = fit_log_garch_x(
 print("Optimization success:", result.success)
 print("Optimizer message:", result.message)
 print("Negative log-likelihood:", result.fun)
+
+stem = os.path.splitext(os.path.basename(path))[0]
+os.makedirs("./garch_parameters", exist_ok=True)
+np.save(f"./garch_parameters/{stem}_theta.npy", result.x)
+np.save(f"./garch_parameters/{stem}_q_stats.npy", np.stack([q_mu, q_sd]))
+print(f"Saved parameters to ./garch_parameters/{stem}_*.npy")
 
 mu, phi, gamma, omega, alpha, beta, delta, nu = unpack_params(
     result.x,
