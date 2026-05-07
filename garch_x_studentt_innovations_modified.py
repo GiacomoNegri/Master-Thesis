@@ -531,20 +531,16 @@ def construct_Q(path, start=None, seq_len=None):
     Q_raw_train = Q_raw.iloc[:split]
     Q_raw_test = Q_raw.iloc[split:]
 
-    Q_train, Q_test, q_mu, q_sd = standardize_train_apply(
-        Q_raw_train.values,
-        Q_raw_test.values
-    )
+    Q_train = Q_raw_train.values
+    Q_test = Q_raw_test.values
 
     print("After dropna rows:", len(data))
     print("Train rows:", len(returns_train))
     print("Test rows:", len(returns_test))
     print("Q_train shape:", Q_train.shape)
     print("Q_test shape:", Q_test.shape)
-    print("Q means used for standardization:", q_mu)
-    print("Q stds used for standardization:", q_sd)
 
-    return returns_train, returns_test, Q_train, Q_test, q_mu, q_sd
+    return returns_train, returns_test, Q_train, Q_test
 
 def compute_fitted_paths(theta, y, X_mean, Q_var, c=1e-8):
     """
@@ -745,7 +741,7 @@ def bootstrap_log_garch_x(result, y, X_mean, Q_var, n_boot=100, seed=123):
     return table, estimates
 
 # RUNNING THE FULL PIPELINE GIVEN THE PATH AS INPUT
-returns_train, returns_test, Q_train, Q_test, q_mu, q_sd = construct_Q(path, start=START, seq_len=SEQ_LEN)
+returns_train, returns_test, Q_train, Q_test = construct_Q(path, start=START, seq_len=SEQ_LEN)
 
 # Scale by 100 for numerical stability in GARCH
 y_train = returns_train.values #* 100.0
@@ -769,8 +765,7 @@ print("Negative log-likelihood:", result.fun)
 stem = os.path.splitext(os.path.basename(path))[0]
 os.makedirs("./garch_parameters", exist_ok=True)
 np.save(f"./garch_parameters/{stem}_theta.npy", result.x)
-np.save(f"./garch_parameters/{stem}_q_stats.npy", np.stack([q_mu, q_sd]))
-print(f"Saved parameters to ./garch_parameters/{stem}_*.npy")
+print(f"Saved parameters to ./garch_parameters/{stem}_theta.npy")
 
 mu, phi, gamma, omega, alpha, beta, delta, nu = unpack_params(
     result.x,
