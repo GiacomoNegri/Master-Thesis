@@ -55,7 +55,7 @@ class SP500WindowDataset(Dataset):
             file_lengths.append(len(df))
         self.date_to_idx: Dict[str, int] = {
             d: i for i, d in enumerate(
-                sorted(all_dates, key=lambda s: pd.to_datetime(s, format='mixed'))
+                sorted(all_dates, key=lambda s: pd.to_datetime(s, format='%d/%m/%Y'))
             )
         }
 

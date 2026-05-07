@@ -29,7 +29,7 @@ def process_file(src: str, dst: str) -> None:
     log_ret = np.log(close[1:] / close[:-1])
 
     out = pd.DataFrame()
-    out["date"] = df["date"].iloc[1:].values
+    out["date"] = df["date"].iloc[1:].dt.strftime("%d/%m/%Y")
     out["close"] = log_ret
     for col in ["open", "high", "low"]:
         out[col] = np.log(df[col].to_numpy(dtype=np.float64)[1:] / close[:-1])
@@ -64,7 +64,7 @@ def main(ref_folder: str, out_folder: str, col_normalization: bool = False) -> N
                 df = df.sort_values("date").reset_index(drop=True)
                 close = df["close"].to_numpy(dtype=np.float64)
                 out = pd.DataFrame()
-                out["date"] = df["date"].iloc[1:].values
+                out["date"] = df["date"].iloc[1:].dt.strftime("%d/%m/%Y")
                 out["close"] = np.log(close[1:] / close[:-1])
                 for col in ["open", "high", "low"]:
                     out[col] = np.log(df[col].to_numpy(dtype=np.float64)[1:] / close[:-1])

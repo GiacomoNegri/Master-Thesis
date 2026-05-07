@@ -14,6 +14,8 @@ Run:
         --num_samples       10 \
         --seed              42
 
+python generate_samples.py --checkpoint_folder edm --checkpoint_name <checkpoint_name>.pt --num_csv 10 --num_samples 10 --seed 42
+
 Outputs (under <out_dir>/<checkpoint_stem>/):
     train_generated_close.csv  — generated Close paths for training windows
     train_gt_ohlc.csv          — ground-truth OHLC context for training windows
@@ -168,7 +170,7 @@ def reconstruct_split(config, repo_root, date_format="%d/%m/%Y"):
     # Identical sort to SP500WindowDataset.date_to_idx
     all_dates_sorted = sorted(
         all_dates_set,
-        key=lambda s: pd.to_datetime(s, format=date_format),
+        key=lambda s: pd.to_datetime(s, format='%d/%m/%Y'),
     )
     date_to_idx = {d: i for i, d in enumerate(all_dates_sorted)}
     print(f"Global date range: {all_dates_sorted[0]} → {all_dates_sorted[-1]}"

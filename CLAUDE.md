@@ -65,7 +65,7 @@ CSV data (date, close, open, high, low — log-returns)
 | `configs/ohlc_conditional.yaml` | Active hyperparameter config (OHLC, predict_close mode) |
 
 ### Config Structure (`configs/ohlc_conditional.yaml`)
-Nested YAML with sections: `data`, `model`, `diffusion` (network arch), `process` (kept for sampler compatibility), `train`, `edm` (P_mean, P_std), `wandb`. Key params: `seq_len=64`, `stride=64`, `sigma_data=1.0`, `mask_mode=predict_close`, `close_idx=0`.
+Nested YAML with sections: `data`, `model`, `diffusion` (network arch), `process` (kept for sampler compatibility), `train`, `edm` (P_mean, P_std), `wandb`. Key params: `seq_len=512`, `stride=100`, `sigma_data=1.0`, `mask_mode=predict_close`, `close_idx=0`.
 
 ### EDM Preconditioning
 At each training step one sigma per sample is drawn from `ln σ ~ N(P_mean, P_std²)`. The model receives `c_in`-scaled noisy input and outputs the MMSE denoised estimate `D_x = c_skip·x_t + c_out·F_x`. Loss is the lambda(sigma)-weighted MSE restricted to the Close channel via `target_mask`.

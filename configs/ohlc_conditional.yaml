@@ -13,9 +13,9 @@ model:
 
 diffusion:
   num_steps: 100                                  # diffusion-time embedding size; keep = model_steps
-  diffusion_embedding_dim: 128
-  channels: 64
-  layers: 4
+  diffusion_embedding_dim: 256
+  channels: 128
+  layers: 6
   nheads: 4
   is_linear: false
 
@@ -76,8 +76,8 @@ edm:
   # ln sigma ~ N(P_mean, P_std^2).  Karras et al. 2022 defaults (tuned for ImageNet,
   # sigma_data=0.5); should be recalibrated to the actual data distribution before
   # a production training run.  sigma_data is read from model.sigma_data (above).
-  P_mean: -1.2
-  P_std: 1.2
+  P_mean: -1.4
+  P_std: 1.6
   rho: 7.0                                        # sampler schedule curvature (Karras et al. 2022 default)
 
 wandb:
