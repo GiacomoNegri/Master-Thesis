@@ -58,14 +58,14 @@ train:
 
   # seq_len and stride must match the preprocessing in notebooks/Toy_dataset_gbm.ipynb
   # stride = seq_len is required: the CSVs are pre-normalised in non-overlapping blocks
-  seq_len: 1024
-  stride: 1024
+  seq_len: 512
+  stride: 100
 
   num_workers: 0
   shuffle: true
   pin_memory: true
 
-  data_root: ./data/fake_fts_processed
+  data_root: ./data/SNP500_individual_normalized
   out_dir: ./checkpoints/edm
 
   # val_split_ratio: 0.1
