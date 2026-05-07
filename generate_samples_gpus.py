@@ -24,6 +24,7 @@ generate_samples.py:
 """
 
 import argparse
+from datetime import datetime
 import glob
 import os
 import sys
@@ -40,6 +41,13 @@ import pandas as pd
 import torch
 import torch.distributed as dist
 import wandb
+
+# Flash Attention CUDA kernels require a minimum number of SMs that MIG GPU
+# slices (e.g. 4g.40gb) do not satisfy. Mem-efficient SDP has a hard CUDA
+# kernel limit of batch*heads <= 65535, which is violated when num_samples is
+# large (num_samples * seq_len * nheads can exceed 500k+). Force math SDP.
+torch.backends.cuda.enable_flash_sdp(False)
+torch.backends.cuda.enable_mem_efficient_sdp(False)
 
 sys.path.insert(0, os.path.abspath(os.path.dirname(__file__)))
 
@@ -93,9 +101,25 @@ def reconstruct_split(config, repo_root):
     assert len(files) > 0, f"No CSVs found in {abs_root}"
     print(f"Data root   : {abs_root}  ({len(files)} files)")
 
+    # Single pass: collect all dates + file lengths, identical to
+    # SP500WindowDataset.__init__ so that date_to_idx matches training exactly.
+    all_dates_set = set()
+    file_lengths  = []
+    for fp in files:
+        df = pd.read_csv(fp, usecols=[date_col])
+        all_dates_set.update(df[date_col].tolist())
+        file_lengths.append(len(df))
+
+    all_dates_sorted = sorted(
+        all_dates_set,
+        key=lambda s: pd.to_datetime(s, format='%d/%m/%Y'),
+    )
+    date_to_idx = {d: i for i, d in enumerate(all_dates_sorted)}
+    print(f"Global date range: {all_dates_sorted[0]} → {all_dates_sorted[-1]}"
+          f"  ({len(all_dates_sorted)} unique dates)")
+
     flat_index = []
-    for fi, fp in enumerate(files):
-        T         = len(pd.read_csv(fp, usecols=[date_col]))
+    for fi, T in enumerate(file_lengths):
         max_start = T - seq_len
         if max_start < 0:
             continue
@@ -129,7 +153,7 @@ def reconstruct_split(config, repo_root):
     train_indices = train_pool[:n_train]
     print(f"Train windows: {n_train}")
 
-    return files, flat_index, train_indices, val_indices
+    return files, flat_index, train_indices, val_indices, date_to_idx, date_col
 
 
 # ---------------------------------------------------------------------------
@@ -140,7 +164,8 @@ def run_split_ddp(
     split_name, window_indices, flat_index, files,
     feat_cols, close_idx, K, seq_len,
     processes, model, num_samples, num_steps,
-    device, out_dir,
+    device, out_dir, rho,
+    date_to_idx, date_col,
     rank, world_size, is_main,
 ):
     """
@@ -158,13 +183,16 @@ def run_split_ddp(
     local_dataset_idxs = [window_indices[i] for i in local_global_idxs]
     n_local = len(local_dataset_idxs)
 
-    # ── Load ground-truth windows for this rank ───────────────────────────────
+    # ── Load ground-truth windows + calendar time positions for this rank ─────
     gt_windows_local = []
+    gt_tp_local = []   # list of (L,) float32 arrays of global date indices
     for idx in local_dataset_idxs:
         fi, start = flat_index[idx]
         df  = pd.read_csv(files[fi])
         win = df[feat_cols].to_numpy(dtype=np.float32)[start : start + seq_len]
         gt_windows_local.append(win.T)   # (K, L)
+        dates_win = df[date_col].iloc[start : start + seq_len].tolist()
+        gt_tp_local.append(np.array([date_to_idx[d] for d in dates_win], dtype=np.float32))
 
     if n_local > 0:
         gt_windows_local = np.stack(gt_windows_local)   # (n_local, K, L)
@@ -181,11 +209,14 @@ def run_split_ddp(
             cond_mask = torch.ones(num_samples, K, seq_len, device=device)
             cond_mask[:, close_idx, :] = 0.0
 
+            # Use real global calendar indices (same as SP500WindowDataset),
+            # not a normalised linspace — must match training-time observed_tp.
             observed_tp = (
-                torch.linspace(0.0, 1.0, seq_len, device=device)
+                torch.from_numpy(gt_tp_local[lw_idx])
+                     .to(device)
                      .unsqueeze(0)
                      .expand(num_samples, -1)
-            )
+            )  # (B, L)
 
             samples = processes.edm_sampler(
                 model         = model,
@@ -194,6 +225,7 @@ def run_split_ddp(
                 cond_mask     = cond_mask,
                 observed_tp   = observed_tp,
                 num_steps     = num_steps,
+                rho           = rho,
                 device        = device,
             )   # (B, K, L)
 
@@ -290,8 +322,12 @@ def main():
         print(f"DDP: {world_size} GPU(s) active")
 
     # ── Output dir ────────────────────────────────────────────────────────────
-    ckpt_stem = os.path.splitext(args.checkpoint_name)[0]
-    out_dir   = os.path.join(args.out_dir, ckpt_stem)
+    ckpt_stem      = os.path.splitext(args.checkpoint_name)[0]
+    run_timestamp  = datetime.now().strftime("%Y%m%d_%H%M%S")
+    out_dir        = os.path.join(
+        args.out_dir, ckpt_stem,
+        f"csv{args.num_csv}_samples{args.num_samples}_seed{args.seed}_{run_timestamp}",
+    )
     if is_main:
         os.makedirs(out_dir, exist_ok=True)
 
@@ -333,14 +369,17 @@ def main():
     # ── Diffusion processes ───────────────────────────────────────────────────
     processes = Diffusion_Processes(config["process"])
     num_steps = args.num_reverse_steps if args.num_reverse_steps is not None else processes.N
+    rho       = float(config.get("edm", {}).get("rho", 7.0))
     if is_main:
         print(f"Diffusion_Processes — SDE: {processes.sde_type}, N: {processes.N}, "
               f"model_steps: {processes.model_steps}")
-        print(f"Reverse steps to use: {num_steps}")
+        print(f"Reverse steps to use: {num_steps}  |  rho: {rho}")
 
     # ── Reconstruct train/val split ───────────────────────────────────────────
     repo_root = os.path.abspath(os.path.dirname(__file__))
-    files, flat_index, train_indices, val_indices = reconstruct_split(config, repo_root)
+    files, flat_index, train_indices, val_indices, date_to_idx, date_col = reconstruct_split(
+        config, repo_root,
+    )
 
     n_train_use = min(args.num_csv, len(train_indices))
     n_val_use   = min(args.num_csv, len(val_indices))
@@ -409,6 +448,9 @@ def main():
         num_steps      = num_steps,
         device         = device,
         out_dir        = out_dir,
+        rho            = rho,
+        date_to_idx    = date_to_idx,
+        date_col       = date_col,
         rank           = rank,
         world_size     = world_size,
         is_main        = is_main,
@@ -436,6 +478,9 @@ def main():
             num_steps      = num_steps,
             device         = device,
             out_dir        = out_dir,
+            rho            = rho,
+            date_to_idx    = date_to_idx,
+            date_col       = date_col,
             rank           = rank,
             world_size     = world_size,
             is_main        = is_main,
