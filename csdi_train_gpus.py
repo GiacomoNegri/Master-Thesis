@@ -12,6 +12,10 @@ import time
 
 import torch
 import torch.nn as nn
+
+# Flash Attention CUDA kernels require a minimum number of SMs that MIG GPU
+# slices (e.g. 4g.40gb) do not satisfy — disable it and use mem-efficient SDP.
+torch.backends.cuda.enable_flash_sdp(False)
 from torch.optim import AdamW
 from torch.utils.data import DataLoader, Subset
 
