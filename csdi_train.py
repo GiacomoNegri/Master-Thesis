@@ -13,6 +13,10 @@ import numpy as np
 import torch
 torch.backends.cuda.matmul.allow_tf32 = False
 torch.backends.cudnn.allow_tf32 = False
+# Mem-efficient SDP has a hard CUDA kernel limit of batch*heads <= 65535,
+# violated at large seq_len (B*L*nheads can exceed 500k). Force math SDP.
+torch.backends.cuda.enable_flash_sdp(False)
+torch.backends.cuda.enable_mem_efficient_sdp(False)
 import torch.nn as nn
 from torch.optim import AdamW
 from torch.utils.data import DataLoader, Subset
