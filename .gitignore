@@ -40,3 +40,5 @@ run_diagnostics_locally.py
 
 #claude
 .claude/
+
+tea_debug.log
