@@ -424,6 +424,9 @@ class Diffusion_Processes:
         # ── 2. Initialize from the prior: x ~ N(0, sigma_max² I) ─────────────────
         x = torch.randn(*shape, device=device) * sigmas[0]  # (B, K, L)
 
+        log_every  = max(1, num_steps // 10)
+        step_start = time.time()
+
         # ── 3. Heun loop ──────────────────────────────────────────────────────────
         for i in range(num_steps):
             sigma_cur  = sigmas[i]                             # scalar tensor
@@ -463,6 +466,23 @@ class Diffusion_Processes:
                 x_next  = x + (sigma_next - sigma_cur) * (0.5 * d_cur + 0.5 * d_prime)
 
             x = x_next
+
+            if (i + 1) % log_every == 0 or i == num_steps - 1:
+                x_cpu = x.detach().cpu()
+                xf    = x_cpu.flatten()
+                mu    = xf.mean()
+                diff  = xf - mu
+                var   = (diff ** 2).mean()
+                skew  = ((diff ** 3).mean() / (var ** 1.5 + 1e-8)).item()
+                kurt  = ((diff ** 4).mean() / (var ** 2  + 1e-8) - 3.0).item()
+                elapsed, step_start = time.time() - step_start, time.time()
+                print(
+                    f"[EDM step {i+1:4d}/{num_steps} | σ={sigma_cur.item():.4f}]  "
+                    f"mean={x_cpu.mean():.4f}  std={x_cpu.std():.4f}  "
+                    f"min={x_cpu.min():.4f}  max={x_cpu.max():.4f}  "
+                    f"skew={skew:.3f}  kurt={kurt:.3f}  "
+                    f"elapsed={elapsed:.1f}s"
+                )
 
         # ── 4. Enforce conditioning: replace OHL with ground truth ────────────────
         if self.enforce_observed:
