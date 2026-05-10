@@ -71,6 +71,9 @@ def parse_args():
                    help="Number of Close paths to generate per OHL context window.")
     p.add_argument("--num_reverse_steps", type=int, default=None,
                    help="Override reverse diffusion steps (default: value in checkpoint config).")
+    p.add_argument("--chunk_size",        type=int, default=10,
+                   help="Number of windows batched into a single edm_sampler call. "
+                        "Larger = fewer calls and better GPU utilisation, but more VRAM.")
     p.add_argument("--seed",              type=int, default=42)
     p.add_argument("--out_dir",           type=str,
                    default=os.path.join("data", "generated", "conditional"))
@@ -164,6 +167,7 @@ def run_split_ddp(
     split_name, window_indices, flat_index, files,
     feat_cols, close_idx, K, seq_len,
     processes, model, num_samples, num_steps,
+    chunk_size,
     device, out_dir, rho,
     date_to_idx, date_col,
     rank, world_size, is_main,
@@ -199,28 +203,44 @@ def run_split_ddp(
     else:
         gt_windows_local = np.zeros((0, K, seq_len), dtype=np.float32)
 
-    # ── EDM Heun sampler for this rank's windows ──────────────────────────────
+    # ── EDM Heun sampler — chunked over local windows ────────────────────────
+    # Each chunk stacks `chunk_size` windows × `num_samples` into one batched
+    # sampler call (batch = n_chunk * num_samples).  After the call the result
+    # is reshaped back to (n_chunk, num_samples, L) and appended per-window,
+    # so gen_close_local keeps the same layout as before.
     gen_close_local = []
+    n_chunks = max(1, -(-n_local // chunk_size))   # ceil(n_local / chunk_size)
     with torch.no_grad():
-        for lw_idx in range(n_local):
-            obs = torch.from_numpy(gt_windows_local[lw_idx]).unsqueeze(0)
-            obs = obs.expand(num_samples, -1, -1).to(device)
+        for chunk_idx, chunk_start in enumerate(range(0, max(n_local, 1), chunk_size)):
+            if chunk_start >= n_local:
+                break
+            chunk_end = min(chunk_start + chunk_size, n_local)
+            n_chunk   = chunk_end - chunk_start
+            B         = n_chunk * num_samples   # effective batch size for this call
 
-            cond_mask = torch.ones(num_samples, K, seq_len, device=device)
+            # Each of the n_chunk windows is repeated num_samples times.
+            # obs: (n_chunk, K, L) → expand → (n_chunk, num_samples, K, L)
+            #      → reshape  → (B, K, L)
+            obs = torch.from_numpy(gt_windows_local[chunk_start:chunk_end]).to(device)
+            obs = (obs.unsqueeze(1)
+                      .expand(n_chunk, num_samples, K, seq_len)
+                      .reshape(B, K, seq_len))
+
+            cond_mask = torch.ones(B, K, seq_len, device=device)
             cond_mask[:, close_idx, :] = 0.0
 
-            # Use real global calendar indices (same as SP500WindowDataset),
-            # not a normalised linspace — must match training-time observed_tp.
+            # observed_tp: list slice → (n_chunk, L) → same expand/reshape
+            chunk_tp    = np.stack(gt_tp_local[chunk_start:chunk_end])   # (n_chunk, L)
             observed_tp = (
-                torch.from_numpy(gt_tp_local[lw_idx])
-                     .to(device)
-                     .unsqueeze(0)
-                     .expand(num_samples, -1)
-            )  # (B, L)
+                torch.from_numpy(chunk_tp).to(device)
+                     .unsqueeze(1)
+                     .expand(n_chunk, num_samples, seq_len)
+                     .reshape(B, seq_len)
+            )
 
             samples = processes.edm_sampler(
                 model         = model,
-                shape         = (num_samples, K, seq_len),
+                shape         = (B, K, seq_len),
                 observed_data = obs,
                 cond_mask     = cond_mask,
                 observed_tp   = observed_tp,
@@ -229,11 +249,15 @@ def run_split_ddp(
                 device        = device,
             )   # (B, K, L)
 
-            gen_close_local.append(samples[:, close_idx, :].cpu().numpy())   # (B, L)
+            # Split back into per-window arrays of shape (num_samples, L)
+            close_preds = (samples[:, close_idx, :]
+                           .cpu().numpy()
+                           .reshape(n_chunk, num_samples, seq_len))
+            for i in range(n_chunk):
+                gen_close_local.append(close_preds[i])   # (num_samples, L)
 
-            log_every = max(1, n_local // 5)
-            if (lw_idx + 1) % log_every == 0 or lw_idx == n_local - 1:
-                print(f"  [rank {rank} | {split_name}] {lw_idx + 1}/{n_local} local windows done")
+            print(f"  [rank {rank} | {split_name}] chunk {chunk_idx + 1}/{n_chunks} done "
+                  f"(windows {chunk_start + 1}–{chunk_end} / {n_local})")
 
     # ── Build local row lists (carry the original global window position) ─────
     local_gen_rows  = []
@@ -330,6 +354,7 @@ def main():
     )
     if is_main:
         os.makedirs(out_dir, exist_ok=True)
+    dist.barrier()   # fail fast if any rank is unhealthy before any real work
 
     # ── Load checkpoint (each rank loads to its own GPU) ──────────────────────
     checkpoint_path = os.path.join("checkpoints", args.checkpoint_folder, args.checkpoint_name)
@@ -375,11 +400,14 @@ def main():
               f"model_steps: {processes.model_steps}")
         print(f"Reverse steps to use: {num_steps}  |  rho: {rho}")
 
-    # ── Reconstruct train/val split ───────────────────────────────────────────
+    # ── Reconstruct train/val split (rank 0 only to avoid 4× concurrent I/O) ──
     repo_root = os.path.abspath(os.path.dirname(__file__))
-    files, flat_index, train_indices, val_indices, date_to_idx, date_col = reconstruct_split(
-        config, repo_root,
-    )
+    if is_main:
+        _split = list(reconstruct_split(config, repo_root))
+    else:
+        _split = [None] * 6
+    dist.broadcast_object_list(_split, src=0)
+    files, flat_index, train_indices, val_indices, date_to_idx, date_col = _split
 
     n_train_use = min(args.num_csv, len(train_indices))
     n_val_use   = min(args.num_csv, len(val_indices))
@@ -446,6 +474,7 @@ def main():
         model          = model,
         num_samples    = args.num_samples,
         num_steps      = num_steps,
+        chunk_size     = args.chunk_size,
         device         = device,
         out_dir        = out_dir,
         rho            = rho,
@@ -476,6 +505,7 @@ def main():
             model          = model,
             num_samples    = args.num_samples,
             num_steps      = num_steps,
+            chunk_size     = args.chunk_size,
             device         = device,
             out_dir        = out_dir,
             rho            = rho,
