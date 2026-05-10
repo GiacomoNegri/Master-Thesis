@@ -194,6 +194,8 @@ def parse_args():
                         help="If true, apply Song's likelihood weighting λ(t)=g(t)²/σ²(t) to the MSE loss. If false, use plain MSE.")
     parser.add_argument("--debug", type=str2bool, default=None,
                         help="If true, print per-batch sigma / err / eps diagnostics. If false, only loss is printed.")
+    parser.add_argument("--window_center_mean", type=str2bool, default=None,
+                        help="If true, subtract the per-window mean from each window (along the time axis) before training.")
     parser.add_argument("--importance_sampling", type=str2bool, default=None,
                         help="If true, sample t ~ p(t) ∝ g(t)²/σ²(t) instead of uniform. "
                              "Concentrates training on hard small-t timesteps; disables likelihood weighting.")
@@ -352,6 +354,8 @@ def build_cli_override_dict(args) -> Dict[str, Any]:
         override["train"]["likelihood_weighting"] = args.likelihood_weighting
     if args.debug is not None:
         override["train"]["debug"] = args.debug
+    if args.window_center_mean is not None:
+        override["train"]["window_center_mean"] = args.window_center_mean
     if args.importance_sampling is not None:
         override["train"]["importance_sampling"] = args.importance_sampling
     if args.lr_cosine_annealing is not None:
@@ -964,6 +968,8 @@ def train(
 
         for batch_idx, batch in pbar:
             observed_data, observed_mask, observed_tp = unpack_batch(batch, device)
+            if config["train"].get("window_center_mean", False):
+                observed_data = observed_data - observed_data.mean(dim=-1, keepdim=True)
             log_this_batch = debug and (batch_idx == 0) and is_main
 
             if log_this_batch:
@@ -1160,6 +1166,8 @@ def train(
             with torch.no_grad():
                 for val_batch_idx, val_batch in enumerate(val_loader):
                     observed_data, observed_mask, observed_tp = unpack_batch(val_batch, device)
+                    if config["train"].get("window_center_mean", False):
+                        observed_data = observed_data - observed_data.mean(dim=-1, keepdim=True)
                     log_this_val_batch = debug and (val_batch_idx == 0) and is_main
 
                     if log_this_val_batch:
