@@ -29,7 +29,8 @@ outputs/
 image/
 err/
 out/
-images/
+images/*
+images/overfitting_fake_fts_processed/*
 
 jobs/
 replication/
