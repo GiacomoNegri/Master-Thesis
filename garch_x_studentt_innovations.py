@@ -6,9 +6,9 @@ from scipy.optimize import minimize
 from scipy.special import gammaln
 from scipy.stats import norm
 
-path = "./data/SNP500_individual_normalized/BAX_1981-10-27_2026-05-01.csv"
-START   = None   # first row to keep (0-based); None = beginning of file
-SEQ_LEN = None   # number of rows to keep after START; None = all remaining rows
+path = "./data/SNP500_individual_normalized/AXP_1972-06-01_2026-05-01.csv"
+START   = 2700   # first row to keep (0-based); None = beginning of file
+SEQ_LEN = 512   # number of rows to keep after START; None = all remaining rows
 
 PRINT_EVERY = 25
 
@@ -443,7 +443,7 @@ def construct_Q(path, start=None, seq_len=None):
     print("Loading:", path)
 
     df = pd.read_csv(path)
-    df["date"] = pd.to_datetime(df["date"])
+    df["date"] = pd.to_datetime(df["date"], format="%d/%m/%Y")
     df = df.sort_values("date").set_index("date")
 
     if start is None and seq_len is None:
@@ -573,3 +573,12 @@ table = inference_table(
 
 print("\nApproximate inference table")
 print(table.to_string(index=False))
+
+out_dir = "./data/classical_models/garch"
+os.makedirs(out_dir, exist_ok=True)
+start_tag = "" if START is None else str(START)
+seq_tag   = "" if SEQ_LEN is None else str(SEQ_LEN)
+out_name  = f"{stem}_{start_tag}_{seq_tag}.csv"
+out_path  = os.path.join(out_dir, out_name)
+table.to_csv(out_path, index=False)
+print(f"Saved inference table to {out_path}")

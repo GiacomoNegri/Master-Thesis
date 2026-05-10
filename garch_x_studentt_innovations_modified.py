@@ -800,6 +800,14 @@ table = inference_table(
 print("\nApproximate inference table")
 print(table.to_string(index=False))
 
+out_dir = "./data/classical_models/garch"
+os.makedirs(out_dir, exist_ok=True)
+start_tag = "" if START is None else str(START)
+seq_tag   = "" if SEQ_LEN is None else str(SEQ_LEN)
+tag = f"{stem}_{start_tag}_{seq_tag}"
+
+table.to_csv(f"{out_dir}/{tag}.csv", index=False)
+print(f"Saved inference table to {out_dir}/{tag}.csv")
 
 boot_table, boot_estimates = bootstrap_log_garch_x(
     result=result,
@@ -812,6 +820,9 @@ boot_table, boot_estimates = bootstrap_log_garch_x(
 
 print("\nBootstrap reliability table")
 print(boot_table.to_string(index=False))
+
+boot_table.to_csv(f"{out_dir}/{tag}_boot.csv", index=False)
+print(f"Saved bootstrap table to {out_dir}/{tag}_boot.csv")
 
 result_no_x = fit_log_garch_x(
     y=y_train,
@@ -837,6 +848,17 @@ lr_p = 1.0 - chi2.cdf(lr_stat, df=Q_train.shape[1])
 
 print("LR statistic:", lr_stat)
 print("LR p-value:", lr_p)
+
+model_comparison = pd.DataFrame({
+    "model":   ["GARCH-X", "GARCH"],
+    "nll":     [result.fun, result_no_x.fun],
+    "aic":     [aic_x, aic_no_x],
+    "bic":     [bic_x, bic_no_x],
+    "lr_stat": [np.nan, lr_stat],
+    "lr_pval": [np.nan, lr_p],
+})
+model_comparison.to_csv(f"{out_dir}/{tag}_model_comparison.csv", index=False)
+print(f"Saved model comparison to {out_dir}/{tag}_model_comparison.csv")
 
 
 fitted = compute_fitted_paths(
