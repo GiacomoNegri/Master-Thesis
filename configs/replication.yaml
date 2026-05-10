@@ -16,7 +16,7 @@ diffusion:
 
 process:
   N: 2000
-  sde_type: ve
+  sde_type: gbm
   noise_schedule: exponential
   sigma_min: 0.01
   sigma_max: 1.0

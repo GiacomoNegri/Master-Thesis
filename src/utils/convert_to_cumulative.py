@@ -29,7 +29,10 @@ def main():
 
     for fp in files:
         df = pd.read_csv(fp)
+        df["date"] = pd.to_datetime(df["date"], format="%d/%m/%Y")
+        df = df.sort_values("date").reset_index(drop=True)
         df["log_adj_close"] = df["log_adj_close"].cumsum()
+        df["date"] = df["date"].dt.strftime("%d/%m/%Y")
         out_path = os.path.join(args.out_folder, os.path.basename(fp))
         df.to_csv(out_path, index=False)
         print(f"Converted: {os.path.basename(fp)}")

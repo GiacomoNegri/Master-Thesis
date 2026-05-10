@@ -1,5 +1,8 @@
 # train_csdi.py
 import os
+
+os.environ.setdefault("KMP_DUPLICATE_LIB_OK", "TRUE")
+
 import math
 import json
 import random
@@ -2274,3 +2277,5 @@ if __name__ == "__main__":
 # python csdi_train_modified.py --config configs/replication.yaml --epochs 1 --train_subset_ratio 0.005 --val_split_ratio 0.005 --data_root "./data/replication" --noise_schedule exponential --sigma_min 0.01 --sigma_max 1.0 --beta_min 0.01 --beta_max 20.0
 # python csdi_train_modified.py --config configs/replication.yaml --epochs 100 --train_subset_size 16 --val_split_ratio 0.01 --data_root "./data/filtered_windows" --noise_schedule exponential --sigma_min 0.01 --sigma_max 1.0 --beta_min 0.01 --beta_max 20.0
 # python csdi_train_modified.py --config configs/replication.yaml --epochs 100 --sde_type vp --noise_schedule cosine --sigma_min 0.01 --sigma_max 1.0 --beta_min 0.01 --beta_max 7.0 --data_root ./data/filtered_windows/pre_2001 --mask_mode unconditional --likelihood_weighting false --importance_sampling false --seq_len 2048 --stride 400 --weight_decay 0.0 --channels 128 --layers 4 --nheads 8 --diffusion_embedding_dim 256 --train_subset_size 16 --val_split_ratio 0.1 --batch_size 16 --lr_scheduler reduce-on-plateau --lr_patience 2 --lr 1e-3  --lr_eta_min 1e-6 --seed 42 --use_amp true --early_stop_patience 1000 --debug false --print_plots false
+# Testing window
+# python csdi_train_modified.py --config configs/replication.yaml --epochs 10 --sde_type gbm  --noise_schedule linear --sigma_min 0.01 --sigma_max 1.0 --beta_min 0.01 --beta_max 7.0 --data_root ./data/replication_returns_other_gbm --mask_mode unconditional --likelihood_weighting false --importance_sampling false --seq_len 64 --stride 64 --weight_decay 0.0 --channels 32 --layers 2 --nheads 8 --diffusion_embedding_dim 256 --train_subset_size 8 --batch_size 8 --lr_scheduler none --lr 1e-3 --seed 42 --use_amp false --early_stop_patience 1000 --debug true --print_plots false --window_center_mean true
