@@ -36,3 +36,5 @@ jobs/
 replication/
 jobs_launcher.py
 .claude/
+
+tea_debug.log
