@@ -346,9 +346,17 @@ def main():
         print(f"DDP: {world_size} GPU(s) active")
 
     # ── Output dir ────────────────────────────────────────────────────────────
-    ckpt_stem      = os.path.splitext(args.checkpoint_name)[0]
-    run_timestamp  = datetime.now().strftime("%Y%m%d_%H%M%S")
-    out_dir        = os.path.join(
+    ckpt_stem = os.path.splitext(args.checkpoint_name)[0]
+    # Compute timestamp on rank 0 only and broadcast so all ranks agree on the same path.
+    if is_main:
+        ts_tensor = torch.tensor(
+            [int(datetime.now().strftime("%Y%m%d%H%M%S"))], dtype=torch.long, device=device
+        )
+    else:
+        ts_tensor = torch.zeros(1, dtype=torch.long, device=device)
+    dist.broadcast(ts_tensor, src=0)
+    run_timestamp = datetime.strptime(str(ts_tensor.item()), "%Y%m%d%H%M%S").strftime("%Y%m%d_%H%M%S")
+    out_dir = os.path.join(
         args.out_dir, ckpt_stem,
         f"csv{args.num_csv}_samples{args.num_samples}_seed{args.seed}_{run_timestamp}",
     )
