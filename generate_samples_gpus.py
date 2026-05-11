@@ -24,7 +24,7 @@ generate_samples.py:
 """
 
 import argparse
-from datetime import datetime
+from datetime import datetime, timedelta
 import glob
 import os
 import sys
@@ -331,7 +331,7 @@ def run_split_ddp(
 
 def main():
     # ── DDP init ──────────────────────────────────────────────────────────────
-    dist.init_process_group(backend="nccl")
+    dist.init_process_group(backend="nccl", timeout=timedelta(minutes=30))
     rank       = dist.get_rank()
     world_size = dist.get_world_size()
     is_main    = (rank == 0)
@@ -408,14 +408,11 @@ def main():
               f"model_steps: {processes.model_steps}")
         print(f"Reverse steps to use: {num_steps}  |  rho: {rho}")
 
-    # ── Reconstruct train/val split (rank 0 only to avoid 4× concurrent I/O) ──
+    # ── Reconstruct train/val split (all ranks independently — avoids the NCCL
+    # broadcast_object_list asymmetry that caused store-key timeouts when rank 0
+    # spent too long on I/O while rank 1 was already waiting at the collective) ──
     repo_root = os.path.abspath(os.path.dirname(__file__))
-    if is_main:
-        _split = list(reconstruct_split(config, repo_root))
-    else:
-        _split = [None] * 6
-    dist.broadcast_object_list(_split, src=0)
-    files, flat_index, train_indices, val_indices, date_to_idx, date_col = _split
+    files, flat_index, train_indices, val_indices, date_to_idx, date_col = reconstruct_split(config, repo_root)
 
     n_train_use = min(args.num_csv, len(train_indices))
     n_val_use   = min(args.num_csv, len(val_indices))
