@@ -33,6 +33,7 @@ out/
 images/
 jobs/
 replication/
+garch_parameters/
 
 #specific files
 jobs_launcher.py
