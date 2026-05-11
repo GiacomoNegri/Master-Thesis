@@ -22,6 +22,7 @@ Usage:
         [--out_dir ./checkpoints/garch] \\
         [--max_iter 1000] \\
         [--print_every 50]
+python fit_garch_from_gt.py  --generated_path ./data/generated/edm/edm_Pmean_-1.4_Pstd_1.6_seq_len_512_stride_100_tsr_1_ch128_la6_COSAN_no_weight_decay_epoch_best/train_generated_close.csv --seq_len 512
 """
 
 import argparse
