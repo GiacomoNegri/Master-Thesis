@@ -289,33 +289,40 @@ def run_split_ddp(
             row.update(zip(step_cols, gt_windows_local[li, feat_idx, :]))
             local_ohlc_rows.append(row)
 
-    # ── Gather all rows to rank 0 ─────────────────────────────────────────────
-    gathered_gen  = [None] * world_size if is_main else None
-    gathered_ohlc = [None] * world_size if is_main else None
+    # ── Each rank writes its own temp CSVs ───────────────────────────────────
+    df_gen_local  = pd.DataFrame(local_gen_rows)
+    df_ohlc_local = pd.DataFrame(local_ohlc_rows)
 
-    dist.gather_object(local_gen_rows,  gathered_gen,  dst=0)
-    dist.gather_object(local_ohlc_rows, gathered_ohlc, dst=0)
+    tmp_gen  = os.path.join(out_dir, f"_tmp_{split_name}_gen_rank{rank}.csv")
+    tmp_ohlc = os.path.join(out_dir, f"_tmp_{split_name}_ohlc_rank{rank}.csv")
+
+    df_gen_local.to_csv(tmp_gen,  index=False)
+    df_ohlc_local.to_csv(tmp_ohlc, index=False)
+    print(f"  [rank {rank} | {split_name}] wrote {len(df_gen_local)} gen rows and "
+          f"{len(df_ohlc_local)} ohlc rows to temp files")
+
+    # ── Barrier: all ranks must finish writing before rank 0 merges ──────────
+    dist.barrier()
 
     if not is_main:
         return None, None
 
-    # ── Rank 0: merge, sort by window_idx, save ───────────────────────────────
-    all_gen_rows  = [row for shard in gathered_gen  for row in shard]
-    all_ohlc_rows = [row for shard in gathered_ohlc for row in shard]
+    # ── Rank 0: merge, sort, save final CSVs, delete temps ───────────────────
+    gen_shards  = [pd.read_csv(os.path.join(out_dir, f"_tmp_{split_name}_gen_rank{r}.csv"))  for r in range(world_size)]
+    ohlc_shards = [pd.read_csv(os.path.join(out_dir, f"_tmp_{split_name}_ohlc_rank{r}.csv")) for r in range(world_size)]
 
-    all_gen_rows.sort(key=lambda r: (r["window_idx"], r["sample_idx"]))
-    all_ohlc_rows.sort(key=lambda r: (r["window_idx"], feat_cols.index(r["feature"])))
-
-    df_gen   = pd.DataFrame(all_gen_rows)
-    df_ohlc  = pd.DataFrame(all_ohlc_rows)
-
-    os.makedirs(out_dir, exist_ok=True)
+    df_gen  = pd.concat(gen_shards,  ignore_index=True).sort_values(["window_idx", "sample_idx"]).reset_index(drop=True)
+    df_ohlc = pd.concat(ohlc_shards, ignore_index=True).sort_values(["window_idx", "feature"]).reset_index(drop=True)
 
     gen_path  = os.path.join(out_dir, f"{split_name}_generated_close.csv")
     ohlc_path = os.path.join(out_dir, f"{split_name}_gt_ohlc.csv")
 
     df_gen.to_csv(gen_path,  index=False)
     df_ohlc.to_csv(ohlc_path, index=False)
+
+    for r in range(world_size):
+        os.remove(os.path.join(out_dir, f"_tmp_{split_name}_gen_rank{r}.csv"))
+        os.remove(os.path.join(out_dir, f"_tmp_{split_name}_ohlc_rank{r}.csv"))
 
     print(f"Saved {split_name} generated Close → {gen_path}  "
           f"({len(df_gen)} rows = {n_windows} windows × {num_samples} samples)")
