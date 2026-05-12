@@ -15,9 +15,9 @@ import pandas as pd
 
 # ── configuration ─────────────────────────────────────────────────────────────
 REF_FOLDER = "data/SNP500_individual_normalized"
-START_DATE = "10/04/1986"           # dd/mm/YYYY  (inclusive)
-END_DATE   = "10/04/2026"           # dd/mm/YYYY  (inclusive)
-OUT_DIR    = "data/SNP500_individual_normalized_replication"
+START_DATE = "01/01/2002"           # dd/mm/YYYY  (inclusive)
+END_DATE   = "10/04/2027"           # dd/mm/YYYY  (inclusive)
+OUT_DIR    = "data/SNP500_individual_normalized_post_2002"
 # ──────────────────────────────────────────────────────────────────────────────
 
 start = pd.to_datetime(START_DATE, dayfirst=True)
