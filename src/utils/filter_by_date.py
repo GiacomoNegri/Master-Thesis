@@ -40,5 +40,5 @@ for fname in os.listdir(REF_FOLDER):
 
     new_start = df["date"].min().strftime("%Y-%m-%d")
     out_name  = f"{ticker}_{new_start}_{end}.csv"
-    df.to_csv(os.path.join(OUT_DIR, out_name), index=False)
+    df.to_csv(os.path.join(OUT_DIR, out_name), index=False, date_format="%d/%m/%Y")
     print(f"OK   {fname}  →  {out_name}  ({len(df)} rows)")
