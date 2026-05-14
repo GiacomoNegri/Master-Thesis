@@ -15,8 +15,8 @@ import pandas as pd
 
 # ── configuration ─────────────────────────────────────────────────────────────
 REF_FOLDER = "data/SNP500_individual_normalized"
-START_DATE = "01/01/2002"           # dd/mm/YYYY  (inclusive)
-END_DATE   = "10/04/2027"           # dd/mm/YYYY  (inclusive)
+START_DATE = "01/01/1900"        # dd/mm/YYYY  (inclusive)
+END_DATE   = "10/04/2026"           # dd/mm/YYYY  (inclusive)
 OUT_DIR    = "data/SNP500_individual_normalized_post_2002"
 # ──────────────────────────────────────────────────────────────────────────────
 
@@ -48,5 +48,5 @@ for fname in os.listdir(REF_FOLDER):
     new_start = df["date"].min().strftime("%Y-%m-%d")
     new_end   = df["date"].max().strftime("%Y-%m-%d")
     out_name  = f"{ticker}_{new_start}_{new_end}.csv"
-    df.to_csv(os.path.join(OUT_DIR, out_name), index=False)
+    df.to_csv(os.path.join(OUT_DIR, out_name), index=False, date_format="%d/%m/%Y")
     print(f"OK   {fname}  →  {out_name}  ({len(df)} rows)")
