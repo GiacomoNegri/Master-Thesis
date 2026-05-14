@@ -4,8 +4,11 @@ import pandas as pd
 import requests
 import yfinance as yf
 
-OUTPUT_DIR = os.path.join(os.path.dirname(__file__), "../../data/SNP500_individual/")
+OUTPUT_DIR = os.path.join(os.path.dirname(__file__), "../../data/SNP500_individual_replication/")
 MIN_TRADING_DAYS = 1000
+USE_CUT_OFF_DATE = True
+CUT_OFF_DATE = pd.Timestamp("1986-04-10")  # ticker must have data on or before this date
+LATEST_DATE  = pd.Timestamp("2026-04-10")  # data after this date is dropped
 
 os.makedirs(OUTPUT_DIR, exist_ok=True)
 
@@ -54,6 +57,12 @@ def main():
 
             df = df.sort_index()
             df = df[~df.index.duplicated(keep="first")]
+
+            if USE_CUT_OFF_DATE:
+                if df.index[0] > CUT_OFF_DATE:
+                    print(f"Skipping {ticker}: earliest date {df.index[0].date()} is after cut-off {CUT_OFF_DATE.date()}.")
+                    continue
+                df = df[df.index <= LATEST_DATE]
 
             # Require at least MIN_TRADING_DAYS of history
             cols = ["Open", "High", "Low", "Close"]
