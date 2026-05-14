@@ -3,7 +3,7 @@ import pandas as pd
 from pathlib import Path
 
 EXCLUDE_TICKERS = {"HUBB", "BEN", "NVR", "WMB"}
-MIN_YEARS = 40
+MIN_YEARS = 38
 
 
 def main():
@@ -31,7 +31,7 @@ def main():
             print(f"  SKIP {ticker}: no 'date' column (columns: {list(df.columns)})")
             skipped += 1
             continue
-        df["date"] = pd.to_datetime(df["date"])
+        df["date"] = pd.to_datetime(df["date"], format="%d/%m/%Y")
         df = df[df["date"] <= cutoff]
 
         if df.empty:
@@ -45,7 +45,7 @@ def main():
             skipped += 1
             continue
 
-        df.to_csv(out_dir / csv_path.name, index=False)
+        df.to_csv(out_dir / csv_path.name, index=False, date_format="%d/%m/%Y")
         saved += 1
         print(f"  SAVE {ticker}: {len(df)} rows")
 
