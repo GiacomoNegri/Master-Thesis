@@ -363,13 +363,6 @@ def main():
         ts_tensor = torch.zeros(1, dtype=torch.long, device=device)
     dist.broadcast(ts_tensor, src=0)
     run_timestamp = datetime.strptime(str(ts_tensor.item()), "%Y%m%d%H%M%S").strftime("%Y%m%d_%H%M%S")
-    out_dir = os.path.join(
-        args.out_dir, ckpt_stem,
-        f"csv{args.num_csv}_samples{args.num_samples}_seed{args.seed}_{run_timestamp}",
-    )
-    if is_main:
-        os.makedirs(out_dir, exist_ok=True)
-    dist.barrier()   # fail fast if any rank is unhealthy before any real work
 
     # ── Load checkpoint (each rank loads to its own GPU) ──────────────────────
     checkpoint_path = os.path.join("checkpoints", args.checkpoint_folder, args.checkpoint_name)
@@ -414,6 +407,15 @@ def main():
         print(f"Diffusion_Processes — SDE: {processes.sde_type}, N: {processes.N}, "
               f"model_steps: {processes.model_steps}")
         print(f"Reverse steps to use: {num_steps}  |  rho: {rho}")
+
+    # out_dir is built here so num_steps can be included in the folder name.
+    out_dir = os.path.join(
+        args.out_dir, ckpt_stem,
+        f"csv{args.num_csv}_samples{args.num_samples}_steps{num_steps}_seed{args.seed}_{run_timestamp}",
+    )
+    if is_main:
+        os.makedirs(out_dir, exist_ok=True)
+    dist.barrier()   # fail fast if any rank is unhealthy before any real work
 
     # ── Reconstruct train/val split (all ranks independently — avoids the NCCL
     # broadcast_object_list asymmetry that caused store-key timeouts when rank 0
