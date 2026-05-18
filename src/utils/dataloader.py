@@ -53,6 +53,7 @@ class SP500WindowDataset(Dataset):
             df = pd.read_csv(fp, usecols=[self.columns[0]])
             all_dates.update(df[self.columns[0]].tolist())
             file_lengths.append(len(df))
+        self._file_lengths: List[int] = file_lengths
         self.date_to_idx: Dict[str, int] = {
             d: i for i, d in enumerate(
                 sorted(all_dates, key=lambda s: pd.to_datetime(s, format='%d/%m/%Y'))
@@ -147,6 +148,84 @@ class SP500WindowDataset(Dataset):
             "observed_tp": observed_tp,
             "meta": meta,
         }
+
+    def split_indices(
+        self,
+        val_fraction: float,
+        seed: int = 42,
+    ) -> Tuple[List[int], List[int]]:
+        """
+        Returns (train_indices, val_indices) as index lists into self.index.
+
+        For each file a single contiguous block of timesteps is held out as the
+        validation zone.  The block is placed at a uniformly random interior
+        position (reproducible via `seed`) such that at least one complete
+        training window fits to the left of the block.
+
+        Classification of a window (fi, start):
+          - entirely left  of block  [start+seq_len <= val_start]  → training
+          - entirely right of block  [start >= val_end]            → training
+          - entirely inside block    [start >= val_start and
+                                      start+seq_len <= val_end]    → validation
+          - straddles either boundary                              → discarded
+            (prevents any single data point appearing in both splits)
+
+        Files where T < seq_len + max(seq_len, floor(T*val_fraction)) are too
+        short to yield both window types; all their windows go to training.
+        """
+        if not (0.0 < val_fraction < 1.0):
+            raise ValueError(f"val_fraction must be in (0, 1), got {val_fraction}")
+
+        rng = np.random.default_rng(seed)
+
+        file_val_start: Dict[int, int] = {}
+        file_val_end:   Dict[int, int] = {}
+        n_skipped = 0
+
+        for fi, T in enumerate(self._file_lengths):
+            val_block_size = max(self.seq_len, int(T * val_fraction))
+            # val_start must satisfy:
+            #   val_start >= seq_len        (room for ≥1 training window on the left)
+            #   val_start + val_block_size <= T  (block fits in the file)
+            lo = self.seq_len
+            hi = T - val_block_size
+            if lo > hi:
+                file_val_start[fi] = -1   # sentinel: training-only file
+                n_skipped += 1
+                continue
+            val_start = int(rng.integers(lo, hi + 1))
+            file_val_start[fi] = val_start
+            file_val_end[fi]   = val_start + val_block_size
+
+        if n_skipped:
+            import warnings
+            warnings.warn(
+                f"split_indices: {n_skipped}/{len(self._file_lengths)} files are too short "
+                f"to yield both training and validation windows; "
+                f"all their windows go to training.",
+                stacklevel=2,
+            )
+
+        train_indices: List[int] = []
+        val_indices:   List[int] = []
+
+        for i, (fi, start) in enumerate(self.index):
+            vs = file_val_start[fi]
+            if vs == -1:
+                train_indices.append(i)
+                continue
+            ve  = file_val_end[fi]
+            end = start + self.seq_len
+
+            if end <= vs:
+                train_indices.append(i)        # entirely left of val block
+            elif start >= ve:
+                train_indices.append(i)        # entirely right of val block
+            elif start >= vs and end <= ve:
+                val_indices.append(i)          # entirely inside val block
+            # else: straddles a boundary — discard to prevent leakage
+
+        return train_indices, val_indices
 
 
 def csdi_collate_fn(batch: List[Dict[str, Any]]) -> Dict[str, Any]: # stacking them as to obtain (B,K,L)

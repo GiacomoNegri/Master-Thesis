@@ -596,29 +596,29 @@ if __name__ == "__main__":
 
     if subset_ratio is not None and subset_size is not None:
         raise ValueError("Use only one of train_subset_ratio or train_subset_size")
-    if subset_ratio is not None:
-        if not (0 < subset_ratio <= 1):
-            raise ValueError("train_subset_ratio must be in (0, 1]")
-        subset_size = max(1, int(dataset_size * subset_ratio))
-    if subset_size is not None:
-        if subset_size <= 0:
-            raise ValueError("train_subset_size must be > 0")
-        subset_size = min(subset_size, dataset_size)
+    if subset_size is not None and subset_size <= 0:
+        raise ValueError("train_subset_size must be > 0")
 
-    # Single permutation — same seed on all ranks guarantees identical split
-    rng         = torch.Generator().manual_seed(int(config["train"]["seed"]))
-    all_indices = torch.randperm(dataset_size, generator=rng).tolist()
-
-    # Carve out validation first
+    # --- Temporal validation split (identical on all ranks — same seed) ---
+    # split_indices places a contiguous hold-out block at an independently
+    # sampled position within each file, so held-out calendar dates differ
+    # across files.  Any given date is absent from training only in the
+    # fraction of files whose block happens to cover it; temporal embeddings
+    # receive gradient signal for all dates across the full corpus.
+    # The method is pure Python/NumPy and fully deterministic given the seed,
+    # so every rank arrives at the same train_pool / val_indices without any
+    # inter-rank communication.  Windows that straddle a block boundary are
+    # discarded — they are the natural gap preventing data-point leakage.
     val_loader  = None
     val_sampler = None
     val_split_ratio = config["train"].get("val_split_ratio", None)
     if val_split_ratio is not None:
         if not (0 < val_split_ratio < 1):
             raise ValueError("val_split_ratio must be in (0, 1)")
-        val_size    = max(1, int(dataset_size * val_split_ratio))
-        val_indices = all_indices[:val_size]
-        train_pool  = all_indices[val_size:]
+        train_pool, val_indices = dataset.split_indices(
+            val_fraction=val_split_ratio,
+            seed=int(config["train"]["seed"]),
+        )
         val_dataset = Subset(dataset, val_indices)
         # DDP: each rank evaluates a disjoint shard of the val set
         val_sampler = DistributedSampler(val_dataset, shuffle=False)
@@ -631,20 +631,35 @@ if __name__ == "__main__":
             collate_fn=train_loader.collate_fn,
         )
         if is_main:
-            print(f"Validation set: {val_size}/{dataset_size} samples")
+            print(f"Validation set: {len(val_indices)} windows (temporal blocks, no overlap)")
     else:
-        train_pool = all_indices
+        train_pool = list(range(dataset_size))
 
-    # Carve out training subset from remaining pool
+    # --- Training pool subset ---
+    # Shuffle training pool with the same seed on all ranks so the order is
+    # identical everywhere.  Any partial subset is then a random draw rather
+    # than the first N sequential windows from self.index.
+    rng            = torch.Generator().manual_seed(int(config["train"]["seed"]))
+    shuffled_order = torch.randperm(len(train_pool), generator=rng).tolist()
+    train_pool     = [train_pool[i] for i in shuffled_order]
+
+    # Subset fraction/size is relative to the training pool only (not the
+    # full dataset), so fractions remain meaningful after the val carve-out.
+    if subset_ratio is not None:
+        if not (0 < subset_ratio <= 1):
+            raise ValueError("train_subset_ratio must be in (0, 1]")
+        subset_size = max(1, int(len(train_pool) * subset_ratio))
     if subset_size is not None:
-        subset_size   = min(subset_size, len(train_pool))
+        subset_size = min(subset_size, len(train_pool))
+
+    if subset_size is not None:
         train_dataset = Subset(dataset, train_pool[:subset_size])
         if is_main:
-            print(f"Training subset: {subset_size}/{dataset_size} samples (excl. val)")
+            print(f"Training subset: {subset_size}/{len(train_pool)} windows from training pool")
     else:
         train_dataset = Subset(dataset, train_pool)
         if is_main:
-            print(f"Training pool: {len(train_pool)}/{dataset_size} samples (excl. val)")
+            print(f"Training pool: {len(train_pool)} windows (excl. val and boundary-discarded)")
 
     # DDP: DistributedSampler splits the training data across ranks
     train_sampler = DistributedSampler(train_dataset, shuffle=config["train"]["shuffle"])

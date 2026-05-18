@@ -505,27 +505,25 @@ def _real_main():
 
     if subset_ratio is not None and subset_size is not None:
         raise ValueError("Use only one of train_subset_ratio or train_subset_size")
-    if subset_ratio is not None:
-        if not (0 < subset_ratio <= 1):
-            raise ValueError("train_subset_ratio must be in (0, 1]")
-        subset_size = max(1, int(dataset_size * subset_ratio))
-    if subset_size is not None:
-        if subset_size <= 0:
-            raise ValueError("train_subset_size must be > 0")
-        subset_size = min(subset_size, dataset_size)
+    if subset_size is not None and subset_size <= 0:
+        raise ValueError("train_subset_size must be > 0")
 
-    rng = torch.Generator().manual_seed(int(config["train"]["seed"]))
-    all_indices = torch.randperm(dataset_size, generator=rng).tolist()
-
-    # Carve out validation first (disjoint from training)
-    val_loader     = None
+    # --- Temporal validation split ---
+    # For each file a random interior block of timesteps is held out so that
+    # every validation window is completely disjoint from every training window.
+    # Windows that straddle a block boundary are discarded — they are the
+    # natural gap that prevents any single data point from appearing in both
+    # splits.  This replaces the former index-level shuffle+slice, which
+    # allowed heavily overlapping windows to appear in both splits.
+    val_loader = None
     val_split_ratio = config["train"].get("val_split_ratio", None)
     if val_split_ratio is not None:
         if not (0 < val_split_ratio < 1):
             raise ValueError("val_split_ratio must be in (0, 1)")
-        val_size    = max(1, int(dataset_size * val_split_ratio))
-        val_indices = all_indices[:val_size]
-        train_pool  = all_indices[val_size:]
+        train_pool, val_indices = dataset.split_indices(
+            val_fraction=val_split_ratio,
+            seed=int(config["train"]["seed"]),
+        )
         val_loader = DataLoader(
             Subset(dataset, val_indices),
             batch_size=config["train"]["batch_size"],
@@ -533,32 +531,42 @@ def _real_main():
             num_workers=config["train"]["num_workers"],
             pin_memory=config["train"]["pin_memory"],
             collate_fn=csdi_collate_fn,
-            )
-
-        print(f"Validation set: {val_size}/{dataset_size} samples")
+        )
+        print(f"Validation set: {len(val_indices)} windows (temporal blocks, no overlap with training)")
     else:
-        train_pool = all_indices
+        train_pool = list(range(dataset_size))
 
-    # Training subset from the remaining pool
+    # --- Training subset ---
+    # Shuffle the training pool before subsetting so any partial subset is a
+    # random draw rather than the first N sequential windows from self.index.
+    rng = torch.Generator().manual_seed(int(config["train"]["seed"]))
+    shuffled_order = torch.randperm(len(train_pool), generator=rng).tolist()
+    train_pool = [train_pool[i] for i in shuffled_order]
+
+    # Subset fraction/size is relative to the training pool only (not the
+    # full dataset), so the fractions remain meaningful after the val carve-out.
+    if subset_ratio is not None:
+        if not (0 < subset_ratio <= 1):
+            raise ValueError("train_subset_ratio must be in (0, 1]")
+        subset_size = max(1, int(len(train_pool) * subset_ratio))
     if subset_size is not None:
         subset_size = min(subset_size, len(train_pool))
-        batch_size = config["train"]["batch_size"]
+
+    if subset_size is not None:
+        batch_size     = config["train"]["batch_size"]
         subset_indices = train_pool[:subset_size]
-
-        # If subset is smaller than batch_size, duplicate indices to fill batches
         if subset_size < batch_size:
-            repeats = (batch_size + subset_size - 1) // subset_size  # ceil division
+            repeats = (batch_size + subset_size - 1) // subset_size
             subset_indices = subset_indices * repeats
-
         train_loader = DataLoader(
             Subset(dataset, subset_indices),
             batch_size=batch_size,
             shuffle=config["train"]["shuffle"],
             num_workers=config["train"]["num_workers"],
             pin_memory=config["train"]["pin_memory"],
-            collate_fn=getattr(train_loader, "collate_fn", None),
+            collate_fn=csdi_collate_fn,
         )
-        print(f"Training subset: {subset_size}/{dataset_size} samples (excl. val)")
+        print(f"Training subset: {subset_size}/{len(train_pool)} windows from training pool")
         if len(subset_indices) > subset_size:
             print(f"  (expanded to {len(subset_indices)} indices to fill batch_size={batch_size})")
     elif val_split_ratio is not None:
@@ -568,11 +576,11 @@ def _real_main():
             shuffle=config["train"]["shuffle"],
             num_workers=config["train"]["num_workers"],
             pin_memory=config["train"]["pin_memory"],
-            collate_fn=getattr(train_loader, "collate_fn", None),
+            collate_fn=csdi_collate_fn,
         )
-        print(f"Training pool: {len(train_pool)}/{dataset_size} samples (excl. val)")
+        print(f"Training pool: {len(train_pool)} windows (excl. val and boundary-discarded)")
     else:
-        print(f"Training: full dataset ({dataset_size} samples)")
+        print(f"Training: full dataset ({dataset_size} windows)")
 
     sample = next(iter(train_loader))
     print("Batch shapes:", sample["observed_data"].shape,
