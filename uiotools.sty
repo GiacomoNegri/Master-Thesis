@@ -1,0 +1,125 @@
+\NeedsTeXFormat{LaTeX2e}
+\ProvidesPackage{uiotools}[2023/11/26 v1.0 Useful UiO LaTeX tools]
+
+%% Debugging
+\newcommand{\uiotools@log}[1]{}
+% Uncomment the next line for debugging output to the log file:
+% \renewcommand{\uiotools@log}[1]{\wlog{uiotools: #1 in line \the\inputlineno}}
+
+%% Imported packages
+\RequirePackage{amsfonts}       % Mathematical fonts defined by AMS
+\RequirePackage{amsmath}        % Mathematical constructs defined by AMS
+\RequirePackage{amssymb}        % AMS symbols
+\RequirePackage{amsthm}         % Theorem-like environments
+\RequirePackage{cancel}         % Cancel terms with \cancel
+\RequirePackage{comment}        % Multiline comments
+\RequirePackage{dsfont}         % Double stroke font with \mathds{}
+\RequirePackage{enumitem}       % Adapt description, enumerate and itemize
+\RequirePackage{etoolbox}       % Hooks
+\RequirePackage{mathrsfs}       % Script font with \mathscr{}
+\RequirePackage{mathtools}      % Extension of amsmath
+\RequirePackage{multirow}       % Rows spanning multiple lines in tables
+\RequirePackage{pgffor}         % For-loops
+\RequirePackage{physics}        % Extra physics symbols
+\RequirePackage{showkeys}       % Labels in margins
+\RequirePackage{stmaryrd}       % Brackets and other symbols
+\RequirePackage{tablefootnote}  % Footnotes for tables
+\RequirePackage{textcomp}       % Extra symbols
+\RequirePackage{thmtools}       % Theorem-like environments, extends amsthm
+\RequirePackage{tikz}           % Drawing tool
+  \usetikzlibrary{calc}
+  \usetikzlibrary{intersections}
+  \usetikzlibrary{decorations.markings}
+\RequirePackage[obeyFinal,
+                color       = white,
+                bordercolor = black,
+                textsize    = footnotesize,
+                figwidth    = 0.99\linewidth]{todonotes} % Marginal notes
+  \setlength {\marginparwidth }{2cm}
+\RequirePackage{xspace}         % Clever space
+
+%% Note: Must be loaded last!
+\AtBeginDocument{
+  \RequirePackage[nameinlink, capitalize, noabbrev]{cleveref}
+    \crefname{observation}{Observation}{Observations}
+    \Crefname{observation}{Observation}{Observations}
+    \crefname{conjecture}{Conjecture}{Conjectures}
+    \Crefname{conjecture}{Conjecture}{Conjectures}
+    \crefname{notation}{Notation}{Notations}
+    \Crefname{notation}{Notation}{Notations}
+}
+
+%% Mathematical formulae:
+% Allow multiline equations to be broken across two pages.
+% Breaks across a spread (i.e., from an even numbered page to an
+% odd numbered one) are OK; other breaks are allowed but discouraged.
+\newcounter{uiotools@temp}
+\everydisplay{%
+  \setcounter{uiotools@temp}{4}%
+  \if@twoside \else \setcounter{uiotools@temp}{1}\fi
+  \ifodd\value{page}\setcounter{uiotools@temp}{1}\fi
+  \allowdisplaybreaks[\value{uiotools@temp}]%
+  \uiotools@log{math \string\allowdisplaybreaks[\theuiotools@temp]}}
+\everymath{%
+  \setcounter{uiotools@temp}{4}%
+  \if@twoside \else \setcounter{uiotools@temp}{1}\fi
+  \ifodd\value{page}\setcounter{uiotools@temp}{1}\fi
+  \allowdisplaybreaks[\value{uiotools@temp}]%
+  \uiotools@log{display math
+    \string\allowdisplaybreaks[\theuiotools@temp]}}
+
+%% Mathematical operators
+\newcommand{\diff}{\ensuremath{\mathop{}\!\mathrm{d}}}
+% \DeclareMathOperator{\im}{im}
+\renewcommand{\Im}{\ensuremath{\operatorname{Im}}}
+\renewcommand{\Re}{\ensuremath{\operatorname{Re}}}
+
+%% Blackboard bold letters
+\newcommand{\AFF}{\ensuremath{\mathbb{A}}}   % Affine space
+\newcommand{\CC}{\ensuremath{\mathbb{C}}}    % Complex numbers
+\newcommand{\NN}{\ensuremath{\mathbb{N}}}    % Natural numbers
+\newcommand{\PRP}{\ensuremath{\mathbb{P}}}   % Projective space
+\newcommand{\QQ}{\ensuremath{\mathbb{Q}}}    % Rational numbers
+\newcommand{\RR}{\ensuremath{\mathbb{R}}}    % Real numbers
+\newcommand{\ZZ}{\ensuremath{\mathbb{Z}}}    % Integers
+
+%% Miscellaneous
+\providecommand{\ie}{\leavevmode\unskip, i.e.,\xspace}
+\providecommand{\eg}{\leavevmode\unskip, e.g.,\xspace}
+\providecommand{\dash}{\textthreequartersemdash\xspace}
+\providecommand{\TikZ}{Ti\textit{k}Z\xspace}
+\providecommand{\matlab}{\textsc{Matlab}\xspace}
+
+%% Delimiters
+\DeclarePairedDelimiter{\absdelim}{\lvert}{\rvert}          % Absolute value
+\DeclarePairedDelimiter{\ceildelim}{\lceil}{\rceil}         % Ceiling
+\DeclarePairedDelimiter{\floordelim}{\lfloor}{\rfloor}      % Floor
+\DeclarePairedDelimiter{\ipdelim}{\langle}{\rangle}         % Inner product, ideal
+\DeclarePairedDelimiter{\normdelim}{\lVert}{\rVert}         % Norm
+\DeclarePairedDelimiter{\pardelim}{\lparen}{\rparen}        % Parenthesis
+\DeclarePairedDelimiter{\setdelim}{\lbrace}{\rbrace}        % Set
+\DeclarePairedDelimiter{\sqbdelim}{\lbrack}{\rbrack}        % Square brackets
+\DeclarePairedDelimiter{\ssqbdelim}{\llbracket}{\rrbracket} % Double brackets
+
+%% Theorems
+\declaretheoremstyle[headfont   = \sffamily,
+                     notefont   = \normalfont,
+                     bodyfont   = \itshape,
+                     spaceabove = 6pt,
+                     spacebelow = 6pt]{plain}
+\declaretheoremstyle[headfont   = \sffamily,
+                     notefont   = \normalfont,
+                     spaceabove = 6pt,
+                     spacebelow = 6pt]{definition}
+\declaretheorem[style = plain, numberwithin = section]{theorem}
+\declaretheorem[style = plain,      sibling = theorem]{corollary}
+\declaretheorem[style = plain,      sibling = theorem]{lemma}
+\declaretheorem[style = plain,      sibling = theorem]{proposition}
+\declaretheorem[style = plain,      sibling = theorem]{observation}
+\declaretheorem[style = plain,      sibling = theorem]{conjecture}
+\declaretheorem[style = definition, sibling = theorem]{definition}
+\declaretheorem[style = definition, sibling = theorem]{example}
+\declaretheorem[style = definition, sibling = theorem]{notation}
+\declaretheorem[style = remark,     sibling = theorem]{remark}
+
+\endinput
