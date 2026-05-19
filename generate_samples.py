@@ -192,7 +192,7 @@ def main():
     # ── Diffusion processes ───────────────────────────────────────────────────
     processes = Diffusion_Processes(config["process"])
     num_reverse_steps = args.num_reverse_steps if args.num_reverse_steps is not None else processes.N
-    out_dir = os.path.join(args.out_dir, f"{_sampler_label}_{_short_stem}_N{num_reverse_steps}_seed{args.seed}")
+    out_dir = os.path.join(args.out_dir, f"{_sampler_label}_{_short_stem}_N{num_reverse_steps}_seq{seq_len}_stride{stride}_seed{args.seed}")
     os.makedirs(out_dir, exist_ok=True)
     print(f"Diffusion_Processes — SDE: {processes.sde_type}, N: {processes.N}, "
           f"model_steps: {processes.model_steps}")

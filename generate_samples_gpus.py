@@ -202,7 +202,7 @@ def main():
 
     # ── Output dir (rank 0 creates; others wait at barrier) ──────────────────
     # Built here so num_reverse_steps (which may come from config) is known.
-    out_dir = os.path.join(args.out_dir, f"{_sampler_label}_{_short_stem}_N{num_reverse_steps}_seed{args.seed}")
+    out_dir = os.path.join(args.out_dir, f"{_sampler_label}_{_short_stem}_N{num_reverse_steps}_seq{seq_len}_stride{stride}_seed{args.seed}")
     if is_main:
         os.makedirs(out_dir, exist_ok=True)
     dist.barrier()
