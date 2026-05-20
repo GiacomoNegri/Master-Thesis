@@ -89,9 +89,10 @@ proposes $\lambda(\sigma_i) = \sigma_i^2$ to approximately equalise the contribu
 of each noise level, but this choice is heuristic rather than principled.\\
 
 Song \cite{song2021score} formalize this by lifting them into a contiunous framework. He showed that the diffusion process \(\{x_t\}_{t=0}^T\) indexed by a continuous time variable \(t\in[0,T]\), where \(x_0\sim p_0\) is composed by i.i.d. samples of the dataset, and \(x_T\sim p_T\), for which we have a tractable form, can be modeled as the solution to an Itô SDE:
-$$
-dx_t=f(x_t,t)dt+g(t)dW_t
-$$
+\begin{equation}
+    \label{eq:generalsde}
+    dx_t=f(x_t,t)dt+g(t)dW_t
+\end{equation}
 where \(W\) is the standard Wiener process, \(f(\cdot,t):\mathbb{R}^d\xrightarrow[]{}\mathbb{R}^d\) is a vector valued function called the drift coefficient of \(x_t\), and \(g(\cdot):\mathbb{R}\xrightarrow[]{}\mathbb{R}\) is a scalar function known as
 the diffusion coefficient of \(x_t\). The SDE admits a unique strong solution provided the coefficients are globally Lipschitz \cite{oksendal2003stochastic}, and \(p_T\) is chosen to be a tractable prior, typically a Gaussian with fixed mean and variance, that contains no information about \(p_0\).\\
 
@@ -99,7 +100,11 @@ The key insight is that the forward process admits a corresponding reverse-time 
 $$
 dx_t=\left[f(x_t, t)-g(t)^2\nabla_x\log p_t(x_t)\right]dt + g(t)d\bar{W}_t
 $$
-where \(\bar{W_t}\) is a standard Wiener process that flows back from \(T\) to \(0\). Since \(\nabla_x\log p_t(x_t)\) is unknown then we estimate it by using \(s_\theta(x_t,t)\).\\
+where \(\bar{W_t}\) is a standard Wiener process that flows back from \(T\) to \(0\). Since \(\nabla_x\log p_t(x_t)\) is unknown then we estimate it by using \(s_\theta(x_t,t)\). Importantly, Song et al. \cite{song2021score} showed that for any SDE (Eq.\ref{eq:generalsde}) there exists a corresponding deterministic Ordinary Differential Equation (ODE), called probability flow ODE, that produce the same family of marginal distributions \(\{p_t\}_{t\in[0,T]}\):
+$$
+dx_t=\left[f(x_t,t)-\frac12g(t)^2\nabla_x\log p_t(x_t)\right]dt
+$$
+substituting the intractable score with the learned one yields a Neural ODE, where given starting conditions $x_T\sim p_T$ we can deterministically sample, producing a sample from, approximately, \(p_0\). This sampling technique is possibly more efficient.\\
 
 Two specific SDE formulation that matched the SMLD and DDPM ones, in continuous time, hence when we assume that the number of noise steps \(N\xrightarrow[]{}\infty\), are: Variance Exploding (VE) and Variance Preserving (VP). The former sets \(f(\cdot,t)=0\) and is defined as:
 $$dx_t=\sqrt{\frac{d[\sigma^2(t)]}{dt}}dW_t$$
@@ -126,7 +131,7 @@ Evaluations (NFEs) to produce a single sample, and neither provides a principled
 answer to how noise levels should be chosen, nor how network inputs and outputs 
 should be scaled.
 
-\subsection{Elucidating the Design Space of Diffusion Models (EDM)}
+\section{Elucidating the Design Space of Diffusion Models (EDM)}
 
 Karras et al.\ \cite{karras2022elucidating} identify that prior formulations, including 
 DDPM and Song's SDEs, choose in a dependable way four conceptually distinct design choices: the noise schedule, the parametrisation of network inputs and outputs, the weighting 
@@ -198,7 +203,7 @@ with $\rho = 7$. The power-law schedule concentrates discretisation steps at
 small $\sigma$, where the ODE curvature is highest and denoising errors have the 
 greatest impact on sample quality, which is why instead of \(\rho=3\) that equalize the truncation error at each step they chose higher values. This resulted in equivalent sample quality to DDPM with approximately $7\times$ fewer NFEs. Moreover, the sampler is independent of the training procedure, therefore a model trained with the EDM loss could be evaluated with any compatible ODE or SDE solver.
 
-\subsection{Conditional Score-Based Diffusion for Time Series (CSDI)}
+\section{Conditional Score-Based Diffusion for Time Series (CSDI)}
 
 Standard diffusion models, as described in the previous sections, learn to 
 generate unconditionally from $p_{\text{data}}$. For time series imputation, or more generally for conditional generation, given a subset of conditioning observed values related to the target entries we can compute the conditional distribution $p(x^{\text{ta}} | x^{\text{co}})$. CSDI \cite{tashiro2021csdi} make this possible via a masking mechanism that is applied both at training and inference time.\\
