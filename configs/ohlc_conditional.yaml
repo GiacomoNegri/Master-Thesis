@@ -22,8 +22,8 @@ diffusion:
 process:
   sde_type: ve
   noise_schedule: exponential
-  sigma_min: 0.01
-  sigma_max: 5.0                                  # data is z-scored (σ≈1 per window), 5σ covers tails
+  sigma_min: 0.002
+  sigma_max: 3.5                                  # data is z-scored (σ≈1 per window), 5σ covers tails
   beta_min: 0.01
   beta_max: 20.0
   N: 1000                                         # SDE discretisation steps
