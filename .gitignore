@@ -38,3 +38,4 @@ jobs_launcher.py
 .claude/
 
 tea_debug.log
+*.onnx
