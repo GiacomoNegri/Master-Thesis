@@ -61,3 +61,5 @@ replication/
 src/
 train_gbm.sh
 wandb/
+
+*.pdf
