@@ -41,5 +41,7 @@ run_diagnostics_locally.py
 
 #claude
 .claude/
+figures/
+*.onnx
 
 tea_debug.log
