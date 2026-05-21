@@ -1,4 +1,5 @@
 \chapter{Theoretical Framework}
+\label{ch:theoretical_framework}
 Theoretical framework key discussion points:
 \begin{enumerate}
     \item GBM paper assumptions and reference to equations in chapter 2 with motivation of why something could be in this case
@@ -10,5 +11,165 @@ Theoretical framework key discussion points:
     \item include a training algorithm
     \item effective masking strategy
     \item effective transformer strategy and the paper from which these are taken
-    \optimizer inner working and decoupling
+    \item optimizer inner working and decoupling
 \end{enumerate}
+The following chapter builds on the previous one, detailing the theoretical 
+structure and motivation for the implemented model.
+
+\section{Adapting the Framework to OHLC Financial Time Series}
+
+OHLC data are formally represented as \(X \in \mathbb{R}^{K \times L}\), 
+where \(K = 4\) denotes the number of channels (Open, High, Low, Close) 
+and \(L\) the number of time steps per window. This partition is 
+financially motivated: the opening price \(O_t\) is fixed at the start of 
+the trading session, while the intraday extremes \(H_t\) and \(L_t\) are 
+continuously observed throughout it, encoding both the direction of price 
+movements and the microstructure of intraday volatility. The closing price 
+\(C_t\), by contrast, is determined only at the end of the session. Two 
+derived quantities are particularly informative as conditioning signals: the 
+overnight return \(O_t / C_{t-1}\), which captures the opening gap with 
+respect to the previous close, and the intraday range \(H_t - L_t\), a 
+well-established realised volatility proxy \cite{parkinson1980extreme}. Moreover, log-returns are often preferred to nominal prices because of their stationarity \cite{cont2001empirical}, which makes them comparable across time and assets, removing underlying price trends.
+
+According to what stated before data can be partitioned into a conditioning set 
+\(\mathcal{C} = \{O, H, L\}\) and a target set \(\mathcal{T} = \{C\}\), 
+and the model is trained to learn the conditional distribution
+\[
+    p\!\left(X^{\text{ta}} \mid X^{\text{co}} = x^{\text{co}}\right),
+\]
+where \(X^{\text{ta}}\) denotes the Close channel and \(X^{\text{co}}\) 
+denotes the observed OHL channels.\\
+
+Daily prices are constrained by the ordering relationship 
+\(L_t \leq \min(O_t, C_t) \leq \max(O_t, C_t) \leq H_t\). 
+When the series is expressed as log-returns (Eq.\ref{eq:log_returns}), this constraint no longer 
+admits a closed form, since it involves nonlinear inequalities across cumulative sums of returns rather than individual observations. 
+Nevertheless, it remains a building structural property of the 
+data-generating process. On the other hand, because the Gaussian diffusion kernel has 
+unbounded support, there is no guarantee that generated Close values 
+will respect the implied bounds \([L_t,\, H_t]\). No constraint-preserving 
+mechanism is applied in this work; the ordering relationship is further 
+disrupted by feature-wise global normalisation, which rescales each channel independently and therefore does not preserve the relative ordering between  channels.
+
+\section{SDE and the VE Instantiation}
+As discussed in Sec.~\ref{sec:scorediffmodels}, diffusion models were 
+originally developed in distinct formulations before being unified under 
+the EDM framework. These structures are relevant for the first part of the 
+exploration, which aims to replicate the results of \textit{A 
+diffusion-based generative model for financial time series via geometric 
+Brownian motion} by Gihun Kim et al.\cite{kim2025diffusion}. Meanwhile, for the second part we will move towards the EDM framework.\\
+
+The first part is identical in its implementation to Song et al. in \cite{song2021score}. For the latter part, we can look at the forward VE formulation, Eq.\ref{eq:reverse_sde}, the corresponding reverse SDE for VE case is \[dx=-\sigma\nabla_x \log p_\sigma(x)\] when defined in \(\sigma\)-space (with \(\sigma\) decresing) instead of \(t\)-space, due to EDM conditioning modeling choices. With the deterministic counterparts, the probability flow ODE is:
+\[
+\frac{dx}{d\sigma}=-\frac{\sigma}{2}\nabla_x\log p_\sigma(x)
+\]
+
+As discussed in Sec.\ref{sec:scorediffmodels} we can use DSM to brigde the gap between denoising and score matching. It turned out that DSM is a special case of a statistical result known as Tweedie’s formula, which provides a relationship between score functions and conditional expectations. For noisy observation Eq.\ref{eq:forward_ve} the optimal MMSE denoiser is:
+\[
+D^*(x_t;\sigma)=\mathbb{E}\left[X_0|X_t=x_t\right]
+\]
+therefore denoiser and score function are connected by:
+\[
+\nabla_{x_t}\log p_\sigma(x_t)=\frac{D^*(x_t;\sigma)-x_t}{\sigma^2}
+\]
+implying that rather than learn the score field directly, which is hard and ill-conditioned regression target in high dimensions, we train a denoiser \(D_\theta\) to approximate \(D^*\), and we later recover the score analytically.
+
+\section{EDM}
+\textbf{Preconditioning} Training a raw network \(F_\theta (x_t;\sigma)\) directly as a denoiser is impractical because according to 
+Eq.\ref{eq:forward_ve} the inputs have variance \(\sigma_{\text{data}}+\sigma^2\), which means that the network sees input that varies by orders of magnitude across the distribution of \(\sigma\), which display different noise levels, as discussed in Sec.\ref{sec:edm_literature}. EDM addresses both problems introducing preconditioned denoiser \(D_\theta\) (Eq.\ref{eq:edm_denoiser}).\\
+
+Follows the role of each preconditioning parameter:
+\begin{itemize}
+    \item \(c_{\text{in}}(\sigma)\), input normalization: \(F_\theta\) receives as input \(c_{\text{in}}(\sigma)\cdot x_t\), and because, according to Eq.\ref{eq:forward_ve}, \(\operatorname{Var}(x_t)=\sigma_{\text{data}^2}+\sigma^2\), then we scale the input to unit variance.
+    \item \(c_{\text{skip}}(\sigma)\), skip connection: is the Wiener filter coefficient, or the optimal linear estimator of \(x_0\) given \(x_t\). This is dervied from the MMSE argument, and it controls how much of the noisy input is passed directly to the output.
+    \item \(c_{\text{out}}(\sigma)\), output scaling: rescales the network output so that the effective training targets also have unit variance, similarly to \(c_{\text{in}}(\sigma)\).
+\end{itemize}
+In summary, \(c_{\text{skip}}(\sigma)\cdot x\) is the linear prior, while \(c_{\text{out}}(\sigma)\cdot F_\theta(\cdot)\) is the non-linear correction on top of the prior. It is important to pay attention at the crossover point where \(\sigma=\sigma_{\text{data}}\) and \(c_{\text{skip}}(\sigma)=0.5\), meaning both terms contributes equally. For instance, with \(\sigma_{\text{data}}=1\) then if \(\sigma<1\), the network makes tiny corrections and if \(\sigma>5\), the network reconstruct almost entirely from noise.\\
+
+[IMAGE OF THE CURVES FOR sigma\_data=1 AND OTHER SIGMAS]\\
+
+\(c_{\text{noie}}(\sigma)\) is not derived from a requirement,but it is empirically chosen for numerical stability, and it is used to compresses the large dynamic range of \(\sigma\) into a bounded scalar, where the \(\frac14\) prevents saturation of the network's embedding layer. This actually is connected to CSDI's diffusion--step embedding (Sec.\ref{sec:model_architecture}), since it encodes the noise level for the network.\\
+
+
+\textbf{Sigma distribution} The EDM framework was originally calibrated on ImageNet \cite{deng2009imagenet} 
+with \(\sigma_{\text{data}} = 0.5\), \(P_{\text{mean}} = -1.2\), and 
+\(P_{\text{std}} = 1.2\). These defaults reflect the pixel-value statistics 
+of natural images after unit-variance normalisation. OHLC log-returns differ 
+in a relevant respect: after global standardisation, each channel has unit 
+variance by construction, so \(\sigma_{\text{data}} = 1.0\) is the 
+appropriate choice. It is important to notice that \(P_{\text{mean}}\) shift the distribution, where lower values concentrate training on fine-grained reconstruction, and viceversa. \(P_{\text{std}}\) control the spread, where wider spread gives more uniform coverage. It is important that the \(\sigma_{\max}\) used for the prior sampling in the reverse process, covers approximately 95\% of the distribution \(\ln (\sigma)\sim \mathcal{N}(P_{\text{mean}}, P_{\text{std}})\). Whether \(P_{\text{mean}}\) and \(P_{\text{std}}\) 
+also have empirically optimal values for this domain remains an open calibration question only partially addressed in this work.\\
+
+\textbf{Loss function} EDM varies also the loss function characterization by moving away from noise prediction as in Eq.\ref{eq:csdi_objective}, to a "clean" data prediction, Eq.\ref{eq:edm_loss}, with different weighting, as discussed in Sec.\ref{sec:edm_literature}.
+
+\section{Architecture}
+\label{sec:model_architecture}
+U-Net architectures \cite{ronneberger2015unet} have been widely adopted 
+in diffusion models for image generation, where hierarchical downsampling 
+and convolutional inductive biases provide strong local structure and 
+multi-scale spatial representations. Financial time series, however, are 
+not characterised by local spatial regularity but by long-range temporal 
+dependencies and contemporaneous cross-channel relationships, for which 
+the locality assumptions of convolutions are a poor fit. Transformers, by 
+contrast, attend globally over the input by construction, making them 
+theoretically better suited to this domain.\\
+
+As discussed in Sec.~\ref{sec:csdi_literature}, CSDI factors the full 
+\(K \times L\) attention into a temporal Transformer operating over 
+\(L \times L\) and a feature Transformer operating over \(K \times K\), 
+reducing complexity from \(\mathcal{O}\!\left((KL)^2\right)\) to 
+\(\mathcal{O}(L^2 + K^2)\). For \(L = 512\) and \(K = 4\) this 
+represents a reduction by a factor of roughly \((KL)^2 / (L^2 + K^2) 
+\approx 16\). Beyond computational savings, the factored design is also 
+structurally motivated: temporal attention captures \emph{when} patterns 
+occur within each channel, while feature attention captures \emph{how} 
+channels covary contemporaneously. Attending jointly over the time-feature 
+product space would mix these two distinct dependency 
+types, making the learned representations harder to interpret and 
+potentially trickier to optimise.\\
+
+\textbf{Input projection} A pointwise \(1 \times 1\) convolution projects the two-channel input ( signal and mask channels) into a \(d\)-dimensional 
+latent space, where \(d\) is a free hyperparameter, lifting the two input channels into a richer representation before any attention is applied.\\
+
+\textbf{Temporal and feature Transformer layers.} A new temporal 
+\((K, L, d)\) and feature \((L, K, d)\) Transformer is initialised per 
+residual layer rather than shared across them. Weight sharing would 
+constrain all layers to operate at the same level of abstraction, 
+limiting the model's ability to build hierarchical representations; 
+independent weights allow each layer to specialise. This is consistent 
+with the CSDI implementation \cite{tashiro2021csdi}. Multi-head attention 
+\cite{vaswani2017attention} allows the model to attend to multiple 
+dependency patterns simultaneously within each axis, for instance it could modeled 
+short-range trend and longer-range volatility clustering along the temporal axis, or spread relationships along the feature axis.\\
+
+\textbf{Gated residual blocks.} Following the WaveNet structure 
+\cite{oord2016wavenet}, each block applies \(\sigma(\cdot) \odot 
+\tanh(\cdot)\), where \(\odot\) denotes elementwise multiplication. The 
+sigmoid \(\sigma(\cdot)\) acts as the selection gate, producing a value 
+in \([0,1]\) that controls how much of the candidate update is passed 
+forward. The \(\tanh(\cdot)\) acts as the content filter, producing a 
+bounded, signed activation in \([-1,1]\) that encodes \emph{what} 
+information to write. Their product suppresses uninformative information 
+while preserving significant features. This could be useful for FTS, since Signal-to-Noise Ratio (SNR) is often low and dependents on the regime, training window.\\
+
+\textbf{Embeddings.} Three embedding mechanisms operate at distinct 
+levels of the architecture, each with a well-defined scope. The 
+\emph{diffusion-step embedding} (sinusoidal basis projected through two 
+linear layers with SiLU activations) encodes \(c_{\text{noise}}(\sigma)\) 
+in the EDM phase and the discrete step index \(t\) in the replication 
+phase, telling the network the current noise level. The \emph{side information embeddings} 
+carry two complementary signals: a time embedding (sinusoidal basis 
+followed by a learnable linear projection) encodes the absolute calendar 
+position of each time step, allowing the model to associate positions 
+with recurring temporal patterns such as month-end or seasonal effects 
+that are persistent in the training data; a feature 
+embedding is a learned lookup table over channel indices \(\{O, H, L, 
+C\}\), giving the model an explicit representation of each channel, enabling channel-specific denoising. Finally, the 
+\emph{sinusoidal positional encoding}, following \cite{kim2025diffusion}, 
+encodes the relative position of each element within the sequence and is 
+injected immediately before each Transformer call, both along the 
+temporal and feature axes. Without this the Transformer would be permutation-invariant, which would destroy the temporal order, which is essential for financial return sequences.
+
+
+
+
