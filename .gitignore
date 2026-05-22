@@ -25,7 +25,9 @@ datasets/
 checkpoints/
 outputs/
 *.sh
+*.onnx
 
+figures/
 image/
 err/
 out/
