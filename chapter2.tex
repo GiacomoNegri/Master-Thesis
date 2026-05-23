@@ -1,5 +1,7 @@
 \chapter{Literature Review}
+\label{ch:literature_review}
 \section{Financial Time Series and Stylized Facts}
+\label{sec:fts_literature}
 In order to understand the methodology, it is important to define what a financial time series (FTS) is and which statistical challenges do their modeling pose.
 
 One of the core focus of FTS analysis are log-returns, expressed as:
@@ -25,6 +27,7 @@ FTS exhibit four core characteristics:
 It is important to state that financial returns do not follow a Gaussian behavior, indeed large price fluctuations occur more frequently than under Brownian motion, breaking random walk assumption \cite{mandelbrot1963variation, fama1965random}. Moreover, the fact that returns have polynomial-like tail decay \cite{cont2001empirical} implies that, contrary to what was believed before \cite{mandelbrot1963variation}, they have finite variance, and often unstable of infinite fourth moments \cite{gopikrishnan1999scaling}. Therefore, it is modern consensus that returns are not necessarily symmetric Lévy-stable process \cite{mantegna1995scaling}, but that assuming a Gaussian tail distribution would significantly underestimate risk.\\
 
 \section{Classical Models}
+\label{sec:classical_models_literature}
 Classical FTS models often address the non-Gaussian behavior by extending upon the basic Brownian motion framework because of its favourable framework. In particular, GARCH-like models \cite{bollerslev1986generalized} focus on time-varying volatility, where by construction the model is conditionally heteroskedastic, meaning that large shocks are followed by higher volatility and period of calm by lower ones. Merton's jump diffusion \cite{merton1976option} instead build on the continuous Geometric Brownian Motion (GBM) by adding a Poisson jump component, the jumps. These are two common model to capture stylized facts about financial data, which is why they would work as baseline.\\
 
 In a GARCH(1,1) we have that the conditional variance behaves accordingly to:\(\sigma_t^2=\omega+\alpha\epsilon_{t-1}^2+\beta \sigma_{t-1}^2\), where \(\omega>0\) and \(\alpha, \beta \ge 0\), with a persistent condition \(\alpha+\beta<1\). Despite their parsimony, GARCH models remain a competitive benchmark in financial time-series modelling due to their interpretability, tractable likelihood, and well-known statistical properties.\\
@@ -127,10 +130,11 @@ with drift \(f(x_t,t)=-\frac12\beta(t)x_t\) and \(g(t)=\sqrt{\beta(t)}\). This s
 The reverse SDE can be solved numerically through different samplers. 
 Song \cite{song2021score} employs the Euler-Maruyama method, a first-order 
 discretisation of the reverse-time SDE:
-$$
+\begin{equation}
+\label{eq:euler_maruyama}
 x_{t+dt} \leftarrow x_t + \left[f(x_t,t) - g(t)^2 s_\theta(x_t,t)\right]|dt| 
 + g(t)\sqrt{|dt|}\,\epsilon, \quad \epsilon \sim \mathcal{N}(0,I)
-$$
+\end{equation}
 though any suitable numerical solver can in principle be substituted.
 
 This continuous formulation has the advantage of decoupling the noise schedule 
@@ -206,11 +210,12 @@ on ImageNet \cite{deng2009imagenet}.\\
 \textbf{Sampler design}
 At inference time, EDM employs a deterministic second-order Heun ODE solver with 
 a $\rho$-power noise schedule:
-$$
-\sigma_i = \left(\sigma_{\text{max}}^{1/\rho} + \frac{i}{N-1}
+\begin{equation}
+    \label{eq:edm_sampler}
+    \sigma_i = \left(\sigma_{\text{max}}^{1/\rho} + \frac{i}{N-1}
 \left(\sigma_{\text{min}}^{1/\rho} - \sigma_{\text{max}}^{1/\rho}\right)
 \right)^{\!\rho}, \quad i = 0, \dots, N-1
-$$
+\end{equation}
 with $\rho = 7$. The power-law schedule concentrates discretisation steps at 
 small $\sigma$, where the ODE curvature is highest and denoising errors have the 
 greatest impact on sample quality, which is why instead of \(\rho=3\) that equalize the truncation error at each step they chose higher values. This resulted in equivalent sample quality to DDPM with approximately $7\times$ fewer NFEs. Moreover, the sampler is independent of the training procedure, therefore a model trained with the EDM loss could be evaluated with any compatible ODE or SDE solver.
@@ -332,12 +337,12 @@ Another inconsistency arises between [FIG. X] and the described use of time, pos
 However, [FIG. X] clearly shows that the time embeddings is provided only after the Transformer layer.\\
 
 In addition, Kim et al.\cite{kim2025diffusion} did not release a common dataset, source code, or key implementation details, including the masking strategy (e.g., unconditional, random, or alternatives), the model’s loss function or prediction target (noise or score), kernel size, transformer hyperparameters, activation functions, optimizer configuration, and others. All these aspects will be examined in detail in Ch.\ref{ch:theoretical_framework} and Ch.\ref{ch:methodology_training}.
-\section{Summary}
+% \section{Summary}
 
-This chapter has established the theoretical foundations upon which the present work is built. We began by characterising financial time series through their core stylized facts and discussed the related challenges with modeling such properties. Subsequently, we presented the classical approaches GARCH and Merton's jump diffusion, along with their ability to capture some of these features through parametric assumptions, and their structural limitations.\\
+% This chapter has established the theoretical foundations upon which the present work is built. We began by characterising financial time series through their core stylized facts and discussed the related challenges with modeling such properties. Subsequently, we presented the classical approaches GARCH and Merton's jump diffusion, along with their ability to capture some of these features through parametric assumptions, and their structural limitations.\\
 
-Deep generative models lift this restriction, but GANs and VAEs introduce their own pathologies, in particular mode collapse and over-smoothing, respectively, that are particularly damaging in the heavy-tailed, asymmetric setting such as financial returns. Score-based diffusion models offer a more principled alternative: a stable training objective grounded in denoising score matching, a well-understood probabilistic framework, and the flexibility to condition generation on partial observations.\\
+% Deep generative models lift this restriction, but GANs and VAEs introduce their own pathologies, in particular mode collapse and over-smoothing, respectively, that are particularly damaging in the heavy-tailed, asymmetric setting such as financial returns. Score-based diffusion models offer a more principled alternative: a stable training objective grounded in denoising score matching, a well-understood probabilistic framework, and the flexibility to condition generation on partial observations.\\
 
-Within this family, the EDM framework of Karras et al.\cite{karras2022elucidating} provides a structured decomposition of the design space by using preconditioning, loss weighting, noise distribution, and sampler, that resolves several heuristic choices left open by DDPM and Song et al. \cite{ho2020ddpm, song2021score}. CSDI \cite{tashiro2021csdi} then introduces the conditional masking mechanism and the factored two-dimensional attention architecture that make conditional generation over multivariate time series more feasible. Together, these two frameworks form the direct theoretical basis of this thesis, which combines EDM preconditioning and loss weighting with a CSDI-style backbone to generate conditional values.\\
+% Within this family, the EDM framework of Karras et al.\cite{karras2022elucidating} provides a structured decomposition of the design space by using preconditioning, loss weighting, noise distribution, and sampler, that resolves several heuristic choices left open by DDPM and Song et al. \cite{ho2020ddpm, song2021score}. CSDI \cite{tashiro2021csdi} then introduces the conditional masking mechanism and the factored two-dimensional attention architecture that make conditional generation over multivariate time series more feasible. Together, these two frameworks form the direct theoretical basis of this thesis, which combines EDM preconditioning and loss weighting with a CSDI-style backbone to generate conditional values.\\
 
-A prior attempt to unify these ideas in a financial setting was made by Kim et al.\cite{kim2025diffusion}, who derived a VE-type forward process from GBM dynamics by cancelling the drift term in log-price space and applying CSDI as the backbone. While conceptually motivated, the paper contains reproducibility limitations and a notable internal inconsistency: the theoretical derivation operates on log-prices, yet the reported experiments train on log-returns. Furthermore, claims that the GBM formulation inherently captures volatility clustering and heavy tails are overstated: once the model is trained on log-returns rather than log-prices, the price-level scaling that motivates those claims no longer applies directly to the training signal. The present work takes this prior contribution as context and background, adopts the same CSDI backbone, but replaces the VE-style SDE formulation with the EDM framework, which offers a more principled and flexible treatment of the noise schedule, preconditioning, and loss weighting.
+% A prior attempt to unify these ideas in a financial setting was made by Kim et al.\cite{kim2025diffusion}, who derived a VE-type forward process from GBM dynamics by cancelling the drift term in log-price space and applying CSDI as the backbone. While conceptually motivated, the paper contains reproducibility limitations and a notable internal inconsistency: the theoretical derivation operates on log-prices, yet the reported experiments train on log-returns. Furthermore, claims that the GBM formulation inherently captures volatility clustering and heavy tails are overstated: once the model is trained on log-returns rather than log-prices, the price-level scaling that motivates those claims no longer applies directly to the training signal. The present work takes this prior contribution as context and background, adopts the same CSDI backbone, but replaces the VE-style SDE formulation with the EDM framework, which offers a more principled and flexible treatment of the noise schedule, preconditioning, and loss weighting.

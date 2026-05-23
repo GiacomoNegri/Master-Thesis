@@ -1,0 +1,71 @@
+\chapter{Evaluation Methodology}
+\label{ch:evaluation_methodology}
+This chapter presents the evaluation methodology applied to both unconditional and
+conditional generated data. Multiple metrics are used to assess distributional similarity,
+moment reproduction, path-wise behaviour, and conditional predictive quality, combining
+quantitative metrics with visual diagnostics.
+
+\section{Distributional Similarity}
+
+To assess the similarity between the real and generated data distributions, two
+complementary metrics are reported: the Wasserstein distance \cite{arjovsky2017wasserstein},
+which captures global distributional shifts, and the Kolmogorov--Smirnov (KS) test
+\cite{massey1951kolmogorov}, which provides a nonparametric hypothesis test for
+distributional differences. Both metrics are computed on the log-return datasets
+\(\mathcal{D}_{\text{train}}\) and \(\mathcal{D}_{\text{gen}}\).\\
+
+\textbf{Kolmogorov--Smirnov} The KS statistic measures the maximum distance between
+the empirical cumulative distribution functions of two samples. Given two empirical
+cumulative distributions \(F(x)\) and \(G(x)\), it is defined as:
+\[
+    D_{\text{KS}} = \sup_x |F(x) - G(x)|
+\]
+where \(\sup_x\) denotes the supremum over all values of \(x\). The KS test is
+advantageously nonparametric and sensitive to both location and shape differences;
+however, its maximum deviation is dominated by the bulk of the distribution and is
+relatively insensitive to tail discrepancies.\\
+
+\textbf{Wasserstein Distance} The Wasserstein distance measures the minimal effort
+required to transform one distribution into another. For two cumulative distributions
+\(F(x)\) and \(G(x)\), it is defined as:
+\[
+    W_1(F, G) = \int_{-\infty}^{\infty} |F(x) - G(x)|\, dx
+\]
+Unlike the KS statistic, which reports only the maximum deviation, \(W_1\) integrates
+the discrepancy across the entire support, providing a global measure of distributional
+mismatch.
+
+\section{Aggregate Statistics}
+
+To obtain a more comprehensive view of generative quality, the pathwise mean, variance,
+skewness, and kurtosis are computed for each window in \(\mathcal{D}_{\text{train}}\) and
+\(\mathcal{D}_{\text{gen}}\). Scalar metrics such as KS and \(W_1\) flatten temporal
+structure; pathwise higher-order moments instead provide direct evidence of whether the
+model reproduces non-Gaussian behaviour and the stylized facts of financial time series,
+with particular attention to skewness and excess kurtosis. The latter must be interpreted
+with caution: as discussed in Sec.~\ref{sec:fts_literature}, the fourth moment is likely
+unbounded for financial time series, so while it is computationally finite on a limited
+dataset, it may be infinite for the true underlying population.
+
+\section{Visualizations}
+Complementary with the statistics we plotted different sets of graphs.\\
+
+\textbf{Quantile--Quantile (QQ) Plots} quantile comparison between pooled generated and real returns are useful to check whether a model who can match the bulk if it still misses the tails. By plotting quantiles of \(D_{\text{gen}}\)\ again the quantiles of \(D_{\text{train}}\).\\
+\textbf{ECDF Plots} It is a visual complement to the KS test. Plot the Empirical Cumulative Distribution Functions \(\hat{F}_{\text{gen}}\) and \(\hat{F}_{\text{data}}\) together with the KS gap marked. This makes the KS statistic more interpretable,\\
+\textbf{Unnormalized Paths} Invert the normalisation to recover approximate price-level trajectories. This is primarily a sanity and plausibility check, which check the model's ability to generate price levels. In this case "unnormalize" means applying the inverse of global z-score.
+
+\section{Conditional evaluation}
+When evaluating the conditional generation we are evaluating the quality of the conditional generation, specifically we will be focusing on CRPS (Continuous Rank Probability Score) and interval coverage.\\
+
+\textbf{CRPS} This metrics is measured as:
+\[
+\text{CRPS}(\hat{F}, y) = \mathbb{E}_{\hat{F}} \left[|X - y|\right] - \tfrac{1}{2}\,\mathbb{E}_{\hat{F}}\left[|X - X'|\right]
+\]
+
+where \(X,X'\) are independent draws from the predictive ensemble \(\hat{F}\) and \(y\) is the observed Close. CRPS \cite{matheson1976scoring} is a proper scoring rule: it rewards both accuracy (the first term) and sharpness (the second term penalises spread). It reduces to MAE when the distribution collapses to a point forecast, so you can interpret CRPS as a calibration-adjusted MAE, where lower is better. This score is also used in CSDI \cite{tashiro2021csdi}.\\
+
+\textbf{Interval Coverage} This metrics is measure for nominal levels, for instance for \(\alpha \in \{0.01,0.05,0.5,0.75,0.99\}\). Then we compute the empirical coverage:
+\[
+coverage_{1-\alpha} = \frac{1}{N} \sum_{t=1}^{L} \sum_{n=1}^{N_t} \mathbf{1}\left[y_{n,t} \in \bigl[q_{\alpha/2}(n,t),\; q_{1-\alpha/2}(n,t)\bigr]\right]
+\]
+where \(q\) are ensemble quantiles, which means they are quantiles computed from the set of multiple forecasts the model produces for the same target value, or set of conditioning information. A well-calibrated model has the empirical value approximately identical to nominal. Positive gap means underconfidence (intervals too wide), negative gap means overconfidence (intervals too narrow).

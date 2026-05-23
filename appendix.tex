@@ -1,25 +1,12 @@
 \chapter{Appendix}
 \label{app:math_foundations}
 
-This appendix provides expanded mathematical background for the classical models
-discussed in Section~2.2 and the stochastic framework underlying them. It is
-intended as a self-contained reference that deepens the treatment of Brownian
-motion, It\^{o}'s Lemma, the Poisson process, and the structural limitations of
-GARCH and Merton's jump-diffusion model, without repeating the main exposition.
-Throughout this appendix, $t$ denotes calendar time; when referencing
-Eq.~(\ref{eq:blackscholes}) from the main text, $t$ plays the role of $\tau$.
+This appendix provides expanded mathematical background and explanation for the mathematical foundations and literature review in chapter \ref{ch:literature_review}.
 
 \section{Brownian Motion}
 \label{app:sec:bm}
 
-Brownian motion is the continuous-time stochastic process that underlies both
-the white-noise innovations of GARCH and the diffusion component of the GBM in
-Eq.~(\ref{eq:blackscholes}). It was first formally constructed by Wiener (1923)
-and is therefore also called the \textit{Wiener process}; the name
-\textit{Brownian motion} traces back to the botanist Robert Brown, who in 1827
-observed the erratic movement of pollen particles suspended in water, a
-phenomenon later explained by Einstein (1905) as the effect of random molecular
-collisions.\\
+Brownian motion is the continuous-time stochastic process. It was first formally constructed by Wiener, which is why is also called the \textit{Wiener process}.
 
 \textbf{Definition.} A stochastic process $\{W_t\}_{t \geq 0}$ defined on a
 probability space $(\Omega, \mathcal{F}, \mathbb{P})$ is called a
@@ -30,29 +17,15 @@ probability space $(\Omega, \mathcal{F}, \mathbb{P})$ is called a
     t_n$, the increments $W_{t_1} - W_{t_0},\, W_{t_2} - W_{t_1},\, \ldots,\,
     W_{t_n} - W_{t_{n-1}}$ are mutually independent random variables.
     \item \textit{Stationary Gaussian increments}: for any $0 \leq s < t$,
-    \begin{equation}
+    \[
         \label{eq:bm_increment}
         W_t - W_s \;\sim\; \mathcal{N}(0,\, t - s).
-    \end{equation}
+    \]
     \item \textit{Continuous paths}: the map $t \mapsto W_t$ is almost surely
     continuous.
 \end{enumerate}
 
-These four axioms are minimal and mutually consistent: any two of them, together
-with mild regularity, imply the others \cite{oksendal2003stochastic}.\\
-
-\textbf{Intuition: the limit of a random walk.} Brownian motion can be understood
-as the continuous-time limit of a symmetric random walk. Partition $[0, T]$ into
-$N$ steps of length $\Delta t = T/N$, and at each step $k$ add $+\sqrt{\Delta t}$
-or $-\sqrt{\Delta t}$ with equal probability. The position after $k$ steps is
-$Z_k = \sum_{i=1}^k \xi_i \sqrt{\Delta t}$ where $\xi_i \in \{-1, +1\}$ with
-equal probability. The variance of $Z_k$ is $k \cdot \Delta t$, which remains
-finite as $N \to \infty$ provided $\Delta t = T/N$. By the Central Limit
-Theorem, $Z_{\lfloor tN \rfloor}$ converges in distribution to $W_t \sim
-\mathcal{N}(0, t)$. The $\sqrt{\Delta t}$ scaling is not optional: scaling by
-$\Delta t$ would collapse all increments to zero, while scaling by a constant
-would produce infinite variance. This is the only scaling that gives a
-well-defined non-degenerate continuous-time limit.
+These four axioms are minimal and mutually consistent: any two of them imply the others \cite{oksendal2003stochastic}.
 
 \subsection{Key Statistical Properties}
 
@@ -73,7 +46,6 @@ and has mean zero:
     \operatorname{Cov}(W_s, W_t)
     &= \operatorname{Cov}\bigl(W_s,\; W_s + (W_t - W_s)\bigr) \\
     &= \operatorname{Var}(W_s) + \underbrace{\operatorname{Cov}(W_s,\,
-       W_t - W_s)}_{=\,0}
     \;=\; s \;=\; \min(s, t).
 \end{align*}
 Consequently $\operatorname{Corr}(W_s, W_t) = \sqrt{s/t}$ for $s \leq t$.
@@ -104,70 +76,12 @@ and zero mean of the increment. The martingale property encodes the absence of
 predictable drift in the noise: knowing the path up to $s$, the best prediction
 of $W_t$ is simply $W_s$, with no systematic upward or downward tendency.
 
-\subsection{Quadratic Variation and Non-Differentiability}
-
-A central and counter-intuitive property of BM is that its paths are almost
-surely continuous yet nowhere differentiable. This is not a pathological edge
-case: it holds with probability one and is intimately connected to the
-\textit{quadratic variation} of the process.\\
-
-\textbf{Quadratic variation.} For a partition $\Pi = \{0 = t_0 < t_1 < \cdots
-< t_n = t\}$ with mesh $\|\Pi\| = \max_i(t_{i+1} - t_i)$, the quadratic
-variation of $W$ over $[0, t]$ is:
-\begin{equation}
-    \label{eq:quadratic_variation}
-    [W]_t \;=\; \lim_{\|\Pi\| \to 0}\; \sum_{i=0}^{n-1}(W_{t_{i+1}} -
-    W_{t_i})^2 \;=\; t,
-\end{equation}
-where the limit holds in $L^2$. To verify this, write $\delta_i = W_{t_{i+1}}
-- W_{t_i}$:
-\[
-    \mathbb{E}\!\left[\sum_i \delta_i^2\right] = \sum_i(t_{i+1} - t_i) = t,
-\]
-\[
-    \operatorname{Var}\!\left[\sum_i \delta_i^2\right]
-    = \sum_i \operatorname{Var}(\delta_i^2)
-    = \sum_i 2(t_{i+1} - t_i)^2
-    \leq 2\|\Pi\|\sum_i(t_{i+1} - t_i)
-    = 2\|\Pi\|\, t \;\xrightarrow{\|\Pi\|\to 0}\; 0.
-\]
-The mean is $t$ and the variance vanishes, so the sum converges in $L^2$ to $t$,
-establishing Eq.~(\ref{eq:quadratic_variation}). This result is written
-compactly in It\^{o} calculus as the \textit{multiplication rules}:
-\begin{equation}
-    \label{eq:ito_product_rules}
-    (dW_t)^2 = dt, \qquad dW_t\cdot dt = 0, \qquad (dt)^2 = 0.
-\end{equation}
-
-For comparison, any deterministic differentiable function $f$ has zero quadratic
-variation: its increments are $O(\Delta t)$ so their squares sum to
-$O(\|\Pi\|) \to 0$. The non-zero quadratic variation of BM means that it
-oscillates so violently on small time scales that the sum of squared increments
-is macroscopically significant. Two direct consequences follow:
-\begin{itemize}
-    \item \textit{Infinite total variation}: $\sum_i |\delta_i| \to \infty$ as
-    $\|\Pi\| \to 0$ almost surely. BM paths cannot be approximated by smooth
-    curves in the sense of bounded variation.
-    \item \textit{Nowhere differentiability}: if $W$ were differentiable at
-    some point $t$, then $|\delta_i| = O(\Delta t)$, giving $\sum_i \delta_i^2
-    = O(\|\Pi\|) \to 0$, contradicting $[W]_t = t > 0$. Hence no derivative
-    exists almost surely at any point.
-\end{itemize}
-
-Financially, nowhere differentiability means that instantaneous
-``speed'' $dW_t/dt$ does not exist: price changes driven by BM are inherently
-irregular at every time scale and carry no predictable directional momentum from
-one instant to the next.
-
 \section{It\^{o}'s Lemma and the Black-Scholes Model}
 \label{app:sec:ito}
 
 Ordinary calculus provides the chain rule: if $f$ is smooth and $x(t)$ is
 differentiable, then $df = f'(x)\,dx$. Because BM paths are not differentiable,
-this rule fails when $x$ is driven by a Brownian motion. The extra term in the
-quadratic variation, $(dW_t)^2 = dt \neq 0$, means that the second-order
-contribution in the Taylor expansion is of order $dt$ and cannot be discarded.
-It\^{o}'s Lemma provides the correct generalisation.
+this rule fails when $x$ is driven by a Brownian motion. It\^{o}'s Lemma provides the correct generalisation.
 
 \subsection{Statement and Heuristic Proof}
 
@@ -180,24 +94,18 @@ stochastic processes satisfying standard integrability conditions
 \cite{oksendal2003stochastic}. Let $f(t, x)$ be a function that is once
 continuously differentiable in $t$ and twice continuously differentiable in $x$.
 Then:
-\begin{equation}
+\[
     \label{eq:ito_lemma}
     df(t, X_t) = \left(\frac{\partial f}{\partial t}
     + a_t\, \frac{\partial f}{\partial x}
     + \frac{1}{2}\, b_t^2\,
     \frac{\partial^2 f}{\partial x^2}\right)\! dt
     + b_t\, \frac{\partial f}{\partial x}\, dW_t.
-\end{equation}
+\]
 
 The term $\frac{1}{2} b_t^2 \frac{\partial^2 f}{\partial x^2}\, dt$ is the
-\textbf{It\^{o} correction}. It is absent in ordinary calculus and arises
+It\^{o} correction. It is absent in ordinary calculus and arises
 because the stochastic increment has a non-negligible second-order contribution.
-In vector form, for a function $f(t, \mathbf{X}_t)$ of a
-multi-dimensional It\^{o} process $d\mathbf{X}_t = \mathbf{a}_t\,dt +
-\mathbf{B}_t\,d\mathbf{W}_t$, the correction becomes
-$\frac{1}{2}\operatorname{tr}\!\left(\mathbf{B}_t\mathbf{B}_t^{\top}
-\nabla^2 f\right)dt$, but the one-dimensional case suffices for the
-applications in Chapter~2.\\
 
 \textit{Heuristic derivation.} Expand $f(t + dt, X_{t+dt})$ by Taylor's theorem
 to second order in $dX_t$ and first order in $dt$:
@@ -211,7 +119,7 @@ Substitute $dX_t = a_t\, dt + b_t\, dW_t$ and expand $(dX_t)^2$:
 \[
     (dX_t)^2 = a_t^2(dt)^2 + 2a_t b_t\, dt\, dW_t + b_t^2(dW_t)^2.
 \]
-Applying the rules in Eq.~(\ref{eq:ito_product_rules}):
+Applying It\^{o}'s product rule we get:
 \[
     (dX_t)^2 = b_t^2\, dt.
 \]
@@ -222,13 +130,11 @@ the surviving contributions:
        + \frac{\partial f}{\partial x}(a_t\, dt + b_t\, dW_t)
        + \frac{1}{2}\frac{\partial^2 f}{\partial x^2}\, b_t^2\, dt,
 \]
-which rearranges to Eq.~(\ref{eq:ito_lemma}). The rigorous proof replaces
-this Taylor expansion argument with an $L^2$ limit over sequences of
-partitions \cite{oksendal2003stochastic}; the intuition is identical.
+which rearranges to Eq.~(\ref{eq:ito_lemma}).
 
 \subsection{Proof of the Black-Scholes Price Equation}
 
-Chapter~2 states that applying It\^{o}'s Lemma to $\log S_t$ under GBM
+Chapter \ref{ch:literature_review} states that applying It\^{o}'s Lemma to $\log S_t$ under GBM
 (Eq.~\ref{eq:blackscholes}) yields the log-normal price formula. We derive
 this in full here. The GBM is the It\^{o} process with drift coefficient
 $a_t = \mu S_t$ and diffusion coefficient $b_t = \nu S_t$:
@@ -269,7 +175,7 @@ Since $W_t \sim \mathcal{N}(0, t)$, the log-return over $[0, t]$ satisfies:
     \nu^2 t\right).
 \end{equation}
 Log-returns are normally distributed with mean proportional to $t$ and variance
-proportional to $t$, confirming the statement in Section~2.2 and the foundation
+proportional to $t$, confirming the statement in Section \ref{sec:classical_models_literature} and the foundation
 of the Black--Scholes option pricing model \cite{black1973pricing}.\\
 
 \textbf{Interpreting the It\^{o} correction.} The term $-\frac{1}{2}\nu^2$ is
@@ -300,7 +206,7 @@ e^{\mu t}$ derived directly from the SDE.
 \label{app:sec:poisson_merton}
 
 The Poisson process is the canonical model for events that arrive randomly,
-infrequently, and with no predictable timing — in the financial context, sudden
+infrequently, and with no predictable timing, these in the financial context are sudden
 discontinuous jumps in asset prices caused by earnings surprises, credit events,
 regulatory changes, or macroeconomic shocks. It complements Brownian motion by
 introducing discontinuous sample paths, allowing the model to generate
@@ -348,36 +254,16 @@ mean $1/\lambda$:
 The memoryless property of the exponential distribution mirrors the independent
 increments of $P_t$: the time until the next jump does not depend on how long
 one has already waited. This is a deliberate modelling choice; in reality, jump
-arrivals in markets are not memoryless (see Section~\ref{app:sec:limitations}).\\
-
-\textbf{Martingale structure.} The \textit{compensated Poisson process}
-$\widetilde{P}_t = P_t - \lambda t$ is a martingale with zero mean and
-$\operatorname{Var}(\widetilde{P}_t) = \lambda t$. The deterministic term
-$\lambda t$ is the \textit{compensator}: it removes the upward drift of $P_t$,
-playing the same role for the Poisson process that zero mean plays for $W_t$.
+arrivals in markets are not memoryless (see Section~\ref{app:sec:limitations}).
 
 \subsection{Merton's Jump-Diffusion Model}
 
 Merton \cite{merton1976option} extended the GBM (Eq.~\ref{eq:blackscholes}) by
 superimposing a compound Poisson jump component onto the continuous diffusion:
-\begin{equation}
+\[
     \label{eq:merton_sde_app}
     dS_t = \mu\, S_t\, dt + \nu\, S_t\, dW_t + S_{t^-}(J - 1)\, dP_t.
-\end{equation}
-The three terms have distinct roles:
-\begin{itemize}
-    \item $\mu\, S_t\, dt$: the continuous expected-return drift, as in GBM.
-    \item $\nu\, S_t\, dW_t$: the diffusion noise, modelling continuous
-    day-to-day fluctuations with constant volatility $\nu > 0$.
-    \item $S_{t^-}(J - 1)\, dP_t$: the jump term. Here $S_{t^-}$ denotes
-    the price immediately \textit{before} a possible jump at time $t$,
-    $P_t$ is a Poisson process with intensity $\lambda$ independent of $W_t$,
-    and $J > 0$ is a random jump multiplier, i.i.d.\ across jump events and
-    independent of both $W_t$ and $P_t$. When $dP_t = 1$, the price jumps
-    from $S_{t^-}$ to $S_{t^-} \cdot J$; when $dP_t = 0$, the jump term
-    vanishes.
-\end{itemize}
-
+\]
 \textbf{Distribution of the jump multiplier.} As discussed in Section~2.2, the
 log-return distribution under Merton's model is a Poisson-weighted mixture of
 Gaussians. This result requires $\log J$ to be normally distributed; consistent
@@ -387,9 +273,7 @@ distributed:
     \label{eq:jump_lognormal_app}
     \log J \;\sim\; \mathcal{N}(\mu_j,\, \sigma_J^2).
 \end{equation}
-The parameter $\mu_j$ is the mean log-jump size: $\mu_j > 0$ corresponds to
-jumps that are on average upward, $\mu_j < 0$ to downward jumps, and $\mu_j = 0$
-to symmetric jumps. The parameter $\sigma_J^2$ controls the dispersion of jump
+The parameter $\mu_j$ is the mean log-jump size, while the parameter $\sigma_J^2$ controls the dispersion of jump
 sizes; larger $\sigma_J$ produces a wider range of jump magnitudes and heavier
 tails. The log-normal specification also guarantees $J > 0$, ensuring that
 prices remain positive after any jump.
@@ -405,7 +289,7 @@ $\log(J)$ to the log-price. The resulting log-price dynamics are:
                 + \nu\, dW_t + \log J\, dP_t.
 \]
 Integrating over $[0, t]$, conditional on exactly $n$ jumps occurring in
-$[0, t]$ (i.e., $P_t = n$), the log-return is a sum of the continuous
+$[0, t]$, the log-return is a sum of the continuous
 Gaussian component and $n$ independent log-normal jump contributions:
 \[
     \log\!\left(\frac{S_t}{S_0}\right) \;\Bigg|\; P_t = n
@@ -426,37 +310,12 @@ $p_n = e^{-\lambda t}(\lambda t)^n / n!$:
 \end{equation}
 where $\phi(\cdot;\, m, v)$ denotes the Gaussian density with mean $m$ and
 variance $v$. This is the Poisson-weighted mixture of Gaussians stated in
-Section~2.2.\\
-
-\textbf{Intuition.} Each term in the sum corresponds to a scenario with exactly
-$n$ jumps. The $n = 0$ term (probability $e^{-\lambda t}$, close to one when
-$\lambda$ is small) is the pure GBM return, which is Gaussian. Each additional
-jump shifts the component mean by $\mu_j$ and inflates the component variance
-by $\sigma_J^2$, spreading the overall distribution. Three properties emerge:
-\begin{itemize}
-    \item \textit{Leptokurtosis}: the mixture has heavier tails than a single
-    Gaussian because the variance-inflated components for $n \geq 1$ place more
-    probability mass on large deviations.
-    \item \textit{Skewness}: when $\mu_j \neq 0$, the jump mean shifts all
-    components with $n \geq 1$, creating asymmetry in the unconditional
-    distribution.
-    \item \textit{Multi-modality} (for large $|\mu_j|$): if the jump mean is
-    large relative to the component widths, distinct peaks can emerge
-    corresponding to the zero-jump and one-jump components.
-\end{itemize}
-These properties represent a genuine improvement over pure GBM in capturing
-the stylized facts of fat tails and occasional large price moves that are
-relevant to financial time series (Section~2.1).
+Section \ref{sec:classical_models_literature}.
 
 \section{Further Limitations of GARCH and Merton's Model}
 \label{app:sec:limitations}
 
-Section~2.2 identifies the core limitation shared by both models: parametric
-distributional assumptions restrict their expressivity, and both require
-re-estimation whenever the data-generating regime changes. This section
-elaborates on the structural limitations of each model individually, expanding
-on why they remain insufficient baselines for capturing all the stylized facts
-described in Section~2.1.
+Section \ref{sec:classical_models_literature} identifies the core limitation shared by both models, therefore in this section it would be expanded the discussion on the structural limitations of each model individually and expanding explanations.
 
 \subsection{Further Limitations of GARCH}
 
@@ -465,16 +324,12 @@ variance equation $\sigma_t^2 = \omega + \alpha\epsilon_{t-1}^2 +
 \beta\sigma_{t-1}^2$ depends on $\epsilon_{t-1}^2$, which is symmetric in the
 sign of the innovation: a negative shock $\epsilon_{t-1} = -c$ and a positive
 shock $\epsilon_{t-1} = +c$ of the same magnitude produce identical increases in
-$\sigma_t^2$. This contradicts the leverage effect (Section~2.1), which
-documents that negative returns are followed by disproportionately higher
-future volatility. By construction, GARCH(1,1) is unable to produce this
-asymmetry. Extensions such as GJR-GARCH and EGARCH introduce asymmetric terms,
-but at the cost of additional parameters and reduced parsimony.\\
+$\sigma_t^2$. This contradicts the leverage effect. By construction, GARCH(1,1) is unable to produce this asymmetry.\\
 
 \textbf{Tail inadequacy.} Even when innovations are drawn from a Student-$t$ or
 Generalised Error Distribution rather than a Gaussian, the tail behaviour of the
 GARCH conditional distribution remains insufficiently heavy for many financial
-series. Section~2.1 documents power-law tails with exponents $\alpha \in [3,5]$,
+series. Section \ref{sec:fts_literature} documents power-law tails with exponents $\alpha \in [3,5]$,
 implying that returns have finite variance but potentially infinite or unstable
 fourth moments. Standard GARCH with Gaussian innovations has finite unconditional
 moments of all orders, and while heavier-tailed innovations extend the tail
@@ -482,21 +337,9 @@ decay, precisely matching an empirical power-law over the full range of quantile
 requires distributional choices that are not robust across assets or time
 periods.\\
 
-\textbf{Integrated GARCH and non-stationarity.} The stationarity condition
-$\alpha + \beta < 1$ ensures that the unconditional variance
-$\bar{\sigma}^2 = \omega / (1 - \alpha - \beta)$ is finite. In practice,
-maximum likelihood estimation on financial returns frequently yields
-$\hat\alpha + \hat\beta \approx 1$, placing the model on the boundary of
-non-stationarity (IGARCH), or even outside it on short samples. In the IGARCH
-case, the unconditional variance is infinite, making the model formally
-inconsistent with any stationary long-run distribution, yet short-horizon
-conditional variance forecasts remain well-defined. This boundary behaviour
-is not cleanly handled within the GARCH(1,1) framework and complicates both
-inference and the interpretation of estimated parameters.\\
-
 \textbf{Short-memory volatility autocorrelation.} In GARCH(1,1), the
 autocorrelation of squared returns decays exponentially at rate
-$(\alpha + \beta)^k$ for lag $k$. Empirically, as noted in Section~2.1,
+$(\alpha + \beta)^k$ for lag $k$. Empirically, as noted in Section \ref{sec:fts_literature},
 volatility autocorrelation decays hyperbolically,
 $\operatorname{Corr}(|r_t|, |r_{t+k}|) \sim k^{-\beta}$ with
 $\beta \in [0.1, 0.5]$ \cite{cont2001empirical}, characteristic of a
@@ -506,23 +349,12 @@ when $\alpha + \beta$ is close to one.\\
 
 \textbf{Absence of jumps.} GARCH generates smooth conditional variance paths in
 discrete time. It cannot produce discontinuous price gaps or isolated large moves
-of the kind associated with earnings surprises, default events, or flash crashes.
-High-volatility episodes can cause large returns, but the returns must accumulate
-step by step; an instantaneous price discontinuity is structurally excluded.\\
-
-\textbf{Multivariate extension.} Extending GARCH to $K$ assets requires modelling
-the full $K \times K$ conditional covariance matrix. Models such as DCC-GARCH
-parametrize the correlation dynamics, but the number of free parameters still
-grows as $O(K^2)$, making estimation numerically fragile for moderate $K$ and
-effectively infeasible for the high-dimensional cross-sections that are typical
-of portfolio applications. This is a fundamental obstacle for joint modelling of
-multi-asset systems, unlike the deep generative models discussed in Sections~2.3
-and~2.4.\\
+of the kind associated with earnings surprises, default events, or flash crashes.\\
 
 \textbf{Re-estimation requirement.} GARCH parameters are estimated on a
 historical window and are fixed at prediction time. If the market transitions
-between volatility regimes — for instance from a low-volatility expansion to a
-financial crisis — the estimated parameters become stale. The model must then be
+between volatility regimes, for instance from a low-volatility expansion to a
+financial crisis, the estimated parameters become stale. The model must then be
 re-fitted from scratch on the new regime's data, a process that requires
 identifying the regime transition, accumulating sufficient data, and repeating
 estimation. Real-time adaptation is not natively supported.
@@ -547,28 +379,19 @@ Eq.~(\ref{eq:merton_return_dist}) decays faster than any power law, which is
 inconsistent with the empirically observed tail exponents $\alpha \in [3,5]$
 \cite{cont2001empirical}. The log-Gaussian jump size assumption therefore
 produces excess kurtosis and wide tails in practice, but cannot fully reproduce
-the power-law tail decay of real return distributions. Replacing the Gaussian
-jump distribution with a heavier-tailed alternative (e.g., a stable or
-double-exponential distribution) relaxes this constraint but either introduces
-infinite variance or makes the likelihood function intractable.\\
+the power-law tail decay of real return distributions.\\
 
 \textbf{No volatility clustering.} The diffusion component $\nu\, S_t\, dW_t$
 has constant volatility $\nu$. Jumps introduce excess kurtosis and fat tails,
 but they do not produce persistent time-varying conditional variance: between
 jump events the model reverts to a constant-volatility GBM, and the occurrence
 of a jump does not alter the volatility of subsequent diffusion increments.
-Volatility clustering — extended periods of elevated or depressed volatility —
-is therefore structurally absent in Merton's model. Combining the jump component
-with a stochastic volatility diffusion (as in the Bates extension) partially
-addresses this, but requires additional parameters and substantially complicates
-estimation.\\
+Volatility clustering, extended periods of elevated or depressed volatility,
+is therefore structurally absent in Merton's model.\\
 
 \textbf{No leverage effect.} Both the diffusion noise $\nu\, dW_t$ and the jump
 multiplier $J$ are specified symmetrically with respect to the sign of the
-return: neither component introduces the asymmetric response whereby negative
-returns are followed by higher future volatility more strongly than positive
-returns of the same magnitude. Merton's model therefore cannot reproduce the
-negative lead-lag correlation $L(k) < 0$ defined in Section~2.1.\\
+return. Merton's model therefore cannot reproduce the negative lead-lag correlation $L(k) < 0$ defined in Section~2.1.\\
 
 \textbf{Independence of jumps and diffusion.} The model assumes that the Poisson
 jump process and the Brownian diffusion are independent: jumps are no more likely
@@ -584,17 +407,7 @@ parameters $(\lambda, \mu_j, \sigma_J^2)$ are poorly identified unless the sampl
 is long and contains clearly distinguishable jump events. With limited data, a
 small number of outliers can dominate the estimation of $\lambda$ and $\sigma_J^2$,
 leading to unstable parameter estimates. As with GARCH, all parameters are fixed
-after calibration and must be re-estimated if the market regime changes.\\
-
-\textbf{Fixed parametric jump distribution.} More broadly, any fixed
-specification of the jump size distribution imposes a parametric constraint on
-the shape of the return tails. If the true jump distribution is complex,
-multi-modal, or time-varying, a fixed log-Gaussian form will be misspecified in
-a way that cannot be corrected by changing $\mu_j$ or $\sigma_J^2$ alone. This
-is the fundamental tension between the analytical tractability of Merton's model
-and the empirical complexity of real markets, and it motivates the use of
-non-parametric, data-driven generative models such as the one developed in this
-thesis.
+after calibration and must be re-estimated if the market regime changes.
 
 \section{Deep Generative Models}
 \label{app:sec:dgm}
@@ -613,8 +426,7 @@ $G_\theta$, the discriminator that maximises $V(G,D)$ is:
 \]
 Substituting $D^*$ into $V$, the generator's objective becomes minimising the
 Jensen--Shannon divergence $\operatorname{JSD}(p_{\text{data}} \| p_{G_\theta})$,
-bounded in $[0, \log 2]$. When $p_{G_\theta}$ is far from $p_{\text{data}}$
-— the typical situation early in training — $\operatorname{JSD} \approx \log 2$
+bounded in $[0, \log 2]$. When $p_{G_\theta}$ is far from $p_{\text{data}}$, which is typical in early training, $\operatorname{JSD} \approx \log 2$
 (saturated), and the gradient of the original generator loss
 $\mathbb{E}_z[\log(1 - D(G_\theta(z)))]$ with respect to $\theta$ is
 essentially zero: the near-optimal discriminator assigns near-zero probability
@@ -654,22 +466,13 @@ The reconstruction gradient counteracts this only if the decoder
 $p_\theta(x|z)$ actively \emph{uses} $z$: when the decoder is expressive
 enough to reconstruct $x$ adequately from the prior mean alone
 (i.e., from $z \approx 0$), the reconstruction gradient with respect to
-$\phi$ vanishes — the decoder no longer needs information encoded in $z$.\\
+$\phi$ vanishes, meaning the decoder no longer needs information encoded in $z$.\\
 
 \textbf{Why it is a stable fixed point.} Once $q_\phi(z|x) \approx p(z)$
 for all $x$, the KL term is zero, and the reconstruction gradient remains
 negligible because the decoder has learned to ignore $z$. The result is a
 zero-gradient region that is difficult to escape without deliberate intervention
-(e.g., annealing the KL weight). For a single Gaussian latent dimension with
-$q_\phi(z|x) = \mathcal{N}(\mu_\phi(x), \sigma_\phi^2(x))$, the per-dimension
-KL is:
-\[
-    D_{KL}\!\left(\mathcal{N}(\mu, \sigma^2)\,\|\,\mathcal{N}(0,1)\right)
-    = \frac{1}{2}\left(\mu^2 + \sigma^2 - \log\sigma^2 - 1\right),
-\]
-which is zero at $\mu = 0$, $\sigma^2 = 1$. Any deviation from the prior
-requires a reconstruction benefit to be worthwhile — a benefit that disappears
-once the decoder stops using that dimension. Over-smoothing, also discussed in
+(e.g., annealing the KL weight). Over-smoothing, also discussed in
 Chapter~2, is a related but distinct failure: even without full collapse, the
 Gaussian decoder assumption minimises squared reconstruction error, which
 systematically suppresses variance and compresses the tails of the generated
@@ -681,7 +484,7 @@ distribution.
 \subsection{Score Matching}
 \label{app:subsec:sm}
 
-Chapter~2 introduced the Fisher divergence as the natural objective for
+Chapter \ref{ch:literature_review}  introduced the Fisher divergence as the natural objective for
 learning the score function, noting that it is intractable because it requires
 $\nabla_x \log p(x)$. Hyv\"arinen \cite{hyvarinen2005estimation} showed that
 the Fisher divergence can be rewritten in a form computable without the true
@@ -860,7 +663,7 @@ passed forward.
 \subsection{PixelCNN}
 
 PixelCNN \cite{oord2016pixel} generates images autoregressively by factorising
-the joint over pixels in raster order. To implement this with a convolutional
+the joint over pixels in Raster order (left to right, row by row, top to bottom). To implement this with a convolutional
 network, it uses \textit{masked convolutions}: the convolutional kernel is
 multiplied by a binary mask that zeroes out weights corresponding to future
 pixels, ensuring the receptive field never sees what it should be predicting.\\
@@ -906,7 +709,7 @@ Two further components introduced by WaveNet pass to all successors:
 DiffWave \cite{kong2021diffwave} adopts the WaveNet-style residual blocks
 (gated activations, dilated convolutions, skip aggregation, conditioning
 injection) but removes the causality constraint. Since a diffusion model
-denoises the entire signal at once — not sequentially — future context is
+denoises the entire signal at once, not sequentially, future context is
 available and causal convolutions become unnecessary. Replacing them with
 \textit{bidirectional} dilated convolutions allows the receptive field to
 look both forward and backward, capturing symmetric temporal context.\\
@@ -1008,3 +811,7 @@ $F_\theta$ must reconstruct $x_0$ almost entirely from scratch. The non-linear
 residual $c_{\text{out}}(\sigma)\cdot F_\theta(\cdot)$ accounts for what the
 Wiener filter cannot: the non-Gaussian, non-linear structure of the data
 distribution beyond its second-order statistics.
+
+
+\section{Training Configuration}
+\label{app:sec:training_config}
