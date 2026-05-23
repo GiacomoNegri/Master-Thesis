@@ -21,7 +21,7 @@ process:
   sigma_min: 0.01
   sigma_max: 1.0
   beta_min: 0.01
-  beta_max: 1.0
+  beta_max: 8.0
   model_steps: 200
   eps: 1.0e-2
   enforce_observed: true

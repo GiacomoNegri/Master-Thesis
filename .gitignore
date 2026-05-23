@@ -27,7 +27,9 @@ outputs/
 *.sh
 *.tar
 *.gz
+*.onnx
 
+figures/
 err/
 out/
 images/
