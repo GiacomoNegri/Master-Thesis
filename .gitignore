@@ -33,6 +33,7 @@ err/
 out/
 images/
 garch_parameters/
+notebooks/
 
 jobs/
 replication/
