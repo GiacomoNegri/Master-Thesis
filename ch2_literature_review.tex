@@ -336,6 +336,8 @@ Another inconsistency arises between [FIG. X] and the described use of time, pos
 \end{quote}
 However, [FIG. X] clearly shows that the time embeddings is provided only after the Transformer layer.\\
 
+Based on the model architecture presented in [FIG. X], the diffusion-step, temporal, and positional embeddings were interpreted as being injected independently at every residual block, consistently with the approach adopted in CSDI \cite{tashiro2021csdi}, where each residual layer receives its own embedding signal. This reading is further supported by [FIG. X] itself, which depicts the embedding injection as a per-block operation rather than a single prepended conditioning. Notably, Kim et al.\ \cite{kim2025diffusion} describe the time embedding as combining sinusoidal functions with learnable vectors, while the positional embedding relies solely on fixed sinusoidal functions with no learnable parameters; this distinction suggests that the positional embedding is the only one among the three that contains no trainable weights, and accordingly it was not included as a separate learnable layer in the replicated model.\\
+
 In addition, Kim et al.\cite{kim2025diffusion} did not release a common dataset, source code, or key implementation details, including the masking strategy (e.g., unconditional, random, or alternatives), the model’s loss function or prediction target (noise or score), kernel size, transformer hyperparameters, activation functions, optimizer configuration, and others. All these aspects will be examined in detail in Ch.\ref{ch:theoretical_framework} and Ch.\ref{ch:methodology_training}.
 % \section{Summary}
 
