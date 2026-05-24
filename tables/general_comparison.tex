@@ -1,0 +1,102 @@
+% Required packages: booktabs, multirow, array
+% \usepackage{booktabs, multirow, array}
+\begin{table}[htbp]
+\label{tab:comparisons}
+\centering
+\footnotesize
+\renewcommand{\arraystretch}{1.35}
+\setlength{\tabcolsep}{5pt}
+\begin{tabular}{
+  >{\itshape}p{2.0cm}
+  p{3.3cm}
+  p{4.65cm}
+  p{4.65cm}
+}
+\toprule
+\normalfont\textbf{Category}
+  & \textbf{Dimension}
+  & \textbf{Phase 1 \textemdash{} Replication}
+  & \textbf{Phase 2 \textemdash{} EDM-CSDI} \\
+\midrule
+%--- Problem setup ---------------------------------------------------
+\multirow{4}{2.0cm}{Problem setup}
+  & Primary objective
+  & Replicate Kim et al.\cite{kim2025diffusion}; validate VE, VP, and GBM-inspired
+    variants on unconditional univariate generation
+  & Conditional generation of Close log-returns given observed O, H, L;
+    CSDI backbone integrated within the EDM framework \\[3pt]
+  & Channels $K$
+  & $K=1$ (univariate close log-returns)
+  & $K=4$ (OHLC; all channels as log-returns relative to $C_{t-1}$) \\[3pt]
+  & Conditioning / masking
+  & Unconditional: $m^{co}=0$; loss computed on all
+    entries, no side information
+  & \texttt{predict\_close}: $\{O,H,L\}$ fully observed, $\{C\}$ fully
+    masked; fixed deterministic split \\[3pt]
+  & Sequence length / stride
+  & $L=2048$,\; $s=400$
+  & $L=512$,\; $s=100$ \\
+\midrule
+%--- Diffusion process -----------------------------------------------
+\multirow{4}{2.0cm}{Diffusion process}
+  & Forward SDE family
+  & VE; VP;
+    GBM-inspired VE in log-price space
+  & VE-style forward process within EDM preconditioning\\[3pt]
+  & $\sigma_{data}$
+  & Implicit; absorbed into the choice of $\sigma_{\max}$/$\sigma_{\min}$
+  & $\sigma_{data}=1.0$ by construction
+    (per-channel $z$-score normalisation) \\[3pt]
+  & Noise schedule parameters
+  & VE: $\sigma_{\max}{=}1,\;\sigma_{\min}{=}0.01$;\;
+    GBM: $\sigma_{\max}{=}10,\;\sigma_{\min}{=}0.1$;\;
+    VP: $\beta_{\max}{=}8,\;\beta_{\min}{=}0.01$
+  & $P_{mean}{=}{-1.4}$,\;$P_{std}{=}1.6$
+    (ablation-tuned) \\[3pt]
+  & Noise level sampling
+  & $t\sim\mathcal{U}[0,1]$
+  & $\ln\sigma\sim\mathcal{N}(P_{mean},P_{std}^{2})$;\\
+\midrule
+%--- Training objective ----------------------------------------------
+\multirow{5}{2.0cm}{Training objective}
+  & Prediction target
+  & Noise $\boldsymbol{\epsilon}$ (DSM)
+  & Clean data $x_{0}$ (MMSE) \\[3pt]
+  & Loss function
+  & $\mathbb{E}\!\left[
+      \|\boldsymbol{\epsilon}
+        - \boldsymbol{\epsilon}_{\theta}(x_{t},t)
+      \|^{2}_{m^{ta}}
+    \right]$
+  & $\mathbb{E}\!\left[
+      \lambda(\sigma)
+      \|D_{\theta}(x_{t};\sigma)-x_{0}
+      \|^{2}_{m^{ta}}
+    \right]$ \\[3pt]
+  & Loss weighting $\lambda$
+  & $\lambda(\sigma_{i})=\sigma_{i}^{2}$\;
+  & $\lambda(\sigma)=c_{out}(\sigma)^{-2}$\;\\[3pt]
+  & Preconditioning
+  & None; raw network $F_{\theta}(x_{t};\,t)$
+  & $D_{\theta}=c_{skip}\,x
+      +c_{out}\,F_{\theta}(c_{in}\,x;\,
+      c_{noise})$,\; with $\sigma_{data}{=}1.0$ \\[3pt]
+  & Diffusion-step embedding
+  & Discrete step index $t$
+    (sinusoidal basis $+$ two linear layers with SiLU)
+  & $c_{noise}(\sigma)=\tfrac{1}{4}\ln\sigma$;
+    compresses the dynamic range of $\sigma$ to a bounded scalar \\
+\midrule
+%--- Sampling --------------------------------------------------------
+\multirow{2}{2.0cm}{Sampling}
+  & Numerical sampler
+  & Euler--Maruyama and probability flow ODE
+  & Heun second-order predictor--corrector on the probability flow ODE\\[3pt]
+  & Sampler--training coupling
+  & Coupled
+  & Decoupled \\
+\bottomrule
+\end{tabular}
+\caption{Design differences between Phase~1 (replication of Kim et al., 2025) and
+Phase~2 (EDM-CSDI).}
+\end{table}

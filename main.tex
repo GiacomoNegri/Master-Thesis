@@ -5,6 +5,8 @@
 \setmainfont{Arial}
 \usepackage{setspace}
 
+\usepackage{booktabs, multirow, array}
+
 
 %%IMPORTED PACKAGES
 \usepackage{amsmath}
@@ -94,19 +96,22 @@ In asnwering the previous question, the following contributions were achieved:
 In conclusion this thesis this thesis contributes to the exploration of diffusion model for financial time series, while contributing to empirically validating the results and generalizing the design framework to enable easier replicability and higher level of training choices.
 This work commences with a literature review that cover financial time series modeling, specifically starting from classical methods to deep learning ones, and specificities of EDM and CSDI implementations. Subsequently, the theoretical framework is provided to the reader, discussing time series modeling, stochastic differential equations, and mathematical foundation of diffusion models. Next, it will be presented the architectural and training settings, as well as how EDM fit within this picture. It will follow the presentation of the dataset and pre-processing, and lastly the discussion of results, experiments, limitations, and future work.
 
+A summarising table is displayed here to show the comparison between the two phases Tab.\ref{tab:comparisons}
+\include{tables/general_comparison}
+
 %Chapter 2, look at chapter2.tex
-\include{chapter2}
+\include{ch2_literature_review}
 
-\include{chapter3}
+\include{ch3_theoretical_framework}
 
-\include{chapter4}
+\include{ch4_data_setup}
 
-\include{chapter5}
+\include{ch5_evaluation_methodology}
 
 
-\chapter{Experiments and Results}
+\include{ch6_exp_results}
 
-\chapter{Discussion}
+\include{ch7_discussion}
 
 \chapter{Conclusion}
 
@@ -115,7 +120,7 @@ Your conclusion here.
 \bibliographystyle{plain}
 \bibliography{references}
 
-\appendix
-\include{appendix}
+% \appendix
+% \include{appendix}
 
 \end{document}

@@ -54,6 +54,18 @@ Complementary with the statistics we plotted different sets of graphs.\\
 \textbf{ECDF Plots} It is a visual complement to the KS test. Plot the Empirical Cumulative Distribution Functions \(\hat{F}_{\text{gen}}\) and \(\hat{F}_{\text{data}}\) together with the KS gap marked. This makes the KS statistic more interpretable,\\
 \textbf{Unnormalized Paths} Invert the normalisation to recover approximate price-level trajectories. This is primarily a sanity and plausibility check, which check the model's ability to generate price levels. In this case "unnormalize" means applying the inverse of global z-score.
 
+\section{FTS evaluation}
+For financial time series, a set of tools is used to compute the tail distribution,
+the autocorrelation function (ACF), the leverage effect, and a power-law tail
+exponent \(\alpha\). These metrics are implemented following the functions provided
+in \cite{stakahashy_fingan}, which was also adopted by Kim et al.\
+\cite{kim2025diffusion}, enabling a direct comparison with their results. For
+consistency, the power-law coefficient is computed using the same Python package
+\cite{alstott2014powerlaw}. The definitions of the tail distribution, \(\alpha\),
+volatility clustering, and the leverage effect are provided in
+Sec.~\ref{sec:fts_literature}.
+
+
 \section{Conditional evaluation}
 When evaluating the conditional generation we are evaluating the quality of the conditional generation, specifically we will be focusing on CRPS (Continuous Rank Probability Score) and interval coverage.\\
 

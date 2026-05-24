@@ -84,7 +84,7 @@ be noted as a limitation when interpreting training dynamics.
 This section discusses the most relevant training configuration and design choices;
 full hyperparameter details are provided in Appendix~\ref{app:sec:training_config}.\\
 
-The optimiser used throughout this project is \texttt{AdamW}
+The optimiser used throughout this project is the same used in CSDI \cite{tashiro2021csdi}, that is \texttt{AdamW}
 \cite{loshchilov2019decoupled}. At each step, the first and second moment estimates
 of the gradient, \(\hat{m}_t\) and \(\hat{v}_t\), are used to compute a per-parameter
 adaptive learning rate, while weight decay is applied directly to the parameters rather
