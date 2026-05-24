@@ -37,6 +37,11 @@ notebooks/
 
 jobs/
 replication/
+tables/
 jobs_launcher.py
-run_diagnostics_locally.py
+
 .claude/
+
+#specific files
+run_diagnostics_locally.py
+compare_tickers.py

@@ -23,6 +23,7 @@ Usage:
         --input_folder ./data/fake_fts_processed \
         --out_dir      ./checkpoints/merton \
         [--max_iter 5000]
+python fit_merton_from_csv.py --input_folder ./data/SNP500_individual_processed --out_dir ./checkpoints/merton --max_iter 1000
 """
 
 import argparse
