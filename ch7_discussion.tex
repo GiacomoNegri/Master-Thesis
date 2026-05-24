@@ -3,10 +3,13 @@
     \item Masking: one of the key advantages of CSDI is to use randmask, so that it can learn the global and local structure instead of being always conditional (like Classifier Free Guidance) -> Future work expand on this
     \item \(\sigma_{\text{data}}\) ablation
     \item exploration of other \(c_{noise}\)
+    \item We did not explore the contribution of EDM preconditioning and conditional information alone, meaning that it is impossible to discer which contributes what to improving prediction (if at all)
 \end{itemize}
 
 here are some \textbf{Future works}
 \begin{itemize}
     \item expan into the heavy tail diffusion model with focus on that literature
     \item learnable skip connection
+    \item testing the two components individually: conditional information and preconditioning EDM
+    \item add learnable parameter for PE (relative)
 \end{itemize}
