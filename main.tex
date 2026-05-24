@@ -79,11 +79,19 @@ To address the gap, this work proposes to combine the Conditional Score-based Di
 framework. The previous fusion is natural, since CSDI utilize a Transformer architecture, which was originally
 designed to capture temporal and feature dependencies for imputation, while EDM defines a clear and malleable design environment for diffusion models.\\
 
-Therefore, in this project we investigated the following research questions:
+The research is structured in two sequential phases. \textbf{Phase~1} replicates the work of Kim et al.\ \cite{kim2025diffusion}, implementing their VE-, VP-, and GBM-inspired SDE variants on univariate Close log-returns, in order to establish a validated baseline and expose the design ambiguities present in the original paper. \textbf{Phase~2} then extends this foundation by embedding a CSDI backbone within the EDM framework and introducing multivariate conditioning: the model learns to generate Close log-returns given the contemporaneous Open, High, and Low observations. This sequential structure is deliberate --- replication first ensures that any performance difference observed in Phase~2 can be attributed to the novel design choices rather than to implementation artefacts.\\
+
+The research questions addressed in the two phases are therefore distinct:
+
+\textbf{Phase 1 \textemdash{} Replication}
 \begin{itemize}
-    \item Are CSDI-based architectures able to learn stylized facts of financial time series?
+    \item Are CSDI-based architectures able to learn the stylized facts of financial time series?
+\end{itemize}
+
+\textbf{Phase 2 \textemdash{} EDM-CSDI}
+\begin{itemize}
     \item How do EDM design choices help in elucidating learning behaviors?
-    \item Does the introduction of conditioning information aid to improve model's performance?
+    \item Does the introduction of conditioning information aid in improving the model's performance?
 \end{itemize}
 
 In asnwering the previous question, the following contributions were achieved:
@@ -93,11 +101,11 @@ In asnwering the previous question, the following contributions were achieved:
     \item Stylized fact assessment: we evaluate the model’s ability to reproduce the core stylized facts of financial markets, specifically heavy tails, volatility clustering and leverage effects, often neglected in other generative models.
 \end{itemize}
 
-In conclusion this thesis this thesis contributes to the exploration of diffusion model for financial time series, while contributing to empirically validating the results and generalizing the design framework to enable easier replicability and higher level of training choices.
-This work commences with a literature review that cover financial time series modeling, specifically starting from classical methods to deep learning ones, and specificities of EDM and CSDI implementations. Subsequently, the theoretical framework is provided to the reader, discussing time series modeling, stochastic differential equations, and mathematical foundation of diffusion models. Next, it will be presented the architectural and training settings, as well as how EDM fit within this picture. It will follow the presentation of the dataset and pre-processing, and lastly the discussion of results, experiments, limitations, and future work.
+In conclusion, this thesis contributes to the exploration of diffusion models for financial time series, empirically validating the results and generalizing the design framework to enable easier replicability and a higher degree of control over training choices.
+This work commences with a literature review covering financial time series modeling from classical methods to deep learning ones, and the specifics of EDM and CSDI implementations. Subsequently, the theoretical framework is presented, discussing stochastic differential equations and the mathematical foundations of diffusion models. Next, the architectural and training settings are described, detailing how EDM fits within this picture. Chapters~\ref{ch:data_setup} and~\ref{ch:evaluation_methodology} cover data preprocessing and evaluation metrics shared across both phases; the experiments chapter then presents results organized sequentially, Phase~1 first and Phase~2 second. The thesis closes with a discussion of limitations and directions for future work.
 
-A summarising table is displayed here to show the comparison between the two phases Tab.\ref{tab:comparisons}
-\include{tables/general_comparison}
+The two phases differ along four structural dimensions: problem setup, diffusion process, training objective, and sampling strategy. Tab.~\ref{tab:comparisons} provides a compact side-by-side reference for these differences; the reader is encouraged to return to it while navigating the technical chapters.
+\include{table/general_comparison}
 
 %Chapter 2, look at chapter2.tex
 \include{ch2_literature_review}

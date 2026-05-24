@@ -1,0 +1,74 @@
+% Required packages: booktabs, multirow, array
+% \usepackage{booktabs, multirow, array}
+\begin{table}[htbp]
+\label{tab:training_setup}
+\centering
+\footnotesize
+\renewcommand{\arraystretch}{1.35}
+\setlength{\tabcolsep}{5pt}
+\begin{tabular}{
+  >{\itshape}p{2.0cm}
+  p{3.0cm}
+  p{4.5cm}
+  p{4.5cm}
+}
+\toprule
+\normalfont\textbf{Category}
+  & \textbf{Parameter}
+  & \textbf{Phase 1 \textemdash{} Replication}
+  & \textbf{Phase 2 \textemdash{} EDM-CSDI} \\
+\midrule
+%--- Data & preprocessing ------------------------------------------------
+\multirow{5}{2.0cm}{Data \& preprocessing}
+  & Channels $K$
+  & $K=1$ (close log-return)
+  & $K=4$ (OHLC) \\[3pt]
+  & Preprocessing
+  & Raw close log-return
+  & OHLC channels as log-returns relative to $C_{t-1}$;
+    per-channel $z$-score normalisation \\[3pt]
+  & Conditioning
+  & Unconditional;\; $m^{co}=\mathbf{0}$
+  & \texttt{predict\_close}: $\{O,H,L\}$ observed,
+    $\{C\}$ masked \\[3pt]
+  & Window length $L$
+  & $2048$ (${\approx}10$ years)
+  & $512$ (${\approx}2$ years) \\[3pt]
+  & Stride $s$
+  & $400$
+  & $100$ \\
+\midrule
+%--- Architecture (shared) -----------------------------------------------
+\multirow{2}{2.0cm}{Architecture}
+  & Model channels
+  & \multicolumn{2}{c}{$128$} \\[3pt]
+  & Layers
+  & \multicolumn{2}{c}{$6$} \\
+\midrule
+%--- Noise schedule ------------------------------------------------------
+\multirow{3}{2.0cm}{Noise schedule}
+  & $\sigma_{\max}$ / $\sigma_{\min}$
+  & VE:\;$\sigma_{\max}{=}1,\;\sigma_{\min}{=}0.01$;\;
+    GBM:\;$\sigma_{\max}{=}10,\;\sigma_{\min}{=}0.1$
+  & \textemdash \\[3pt]
+  & $\beta_{\max}$ / $\beta_{\min}$
+  & VP:\;$\beta_{\max}{=}8,\;\beta_{\min}{=}0.01$
+  & \textemdash \\[3pt]
+  & $P_{\text{mean}}$ / $P_{\text{std}}$
+  & \textemdash
+  & $P_{\text{mean}}{=}{-1.4},\;P_{\text{std}}{=}1.6$ \\
+\midrule
+%--- Training ------------------------------------------------------------
+\multirow{3}{2.0cm}{Training}
+  & LR schedule
+  & \multicolumn{2}{c}{cosine annealing} \\[3pt]
+  & $\eta_{\max}$ / $\eta_{\min}$
+  & $5\!\times\!10^{-4}$ / $1\!\times\!10^{-6}$
+  & $1\!\times\!10^{-4}$ / $1\!\times\!10^{-6}$ \\[3pt]
+  & Batch size
+  & \multicolumn{2}{c}{$64$} \\
+\bottomrule
+\end{tabular}
+\caption{Training setup for Phase~1 (replication of Kim et al.\ \cite{kim2025diffusion})
+and Phase~2 (EDM-CSDI). Parameters shared across both phases appear in merged cells.}
+\end{table}

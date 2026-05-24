@@ -61,5 +61,8 @@ replication/
 src/
 train_gbm.sh
 wandb/
+tables/
 
 *.pdf
+
+compare_tickers.py
