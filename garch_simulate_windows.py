@@ -23,6 +23,7 @@ Usage:
         --stride  100 \
         --num_samples 250 \
         [--seed 42]
+python garch_simulate_windows.py --input_folder ./data/SNP500_individual_processed --garch_dir ./checkpoints/garch --out_dir ./data/generated/garch --seq_len 512 --stride 100 --num_samples 10 --seed 42
 """
 
 import argparse
