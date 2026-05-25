@@ -203,7 +203,7 @@
 % side_info is centered above cond_projection
 \node[inputblock, above=0.35cm of condproj] (sideinfo) {
     \textbf{side\_info}\\
-    $(B,\mathrm{temb\_dim + femb\_dim+1})$
+    $(B,\mathrm{d_{temb}} + \mathrm{d_{femb}+1})$
 };
 
 % ADD — sinpe defined here, after sideinfo; x from sideinfo, y from diffproj
@@ -285,4 +285,6 @@
 \end{scope}
 
 \end{tikzpicture}
+\label{fig:res_block}
+\caption{\texttt{ResidualBlock} architecture CSDI's inspired.}
 \end{figure}
