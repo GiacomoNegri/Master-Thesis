@@ -815,3 +815,135 @@ distribution beyond its second-order statistics.
 
 \section{Training Configuration}
 \label{app:sec:training_config}
+
+\section{Model Dimension and Parameter Count}
+\label{app:model-parameter-count}
+
+This section derives the trainable-parameter count of the CSDI-based diffusion
+backbone for the two experimental configurations, which differ only in the
+number of target features~$K$.
+
+\subsection{Notation and model values}
+
+\[
+K = \texttt{target\_dim},\quad
+E_f = \texttt{featureemb},\quad
+E_t = \texttt{timeemb},\quad
+C = \texttt{channels},\quad
+D = \texttt{diffusion\_embedding\_dim},\quad
+R = \texttt{num\_layers}.
+\]
+
+The side-information width per (feature, time) location is
+$S = E_t + E_f + 1$,
+where the $+1$ is the conditioning mask channel.
+This is independent of $K$ because $E_f$ is the \emph{output} dimension of the
+feature embedding lookup, not the vocabulary size.
+The Transformer feed-forward width is $d_{\mathrm{ff}} = 4C$.
+Fixed values:
+\[
+E_f = 64,\quad
+E_t = 128,\quad
+C = 128,\quad
+D = 256,\quad
+S = 193,\quad
+I = 2,\quad
+R = 6.
+\]
+
+\subsection{Parameters shared across both configurations}
+
+\textbf{Non-backbone — time-embedding projection}
+$\mathrm{Linear}(E_t, E_t)$:
+\[
+E_t^2 + E_t = 128^2 + 128 = 16{,}512.
+\]
+
+\textbf{Outside residual blocks (\texttt{diff\_CSDI}):}
+input projection $\mathrm{Conv1d}(I,C,1)$, output projection
+$\mathrm{Conv1d}(C,1,1)$, and the two-layer diffusion embedding
+$2\,\mathrm{Linear}(D,D)$:
+\[
+N_{\mathrm{outside}}
+= (IC+C) + (C+1) + 2(D^2+D)
+= 384 + 129 + 131{,}584
+= 132{,}097.
+\]
+
+\textbf{Per residual block — four projection layers}
+(diffusion $\mathrm{Linear}(D,C)$, conditioning $\mathrm{Conv1d}(S,2C,1)$,
+mid and output $\mathrm{Conv1d}(C,2C,1)$ each):
+\[
+N_{\mathrm{proj}}
+= DC + 2CS + 4C^2 + 7C
+= 32{,}768 + 49{,}408 + 65{,}536 + 896
+= 148{,}608.
+\]
+
+\textbf{Per residual block — one Transformer encoder layer}
+($d_{\mathrm{model}}=C$, $d_{\mathrm{ff}}=4C$, contributions from
+multi-head attention $4C^2+4C$, feed-forward network $8C^2+5C$, and
+two layer-norm layers $4C$):
+\[
+N_{\mathrm{trans}}
+= 12C^2 + 13C
+= 196{,}608 + 1{,}664
+= 198{,}272.
+\]
+Every residual block contains at least one such layer (the time Transformer).
+
+\subsection{K-dependent parameters}
+
+Two components depend on $K$.
+
+\textbf{Feature embedding} $\mathrm{Embedding}(K,E_f)$: contributes
+$K\cdot E_f$ parameters.
+
+\textbf{Feature Transformer:} when $K>1$, each residual block contains a
+second Transformer encoder layer of identical architecture to the time
+Transformer, operating across the feature axis ($N_{\mathrm{trans}}$
+additional parameters per block). For $K=1$ this layer is not instantiated.
+
+\begin{table}[h]
+\centering
+\begin{tabular}{lcc}
+\toprule
+Component & $K=1$ & $K=4$ \\
+\midrule
+Feature embedding $K E_f$ & $64$ & $256$ \\
+Feature Transformer per block & $0$ & $198{,}272$ \\
+\midrule
+Parameters per residual block $N_{\mathrm{res}}$ & $346{,}880$ & $545{,}152$ \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+\subsection{Total parameter count}
+
+\[
+N_{\mathrm{total}}
+= \underbrace{\bigl(K E_f + E_t^2 + E_t\bigr)}_{\text{non-backbone}}
++ \underbrace{N_{\mathrm{outside}}}_{\text{outside blocks}}
++ R\cdot N_{\mathrm{res}}.
+\]
+
+\begin{table}[h]
+\centering
+\begin{tabular}{lcc}
+\toprule
+ & $K=1$ & $K=4$ \\
+\midrule
+Non-backbone & $16{,}576$ & $16{,}768$ \\
+Outside residual blocks & \multicolumn{2}{c}{$132{,}097$} \\
+$R \cdot N_{\mathrm{res}}$ & $6\times 346{,}880 = 2{,}081{,}280$ & $6\times 545{,}152 = 3{,}270{,}912$ \\
+\midrule
+\textbf{Total} & $\mathbf{2{,}229{,}953}$ & $\mathbf{3{,}419{,}777}$ \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+The two configurations differ by $1{,}189{,}824$ parameters
+($6 \times N_{\mathrm{trans}} + (K_4 - K_1)\cdot E_f
+= 1{,}189{,}632 + 192$),
+entirely attributable to the six feature Transformer layers absent in the
+univariate case and the larger feature embedding vocabulary.
