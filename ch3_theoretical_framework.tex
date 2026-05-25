@@ -87,7 +87,7 @@ Follows the role of each preconditioning parameter:
 \end{itemize}
 In summary, \(c_{\text{skip}}(\sigma)\cdot x\) is the linear prior, while \(c_{\text{out}}(\sigma)\cdot F_\theta(\cdot)\) is the non-linear correction on top of the prior. It is important to pay attention at the crossover point where \(\sigma=\sigma_{\text{data}}\) and \(c_{\text{skip}}(\sigma)=0.5\), meaning both terms contributes equally. For instance, with \(\sigma_{\text{data}}=1\) then if \(\sigma<1\), the network makes tiny corrections and if \(\sigma>5\), the network reconstruct almost entirely from noise.\\
 
-[IMAGE OF THE CURVES FOR sigma\_data=1 AND OTHER SIGMAS]\\
+% [IMAGE OF THE CURVES FOR sigma\_data=1 AND OTHER SIGMAS]\\
 
 \(c_{\text{noie}}(\sigma)\) is not derived from a requirement,but it is empirically chosen for numerical stability, and it is used to compresses the large dynamic range of \(\sigma\) into a bounded scalar, where the \(\frac14\) prevents saturation of the network's embedding layer. This actually is connected to CSDI's diffusion--step embedding (Sec.\ref{sec:model_architecture}), since it encodes the noise level for the network.\\
 
@@ -128,6 +128,8 @@ channels covary contemporaneously. Attending jointly over the time-feature
 product space would mix these two distinct dependency 
 types, making the learned representations harder to interpret and 
 potentially trickier to optimise.\\
+
+\input{graphs/architecture}
 
 \textbf{Input projection} A pointwise \(1 \times 1\) convolution projects the two-channel input ( signal and mask channels) into a \(d\)-dimensional 
 latent space, where \(d\) is a free hyperparameter, lifting the two input channels into a richer representation before any attention is applied.\\

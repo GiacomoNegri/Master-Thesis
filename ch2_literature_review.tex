@@ -26,6 +26,8 @@ FTS exhibit four core characteristics:
 
 It is important to state that financial returns do not follow a Gaussian behavior, indeed large price fluctuations occur more frequently than under Brownian motion, breaking random walk assumption \cite{mandelbrot1963variation, fama1965random}. Moreover, the fact that returns have polynomial-like tail decay \cite{cont2001empirical} implies that, contrary to what was believed before \cite{mandelbrot1963variation}, they have finite variance, and often unstable of infinite fourth moments \cite{gopikrishnan1999scaling}. Therefore, it is modern consensus that returns are not necessarily symmetric Lévy-stable process \cite{mantegna1995scaling}, but that assuming a Gaussian tail distribution would significantly underestimate risk.\\
 
+Another important event that needs to be highlighted is the decimalization process mandated by the Security and Exchange Commission in January 2000, and that required to be brought to completion before the 9th of April 2001 \cite{furfine2003decimalization}. Before this period US stock prices were quoted in fractions, specifically 1/16th of a dollar, meaning that the minimum price movement needed to record an effective change in price was 0.0625 dollars. After decimalization this changed to 1 cent. This often create \emph{artificial} 0\% daily returns prior the change.
+
 \section{Classical Models}
 \label{sec:classical_models_literature}
 Classical FTS models often address the non-Gaussian behavior by extending upon the basic Brownian motion framework because of its favourable framework. In particular, GARCH-like models \cite{bollerslev1986generalized} focus on time-varying volatility, where by construction the model is conditionally heteroskedastic, meaning that large shocks are followed by higher volatility and period of calm by lower ones. Merton's jump diffusion \cite{merton1976option} instead build on the continuous Geometric Brownian Motion (GBM) by adding a Poisson jump component, the jumps. These are two common model to capture stylized facts about financial data, which is why they would work as baseline.\\
@@ -328,17 +330,22 @@ explicitly in the paper, but is the only reading consistent with both the
 theoretical derivation and the experimental results shown in Figures~4--6 of 
 \cite{kim2025diffusion}, even if in disagreement with the training parameters shared by the authors: \(\sigma_{\min}=0.01\) and \(\sigma_{\max}=1.0\) for GBM-style diffusion. The replication in this work proceeds under this assumption.\\
 
-[ADD MODEL FIGURE FOR GBM FROM PAPER]\\
+\begin{figure}[htbp]          % placement: here, top, bottom, page
+  \centering
+  \includegraphics[width=0.9\textwidth]{images/Kim_et_al_architecture.png}
+  \caption{Diffusion-based architecture (Kim et al.\ \cite{kim2025diffusion}, Figure 2).}
+  \label{fig:kim_architecture}
+\end{figure}
 
-Another inconsistency arises between [FIG. X] and the described use of time, positional, and diffusion-step embeddings. The text states that
+Another inconsistency arises between and the described use of time, positional, and diffusion-step embeddings. The text states that
 \begin{quote}
-    These embeddings are added to the latent representation and passed through a Transformer block, which models global dependencies across time.
+    \emph{These embeddings are added to the latent representation and passed through a Transformer block, which models global dependencies across time.}
 \end{quote}
-However, [FIG. X] clearly shows that the time embeddings is provided only after the Transformer layer.\\
+However, Fig.\ref{fig:kim_architecture} clearly shows that the time embeddings is provided only after the Transformer layer. This last interpretation was used.\\
 
-Based on the model architecture presented in [FIG. X], the diffusion-step, temporal, and positional embeddings were interpreted as being injected independently at every residual block, consistently with the approach adopted in CSDI \cite{tashiro2021csdi}, where each residual layer receives its own embedding signal. This reading is further supported by [FIG. X] itself, which depicts the embedding injection as a per-block operation rather than a single prepended conditioning. Notably, Kim et al.\ \cite{kim2025diffusion} describe the time embedding as combining sinusoidal functions with learnable vectors, while the positional embedding relies solely on fixed sinusoidal functions with no learnable parameters; this distinction suggests that the positional embedding is the only one among the three that contains no trainable weights, and accordingly it was not included as a separate learnable layer in the replicated model.\\
+Based on the model architecture presented in Fig.\ref{fig:kim_architecture}, the diffusion-step, temporal, and positional embeddings were interpreted as being injected independently at every residual block, consistently with the approach adopted in CSDI \cite{tashiro2021csdi}. This reading is further supported by Fig.\ref{fig:kim_architecture} itself, their position is probably justified by the fact that they are computed once. Notably, Kim et al.\ \cite{kim2025diffusion} describe the time embedding as combining sinusoidal functions with learnable vectors, while the positional embedding relies solely on fixed sinusoidal functions with no learnable parameters; this distinction suggests that the positional embedding is the only one among the three that contains no trainable weights, and accordingly it was not included as a separate learnable layer in the replicated model.\\
 
-In addition, Kim et al.\cite{kim2025diffusion} did not release a common dataset, source code, or key implementation details, including the masking strategy (e.g., unconditional, random, or alternatives), the model’s loss function or prediction target (noise or score), kernel size, transformer hyperparameters, activation functions, optimizer configuration, and others. All these aspects will be examined in detail in Ch.\ref{ch:theoretical_framework} and Ch.\ref{ch:methodology_training}.
+In addition, Kim et al.\cite{kim2025diffusion} did not release a common dataset, source code, or key implementation details, including the masking strategy (e.g., unconditional, random, or alternatives), the model’s loss function or prediction target (noise or score), kernel size, transformer hyperparameters, activation functions, optimizer configuration, and others. All these aspects will be examined in detail in Ch.\ref{ch:theoretical_framework} and Ch.\ref{ch:data_setup}.
 % \section{Summary}
 
 % This chapter has established the theoretical foundations upon which the present work is built. We began by characterising financial time series through their core stylized facts and discussed the related challenges with modeling such properties. Subsequently, we presented the classical approaches GARCH and Merton's jump diffusion, along with their ability to capture some of these features through parametric assumptions, and their structural limitations.\\

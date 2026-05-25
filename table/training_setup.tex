@@ -39,11 +39,17 @@
   & $100$ \\
 \midrule
 %--- Architecture (shared) -----------------------------------------------
-\multirow{2}{2.0cm}{Architecture}
+\multirow{5}{2.0cm}{Architecture}                      % FIX 1: 2 -> 5
   & Model channels
   & \multicolumn{2}{c}{$128$} \\[3pt]
   & Layers
-  & \multicolumn{2}{c}{$6$} \\
+  & \multicolumn{2}{c}{$6$} \\[3pt]
+  & Diffusion emb.
+  & \multicolumn{2}{c}{$256$} \\[3pt]              % FIX 3: added [3pt]
+  & Time mb.
+  & \multicolumn{2}{c}{$128$} \\[3pt]              % FIX 3: added [3pt]
+  & Feature emb.
+  & \multicolumn{2}{c}{$64$} \\                    % FIX 2: added \\
 \midrule
 %--- Noise schedule ------------------------------------------------------
 \multirow{3}{2.0cm}{Noise schedule}
@@ -59,16 +65,18 @@
   & $P_{\text{mean}}{=}{-1.4},\;P_{\text{std}}{=}1.6$ \\
 \midrule
 %--- Training ------------------------------------------------------------
-\multirow{3}{2.0cm}{Training}
+\multirow{4}{2.0cm}{Training}                          % FIX 4: 3 -> 4
   & LR schedule
   & \multicolumn{2}{c}{cosine annealing} \\[3pt]
   & $\eta_{\max}$ / $\eta_{\min}$
   & $5\!\times\!10^{-4}$ / $1\!\times\!10^{-6}$
   & $1\!\times\!10^{-4}$ / $1\!\times\!10^{-6}$ \\[3pt]
   & Batch size
-  & \multicolumn{2}{c}{$64$} \\
+  & \multicolumn{2}{c}{$64$} \\[3pt]
+  & Optimizer
+  & \multicolumn{2}{c}{\texttt{AdamW}} \\
 \bottomrule
 \end{tabular}
 \caption{Training setup for Phase~1 (replication of Kim et al.\ \cite{kim2025diffusion})
-and Phase~2 (EDM-CSDI). Parameters shared across both phases appear in merged cells.}
+and Phase~2 (EDM-CSDI). Parameters shared across both phases appear in merged cells. \emph{emb.} is short for embeddings.}
 \end{table}

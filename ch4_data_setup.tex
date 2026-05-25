@@ -37,13 +37,26 @@ This formulation is consistent with the Close log-return defined in Eq.~\ref{eq:
 expressing all channels relative to the same reference price \(C_{t-1}\).\\
 
 A per-channel z-score normalisation is then applied independently to each of the four
-channels. This is a linear transformation that preserves the shape of each channel's
+channels in Phase~2. This is a linear transformation that preserves the shape of each channel's
 distribution while standardising it to zero mean and unit variance, so that
 \(\sigma_{\text{data}} = 1\) holds by construction and network inputs remain numerically
 stable across channels. However, because each channel is scaled by its own standard
 deviation, the ordering constraint \(L_t \leq \min(O_t, C_t) \leq \max(O_t, C_t) \leq H_t\),
 which holds in price space, is not preserved after normalisation. This is a structural
-limitation acknowledged throughout the evaluation.
+limitation acknowledged throughout the evaluation.\\
+
+To assess dataset similarity with Kim et al.\ \cite{kim2025diffusion}, 
+Figure~8 of that paper was used as a baseline reference for the 
+distribution of absolute returns. In order to bring the empirical curves closer, four tickers were excluded from the dataset: BEN, 
+HUBB, NVR, and WMB. These were removed because they exhibit absolute 
+log-returns exceeding 100\%, with a maximum of \(+330\%\) and a minimum 
+of \(-157\%\). Log-returns below \(-100\%\) are theoretically impossible 
+since they would imply a non-positive price; such values are therefore 
+likely artifacts of the adjustment procedure described 
+in Sec.~\ref{sec:fts_literature}. It is speculated that Kim et al.\ 
+applied a similar filter, since retaining these observations would 
+distort the return distribution without a principled justification, 
+while imputation or smoothing would introduce its own artifacts.
 
 \section{Sliding Window Construction}
 
@@ -145,3 +158,6 @@ grid \(P_{\text{mean}} \in \{-0.8,\,-1.0,\,-1.2,\,-1.4,\,-1.6\}\) and
 \(P_{\text{std}} \in \{1.0,\,1.2,\,1.4,\,1.6,\,1.8\}\). The configuration
 \(P_{\text{mean}} = -1.4\) and \(P_{\text{std}} = 1.6\) yielded the best training
 performance and was adopted for all Phase 2 experiments.
+
+\section{Summary}
+In this section, it is reported a summary table to provide with a general comprehensive overview of the general settings. Single-valued row are parameters shared across both Phase~1 and Phase~2.

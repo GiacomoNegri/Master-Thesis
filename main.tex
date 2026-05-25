@@ -11,6 +11,9 @@
 %%IMPORTED PACKAGES
 \usepackage{amsmath}
 \usepackage{amssymb}
+\usepackage{graphicx}
+% main.tex preamble
+\usepackage{standalone}
 
 \onehalfspacing
 \setlength{\parindent}{0pt}
@@ -40,71 +43,7 @@
 \tableofcontents
 \cleardoublepage
 
-\chapter{Introduction}
-
-Humans have always shown an intense desire to understand and replicate nature’s mechanisms. The barter and the merchants, were the foundation of how our knowledge and
-goods were exchanged across all the known world. With time, and the continuous pursuit
-of understanding, man were able to create a global mean of exchange and interaction:
-financial markets. These markets are not merely economic engines, that fuels our nations
-with much needed resources, but complex systems where governments, economic actors,
-and investors associate value to limited resources. The study of these systems lies at
-the heart of Quantitative Finance, a discipline that builds on the premise that market
-dynamics can be comprehend through mathematical and statistical frameworks.\\
-
-However, modeling financial assets remains a central challenge in today’s world, since
-such data are characterized by complex stochastic dynamics that frequently break the
-assumptions of normality and stationarity. Indeed, these time series frequently exhibit
-”stylized facts” \cite{cont2001empirical}, or known empirical regularities such as volatility clustering, heavy-tailed
-return distributions, leverage effects, and sudden, discontinuous jumps. Modeling these
-non-linear, high-dimensional has proven complicated. Nevertheless, with the increase of complexity within financial markets, the need for synthetic data as a source of information for scenario analysis, backtesting, stress test, and data augmentation has soared.\\
-
-Traditionally, academics have relied on statistical tools like ARIMA \cite{box1970time} for trend analysis
-and GARCH \cite{bollerslev1986generalized} for modeling heteroskedasticity. Instead, in the continuous-time domain,
-the Geometric Brownian Motion (GBM) has shown to be a foundational building block
-for asset price modeling and, particularly, for derivative pricing through Monte Carlo
-methods. While these models often offer high interpretability and computational efficiency, they often lack the expressivity to capture the complex distribution of financial
-time series.\\
-
-With the raise of Machine Learning and later Deep Learning new opportunities came.
-Two framework, in particular, were promising: Generative Adversarial Networks (GANs) \cite{goodfellow2014generative, creswell2018generative}
-and Variational Autoencoders (VAEs) \cite{kingma2014auto, kingma2019introduction}. While both proved exceptional in various domains, they are bound by some core limitations, GANs are notoriously unstable to train and prone to mode collapse, while VAEs produce overly smoothed samples and suffer
-from posterior collapse, therefore failing to provide the same level of expressivity seen
-in GANs. In the meantime a diverse set of architectures and functionalities has been
-explored, including Energy-Based Models \cite{lecun2006tutorial}, Normalizing Flows \cite{rezende2015variational}, and lastly Diffusion Models \cite{ho2020ddpm, song2021score, song2021denoising, rombach2022high, dhariwal2021diffusion}. These are now the primary choice in many fields, because they effectively combine
-expressivity with training stability and indeed they are the state-of-the-art for image and video generation. Interestingly, while the financial sector has seen a surge in Large Language Models (LLMs)
-for natural language tasks such as sentiment analysis, classification task, and back-end
-automation, the application of generative diffusion models to financial time series is still limited.\\
-
-To address the gap, this work proposes to combine the Conditional Score-based Diffusion Model for Imputation (CSDI) \cite{tashiro2021csdi} into the Elucidated Diffusion Model (EDM) \cite{karras2022elucidating}
-framework. The previous fusion is natural, since CSDI utilize a Transformer architecture, which was originally
-designed to capture temporal and feature dependencies for imputation, while EDM defines a clear and malleable design environment for diffusion models.\\
-
-The research is structured in two sequential phases. \textbf{Phase~1} replicates the work of Kim et al.\ \cite{kim2025diffusion}, implementing their VE-, VP-, and GBM-inspired SDE variants on univariate Close log-returns, in order to establish a validated baseline and expose the design ambiguities present in the original paper. \textbf{Phase~2} then extends this foundation by embedding a CSDI backbone within the EDM framework and introducing multivariate conditioning: the model learns to generate Close log-returns given the contemporaneous Open, High, and Low observations. This sequential structure is deliberate --- replication first ensures that any performance difference observed in Phase~2 can be attributed to the novel design choices rather than to implementation artefacts.\\
-
-The research questions addressed in the two phases are therefore distinct:
-
-\textbf{Phase 1 \textemdash{} Replication}
-\begin{itemize}
-    \item Are CSDI-based architectures able to learn the stylized facts of financial time series?
-\end{itemize}
-
-\textbf{Phase 2 \textemdash{} EDM-CSDI}
-\begin{itemize}
-    \item How do EDM design choices help in elucidating learning behaviors?
-    \item Does the introduction of conditioning information aid in improving the model's performance?
-\end{itemize}
-
-In asnwering the previous question, the following contributions were achieved:
-\begin{itemize}
-    \item Framework integration: we adapt the CSDI architecture within the EDM to ensure mathematical clarity, replicability, and effective control over the reverse diffusion process for financial data.
-    \item Comprehensive evaluation: we test the model both on synthetic datasets and realworld observations, employing evaluation measures that include finance-specific metrics and statistical ones.
-    \item Stylized fact assessment: we evaluate the model’s ability to reproduce the core stylized facts of financial markets, specifically heavy tails, volatility clustering and leverage effects, often neglected in other generative models.
-\end{itemize}
-
-In conclusion, this thesis contributes to the exploration of diffusion models for financial time series, empirically validating the results and generalizing the design framework to enable easier replicability and a higher degree of control over training choices.
-This work commences with a literature review covering financial time series modeling from classical methods to deep learning ones, and the specifics of EDM and CSDI implementations. Subsequently, the theoretical framework is presented, discussing stochastic differential equations and the mathematical foundations of diffusion models. Next, the architectural and training settings are described, detailing how EDM fits within this picture. Chapters~\ref{ch:data_setup} and~\ref{ch:evaluation_methodology} cover data preprocessing and evaluation metrics shared across both phases; the experiments chapter then presents results organized sequentially, Phase~1 first and Phase~2 second. The thesis closes with a discussion of limitations and directions for future work.
-
-The two phases differ along four structural dimensions: problem setup, diffusion process, training objective, and sampling strategy. Tab.~\ref{tab:comparisons} provides a compact side-by-side reference for these differences; the reader is encouraged to return to it while navigating the technical chapters.
+\include{ch1_introduction}
 \include{table/general_comparison}
 
 %Chapter 2, look at chapter2.tex
@@ -113,6 +52,7 @@ The two phases differ along four structural dimensions: problem setup, diffusion
 \include{ch3_theoretical_framework}
 
 \include{ch4_data_setup}
+\include{table/training_setup}
 
 \include{ch5_evaluation_methodology}
 
