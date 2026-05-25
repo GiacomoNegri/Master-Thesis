@@ -150,9 +150,12 @@ def main():
         df["date"] = pd.to_datetime(df["date"], format="%d/%m/%Y")
         df = df.sort_values("date").reset_index(drop=True)
 
-        close = df["close"].values
-        Q_var = np.column_stack([df["open"].values ** 2,
-                                 (df["high"].values - df["low"].values) ** 2])
+        close     = df["close"].values
+        log_range = df["high"].values - df["low"].values  # log(H_t/L_t), always > 0
+        Q_var     = np.column_stack([
+            df["open"].values ** 2,                # squared overnight log-return
+            log_range ** 2 / (4.0 * np.log(2)),   # Parkinson variance estimator
+        ])
 
         # full-series sample variance used to initialise the GARCH recursion
         init_log_sig2 = np.log(max(np.var(close), 1e-12))

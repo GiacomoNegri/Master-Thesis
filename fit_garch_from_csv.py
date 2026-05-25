@@ -6,7 +6,11 @@ an input folder. Each CSV must have columns: date, close, open, high, low
 (date format %d/%m/%Y). The full time series (all rows, sorted by date) is
 used for fitting — no windowing.
 
-Model: close as target, k_mean=0, Q_var = [open^2, (high-low)^2].
+Model: close as target, k_mean=0, Q_var = [open^2, Parkinson estimator].
+Parkinson estimator: (log(H_t/L_t))^2 / (4*log(2)) — unbiased daily variance
+proxy under driftless BM, ~5x more efficient than squared return.
+phi (AR coefficient in the mean equation) is constrained to (-0.5, 0.5)
+to prevent simulation divergence; log-returns have near-zero autocorrelation.
 Two initializations are tried; the one with the lower NLL is kept.
 
 Outputs per ticker (in out_dir):
@@ -191,12 +195,15 @@ def fit_garch_x(y, Q_var, max_iter=1000):
     k_var  = Q_var.shape[1]
     best   = None
     for init in INIT_GRID:
-        theta0 = build_initial_theta(y=y, k_mean=k_mean, k_var=k_var, **init)
+        theta0         = build_initial_theta(y=y, k_mean=k_mean, k_var=k_var, **init)
+        bounds         = [(None, None)] * len(theta0)
+        bounds[1]      = (-0.5, 0.5)  # phi: log-returns have near-zero AR; cap prevents simulation divergence
         result = minimize(
             neg_loglik_log_garch_x,
             theta0,
             args=(y, X_mean, Q_var),
             method="L-BFGS-B",
+            bounds=bounds,
             options={"maxiter": max_iter},
         )
         if best is None or result.fun < best.fun:
@@ -246,9 +253,12 @@ def main():
                                    "alpha_plus_beta": np.nan, "nu": np.nan})
             continue
 
-        y     = df["close"].values
-        Q_var = np.column_stack([df["open"].values ** 2,
-                                 (df["high"].values - df["low"].values) ** 2])
+        y         = df["close"].values
+        log_range = df["high"].values - df["low"].values  # log(H_t/L_t), always > 0
+        Q_var     = np.column_stack([
+            df["open"].values ** 2,                # squared overnight log-return
+            log_range ** 2 / (4.0 * np.log(2)),   # Parkinson variance estimator
+        ])
 
         try:
             result = fit_garch_x(y, Q_var, max_iter=args.max_iter)
