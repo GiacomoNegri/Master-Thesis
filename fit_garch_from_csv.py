@@ -71,11 +71,17 @@ def unpack_params(theta, k_mean, k_var):
     return mu, phi, gamma, omega, alpha, beta, delta, nu
 
 
+PERSISTENCE_CAP = 0.98  # hard upper bound on alpha+beta (covariance-stationarity)
+
+
 def neg_loglik_log_garch_x(theta, y, X_mean, Q_var, c=1e-8):
     T      = len(y)
     k_mean = X_mean.shape[1]
     k_var  = Q_var.shape[1]
     mu, phi, gamma, omega, alpha, beta, delta, nu = unpack_params(theta, k_mean, k_var)
+
+    if alpha + beta >= PERSISTENCE_CAP:
+        return 1e12
 
     eps      = np.zeros(T)
     log_sig2 = np.zeros(T)

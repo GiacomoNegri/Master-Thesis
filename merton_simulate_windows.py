@@ -29,7 +29,7 @@ Usage:
         --num_samples 250 \
         [--seed 42]
 
-python merton_simulate_windows.py --input_folder ./data/SNP500_individual_processed_copy --merton_dir ./checkpoints/merton --out_dir ./data/generated/merton --seq_len 512 --stride 100 --num_samples 50 --seed 42
+python merton_simulate_windows.py --input_folder ./data/SNP500_individual_processed --merton_dir ./checkpoints/merton --out_dir ./data/generated/merton --seq_len 512 --stride 100 --num_samples 10 --seed 42
 """
 
 import argparse

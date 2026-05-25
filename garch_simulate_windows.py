@@ -59,6 +59,9 @@ def unpack_params(theta, k_mean, k_var):
 # Per-window simulation
 # ---------------------------------------------------------------------------
 
+INNOVATION_CLIP = 5.0  # clip innovations at ±5σ_t (bounded-influence simulation)
+
+
 def simulate_window(y_window, Q_var_window, theta, num_samples, rng, init_log_sig2):
     """
     Generate num_samples close paths for one window.
@@ -67,6 +70,13 @@ def simulate_window(y_window, Q_var_window, theta, num_samples, rng, init_log_si
     y[1..T-1] are drawn: y[t] = mu + phi*y[t-1] + sigma[t]*z[t],
     where z[t] ~ standardised Student-t(nu) and sigma[t] follows the
     log-GARCH-X recursion driven by Q_var_window (open/high/low data).
+
+    Innovation clipping: eps[t] is capped at ±INNOVATION_CLIP*sigma[t] before
+    being fed back into the variance recursion. This prevents a single extreme
+    draw from permanently destabilising log_sig2 over subsequent steps (bounded-
+    influence GARCH, Muler & Yohai 2008). The clip is applied to both the path
+    value and the lagged residual; INNOVATION_CLIP=5.0 is more permissive than
+    any historically observed single-day equity return (~11σ on Black Monday).
 
     Returns array of shape (num_samples, T).
     """
@@ -89,9 +99,12 @@ def simulate_window(y_window, Q_var_window, theta, num_samples, rng, init_log_si
                             + beta  * log_sig2_prev
                             + Q_var_window[t] @ delta)
             log_sig2_t   = np.clip(log_sig2_t, -30.0, 30.0)
-            eps_t        = np.sqrt(np.exp(log_sig2_t)) * rng.standard_t(nu) * std_scale
+            sigma_t      = np.sqrt(np.exp(log_sig2_t))
+            eps_t        = sigma_t * rng.standard_t(nu) * std_scale
+            eps_t        = np.clip(eps_t, -INNOVATION_CLIP * sigma_t,
+                                          +INNOVATION_CLIP * sigma_t)
             paths[s, t]  = mean_t + eps_t
-            eps_prev      = eps_t
+            eps_prev      = eps_t        # clipped residual feeds the variance recursion
             log_sig2_prev = log_sig2_t
 
     return paths
