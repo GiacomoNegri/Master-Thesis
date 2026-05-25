@@ -285,6 +285,6 @@
 \end{scope}
 
 \end{tikzpicture}
-\label{fig:res_block}
-\caption{\texttt{ResidualBlock} architecture CSDI's inspired. The main flow (top to bottom) processes the noisy input and return residuals.}
+    \caption{Detailed view of a single CSDI residual block. The main vertical flow processes $x_{\mathrm{in}}$ through temporal and feature Transformer encoders, a gated activation ($\sigma(\cdot)\odot\tanh(\cdot)$), and a residual addition scaled by $1/\sqrt{2}$. Conditioning enters laterally: the diffusion-step embedding $c_{\mathrm{noise}}$ (left) and the concatenated side information (right). Each block emits a skip connection aggregated across all $n_{\mathrm{layers}}$ blocks (see Fig.~\ref{fig:csdi_overview}).}
+    \label{fig:csdi_residual_block}
 \end{figure}
