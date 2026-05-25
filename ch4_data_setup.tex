@@ -97,7 +97,7 @@ be noted as a limitation when interpreting training dynamics.
 This section discusses the most relevant training configuration and design choices;
 full hyperparameter details are provided in Appendix~\ref{app:sec:training_config}.\\
 
-The optimiser used throughout this project is the same used in CSDI \cite{tashiro2021csdi}, that is \texttt{AdamW}
+\textbf{Optimizer} The optimiser used throughout this project is the same used in CSDI \cite{tashiro2021csdi}, that is \texttt{AdamW}
 \cite{loshchilov2019decoupled}. At each step, the first and second moment estimates
 of the gradient, \(\hat{m}_t\) and \(\hat{v}_t\), are used to compute a per-parameter
 adaptive learning rate, while weight decay is applied directly to the parameters rather
@@ -116,7 +116,7 @@ decay of the first and second moments respectively. This decoupling leads to mor
 consistent regularisation across parameters with different gradient magnitudes, which
 improves generalisation in practice.\\
 
-The learning rate is scheduled via cosine annealing \cite{loshchilov2017sgdr}, which
+\textbf{Learning Rate Scheduler} The learning rate is scheduled via cosine annealing \cite{loshchilov2017sgdr}, which
 decreases the learning rate progressively according to:
 \[
     \eta_t = \eta_{\min} + \frac{1}{2}(\eta_{\max} - \eta_{\min})
@@ -130,28 +130,24 @@ approach is entrapment in a local minimum if the learning rate decays below the
 threshold needed to escape it. For the replication phase we set a \(\eta_\text{max}=5\cdot10^{-4}\) and a \(\eta_{\text{min}}=1\cdot10^{-6}\). Experiments were also conducted with
 Reduce-on-Plateau, which decreases the learning rate when a
 monitored validation metric stagnates; this yielded consistently poorer training
-performance than cosine annealing and was therefore not adopted.\\
+performance than cosine annealing and was therefore not adopted.
 
-Both the replication and EDM phases use the same model architecture, with 128
+\textbf{Model Architecture} Both the replication and EDM phases use the same model architecture, with 128
 \texttt{channels} and 6 \texttt{layers}. This configuration was selected empirically:
 it achieves greater expressivity than the 64 \texttt{channels} and 8 \texttt{layers}
 variant, while remaining computationally comparable to the 256 \texttt{channels} and
 6 \texttt{layers} variant, which did not yield any measurable improvement in
-generation quality.\\
-
-Regarding embedding dimensions, a 256-dimensional embedding is used for both the
+generation quality. Regarding embedding dimensions, a 256-dimensional embedding is used for both the
 diffusion-step and time embeddings, and a 64-dimensional embedding for the feature
-axis, following Kim et al.\ \cite{kim2025diffusion}.\\
+axis, following Kim et al.\ \cite{kim2025diffusion}.
 
-The values of \(\sigma_{\max}\) and \(\sigma_{\min}\) vary depending on the SDE
+\textbf{Noise} The values of \(\sigma_{\max}\) and \(\sigma_{\min}\) vary depending on the SDE
 formulation and are particularly relevant for the replication phase, as they define
 the range of noise injected during the forward process. For VE-style diffusion on
 log-returns, \(\sigma_{\max} = 1\) and \(\sigma_{\min} = 0.01\); for GBM-style
 diffusion on cumulative log-returns, \(\sigma_{\max} = 10\) and
 \(\sigma_{\min} = 0.1\). For the VP formulation, the noise schedule is instead
-parameterised by \(\beta_{\max} = 8\) and \(\beta_{\min} = 0.01\).
-
-Two further parameters relevant specifically to Phase 2 are \(P_{\text{mean}}\) and
+parameterised by \(\beta_{\max} = 8\) and \(\beta_{\min} = 0.01\). Two further parameters relevant specifically to Phase 2 are \(P_{\text{mean}}\) and
 \(P_{\text{std}}\), which control the log-normal noise level sampling distribution
 (Eq.\ref{eq:edm_sigma_sampling}). Their values were determined through ablation over the
 grid \(P_{\text{mean}} \in \{-0.8,\,-1.0,\,-1.2,\,-1.4,\,-1.6\}\) and
