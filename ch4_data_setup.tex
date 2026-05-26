@@ -155,5 +155,16 @@ grid \(P_{\text{mean}} \in \{-0.8,\,-1.0,\,-1.2,\,-1.4,\,-1.6\}\) and
 \(P_{\text{mean}} = -1.4\) and \(P_{\text{std}} = 1.6\) yielded the best training
 performance and was adopted for all Phase 2 experiments.
 
+\section{Generation}
+The primary sampling method used throughout this work is the probability 
+flow ODE (Eq.~\ref{eq:prob_flow_ode}). Being deterministic, it produces 
+reproducible trajectories that are entirely governed by the learned score 
+field, without any stochastic perturbation that could destabilise the 
+sample path. This makes the 
+ODE a more controlled evaluation setting than the reverse SDE: 
+differences in sample quality can be attributed directly to the quality 
+of the learned denoiser \(D_\theta\), rather than to variance introduced 
+by the sampler itself.
+
 \section{Summary}
 In this section, it is reported a summary table to provide with a general comprehensive overview of the general settings. Single-valued row are parameters shared across both Phase~1 and Phase~2.

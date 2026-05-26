@@ -98,6 +98,19 @@ choice of weighting $\lambda(\sigma_i)$ is non-trivial. Song \cite{song2019gener
 proposes $\lambda(\sigma_i) = \sigma_i^2$ to approximately equalise the contribution 
 of each noise level, but this choice is heuristic rather than principled.\\
 
+% Song score funcitions
+% Song score functions
+\begin{figure}[htbp]
+  \centering
+  {\small
+  \includegraphics[width=\textwidth]{images/Overview_score_generative-modeling_Song.png}
+  }
+  \caption{Data can be mapped to a noise distribution (the prior) with an SDE (Eq.~\ref{eq:generalsde}), and reverse this SDE for generative modeling
+(Eq.~\ref{eq:reverse_sde}). We can also reverse the associated probability flow ODE (Eq.~\ref{eq:prob_flow_ode}), which yields a deterministic process that samples from the same distribution as the SDE. Both the reverse-time SDE and probability flow ODE can be obtained by estimating the score \(\nabla_x\log p_t(x_t)\). Source: Song et al.\ \cite{song2021score}.}
+  \label{fig:sde_diffusion_process}
+\end{figure}
+
+
 Song \cite{song2021score} formalize this by lifting them into a contiunous framework. He showed that the diffusion process \(\{x_t\}_{t=0}^T\) indexed by a continuous time variable \(t\in[0,T]\), where \(x_0\sim p_0\) is composed by i.i.d. samples of the dataset, and \(x_T\sim p_T\), for which we have a tractable form, can be modeled as the solution to an Itô SDE:
 \begin{equation}
     \label{eq:generalsde}
@@ -113,9 +126,10 @@ The key insight is that the forward process admits a corresponding reverse-time 
 \end{equation}
 
 where \(\bar{W_t}\) is a standard Wiener process that flows back from \(T\) to \(0\). Since \(\nabla_x\log p_t(x_t)\) is unknown then we estimate it by using \(s_\theta(x_t,t)\). Importantly, Song et al. \cite{song2021score} showed that for any SDE (Eq.\ref{eq:generalsde}) there exists a corresponding deterministic Ordinary Differential Equation (ODE), called probability flow ODE, that produce the same family of marginal distributions \(\{p_t\}_{t\in[0,T]}\):
-$$
-dx_t=\left[f(x_t,t)-\frac12g(t)^2\nabla_x\log p_t(x_t)\right]dt
-$$
+\begin{equation}
+    \label{eq:probability_flow}
+    dx_t=\left[f(x_t,t)-\frac12g(t)^2\nabla_x\log p_t(x_t)\right]dt
+\end{equation}
 substituting the intractable score with the learned one yields a Neural ODE, where given starting conditions $x_T\sim p_T$ we can deterministically sample, producing a sample from, approximately, \(p_0\). This sampling technique is possibly more efficient.\\
 
 Two specific SDE formulation that matched the SMLD and DDPM ones, in continuous time, hence when we assume that the number of noise steps \(N\xrightarrow[]{}\infty\), are: Variance Exploding (VE) and Variance Preserving (VP). The former sets \(f(\cdot,t)=0\) and is defined as:
@@ -126,8 +140,6 @@ Two specific SDE formulation that matched the SMLD and DDPM ones, in continuous 
 so that \(x_t=x_0+\sigma\epsilon\), where \(\epsilon\sim \mathcal{N}(0,I)\), therefore the marginal's variance grows unbounded as \(\sigma(t)\) increases. VP is instead:
 $$dx_t=-\frac12 \beta(t)x_tdt+\sqrt{\beta(t)}dW_t$$
 with drift \(f(x_t,t)=-\frac12\beta(t)x_t\) and \(g(t)=\sqrt{\beta(t)}\). This setting preserve unit variance when \(x_0\) has it as well with the marginal converging to \(\mathcal{N}(0,I)\) as \(t\xrightarrow[]{}T\).
-
-[IMAGE, FORWARD AND BACKWARD PRIOR]\\
 
 The reverse SDE can be solved numerically through different samplers. 
 Song \cite{song2021score} employs the Euler-Maruyama method, a first-order 
@@ -240,6 +252,16 @@ time-series imputation, replacing the convolutional modeling with
 two-dimensional attention and introducing an explicit conditioning mechanism 
 for observed values. The therefore follows a clear progression: firstly autoregressive local dependency modelling, secondly dilated temporal convolutions, thirdly  diffusion denoising with WaveNet-style residual blocks, and then CSDI's conditional time-series denoiser with attention.\\
 
+% CSDI high-level overview
+\begin{figure}[htbp]
+  \centering
+  {\small
+  \includegraphics[width=\textwidth]{images/CSDI_high_level_overview.png}
+  }
+  \caption{The self-supervised training procedure of CSDI for implementation of time series imputation. The colored areas in each rectangle represent the existence of values. The green and white areas represent observed and missing values, respectively, and white areas are padded with zeros to fix the shape of the inputs. Zero padding is also applied to all white areas. As with Figure 2, the observed values are separated into red imputation targets \(x_0^{\text{ta}}\) and blue conditional observations \(x_0^{\text{co}}\). For the extended targets \(\hat{x}_0^{\text{ta}}\), the area of value 0 shows dummy values. Source: CSDI\ \cite{tashiro2021csdi}.}
+  \label{fig:csdi_high_level}
+\end{figure}
+
 \textbf{Conditional denoising mechanism} At each denoising step $t$, the CSDI model takes as input three quantities: 
 the noisy target $x^{\text{ta}}_t$, which gets zero-padded at conditioning indices; the 
 clean conditioning observations $x^{\text{co}}_0$, which gets zero-padded at target indices; and a binary mask $m^{\text{co}} \in \{0,1\}^{K \times L}$ indicating which entries are observed, where $K$ is the number of channels and $L$ is the sequence length. The conditional score network is therefore 
@@ -256,7 +278,15 @@ only at target indices. The conditioning information $x^{\text{co}}_0$ and
 $m^{\text{co}}$ are kept fixed throughout the reverse process, while only the 
 target entries are denoised.\\
 
-[IMAGE CSDI MODEL AND CONDITIONING FUNCTIONING]
+% CSDI high-level overview
+\begin{figure}[htbp]
+  \centering
+  {\small
+  \includegraphics[width=\textwidth]{images/CSDI_architecture_full.png}
+  }
+  \caption{Architecture of \(\epsilon_\theta\) in CSDI for multivariate time series imputation. Source: CSDI\ \cite{tashiro2021csdi}.}
+  \label{fig:csdi_high_level}
+\end{figure}
 
 \textbf{2D attention over time and features}
 The central innovation of CSDI over DiffWave is the replacement of dilated 
@@ -333,7 +363,7 @@ theoretical derivation and the experimental results shown in Figures~4--6 of
 \begin{figure}[htbp]          % placement: here, top, bottom, page
   \centering
   \includegraphics[width=0.9\textwidth]{images/Kim_et_al_architecture.png}
-  \caption{Diffusion-based architecture (Kim et al.\ \cite{kim2025diffusion}, Figure 2).}
+  \caption{CSDI-based diffusion architecture. Source: Kim et al.\ \cite{kim2025diffusion}.}
   \label{fig:kim_architecture}
 \end{figure}
 
@@ -346,6 +376,23 @@ However, Fig.\ref{fig:kim_architecture} clearly shows that the time embeddings i
 Based on the model architecture presented in Fig.\ref{fig:kim_architecture}, the diffusion-step, temporal, and positional embeddings were interpreted as being injected independently at every residual block, consistently with the approach adopted in CSDI \cite{tashiro2021csdi}. This reading is further supported by Fig.\ref{fig:kim_architecture} itself, their position is probably justified by the fact that they are computed once. Notably, Kim et al.\ \cite{kim2025diffusion} describe the time embedding as combining sinusoidal functions with learnable vectors, while the positional embedding relies solely on fixed sinusoidal functions with no learnable parameters; this distinction suggests that the positional embedding is the only one among the three that contains no trainable weights, and accordingly it was not included as a separate learnable layer in the replicated model.\\
 
 In addition, Kim et al.\cite{kim2025diffusion} did not release a common dataset, source code, or key implementation details, including the masking strategy (e.g., unconditional, random, or alternatives), the model’s loss function or prediction target (noise or score), kernel size, transformer hyperparameters, activation functions, optimizer configuration, and others. All these aspects will be examined in detail in Ch.\ref{ch:theoretical_framework} and Ch.\ref{ch:data_setup}.
+
+\section{Heavy--Tailed Diffusion Models}
+
+A natural question follows from the heavy--tailed nature of financial time series: if the target distribution exhibits rare but economically important extreme events, should the forward perturbation process also be heavy--tailed, so that both the noised data and the terminal prior better reflect the structure of the underlying data?
+
+This question remains open. Two issues are particularly relevant:
+\begin{itemize}
+    \item Can a diffusion model based on Gaussian perturbations learn a heavy--tailed target distribution at all?
+    \item If it can, how much modelling capacity should be explicitly allocated to tail behaviour rather than to the bulk of the distribution?
+\end{itemize}
+Recent theoretical work suggests that Gaussian perturbations are not automatically invalid in the presence of heavy tails. Yu et al.\ \cite{yu2026diffusion} study standard Gaussian score-based diffusion models when the target distribution is heavy--tailed. Under a tractable kernel-based score estimator, they derive minimax guarantees showing a distinction between tail regimes: for exponentially decaying tails, Gaussian diffusion remains statistically robust, while for polynomially decaying tails the score-estimation and sampling rates depend explicitly on the tail index. Since financial log-returns are commonly modelled as having polynomial-like tail decay, this result is directly relevant to financial time series. It does not imply that Gaussian diffusion is unusable, but it does indicate that heavy tails increase the statistical difficulty of score learning.\\
+
+A complementary line of work modifies the perturbation distribution itself. Pandey et al.\ \cite{pandey2024heavytailed} propose heavy--tailed diffusion models based on multivariate Student-\(t\) perturbation kernels, leading to \(t\)-EDM. In this framework, the degrees-of-freedom parameter \(\nu\) controls tail heaviness: smaller values of \(\nu\) produce heavier tails, while the Gaussian case is recovered in the limit \(\nu \to \infty\). Because the Kullback--Leibler divergence between Student-\(t\) distributions does not generally admit a convenient closed form, they replace the usual KL-based objective with a \(\gamma\)-power divergence. This objective is not an ELBO in the standard sense, but it recovers the KL divergence in the appropriate limited regime.\\
+
+A more radical alternative is to replace Brownian motion itself with a heavy--tailed jump process. Yoon et al.\ \cite{yoon2023score} propose the L\'evy-It\^o Model, which uses isotropic \(\alpha\)-stable L\'evy processes instead of Brownian motion. They derive the corresponding reverse-time SDE and train the model through fractional denoising score matching. Such an approach is conceptually appealing for financial data, where jumps and rare events are structurally important. However, it requires a different score object, a different reverse process, and a substantially different mathematical framework from the Gaussian EDM--CSDI model used in this work.\\
+
+Consequently, this thesis study a Gaussian EDM--CSDI baseline for conditional financial time-series generation, with explicit tail-sensitive evaluation. Heavy--tailed perturbation kernels and L\'evy-driven score models may improve tail fidelity, but they also introduce additional modelling choices and may alter the trade-off between tail accuracy, bulk distributional fit, training stability, and computational simplicity.
 % \section{Summary}
 
 % This chapter has established the theoretical foundations upon which the present work is built. We began by characterising financial time series through their core stylized facts and discussed the related challenges with modeling such properties. Subsequently, we presented the classical approaches GARCH and Merton's jump diffusion, along with their ability to capture some of these features through parametric assumptions, and their structural limitations.\\
