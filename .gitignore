@@ -31,6 +31,8 @@ err/
 out/
 images/*
 images/overfitting_fake_fts_processed/*
+figures/
+tables/
 
 jobs/
 replication/
@@ -38,4 +40,5 @@ jobs_launcher.py
 .claude/
 
 tea_debug.log
+compare_tickers.py
 *.onnx
