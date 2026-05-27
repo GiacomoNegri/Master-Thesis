@@ -45,3 +45,5 @@ jobs_launcher.py
 #specific files
 run_diagnostics_locally.py
 compare_tickers.py
+csv_to_parquet.py
+jobs_launcher_martusia.py
