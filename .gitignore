@@ -34,6 +34,7 @@ images/
 jobs/
 replication/
 garch_parameters/
+tables/
 
 #specific files
 jobs_launcher.py
@@ -45,3 +46,5 @@ figures/
 *.onnx
 
 tea_debug.log
+compare_tickers.py
+jobs_launcher_martusia.py
