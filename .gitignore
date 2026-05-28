@@ -33,6 +33,7 @@ figures/
 err/
 out/
 images/
+tables/
 jobs/
 replication/
 
@@ -44,3 +45,7 @@ run_diagnostics_locally.py
 .claude/
 
 tea_debug.log
+compare_tickers.py
+csv_to_parquet.py
+jobs_launcher_martusia.py
+
