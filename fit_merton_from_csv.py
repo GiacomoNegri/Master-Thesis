@@ -167,8 +167,14 @@ def main():
             continue
 
         y = df["close"].values
-        Q = np.column_stack([df["open"].values ** 2,
-                             (df["high"].values - df["low"].values) ** 2])
+        q0_raw = df["open"].values ** 2
+        q1_raw = (df["high"].values - df["low"].values) ** 2
+        q0_cap = float(np.percentile(q0_raw, 99))
+        q1_cap = float(np.percentile(q1_raw, 99))
+        Q = np.column_stack([np.minimum(q0_raw, q0_cap),
+                             np.minimum(q1_raw, q1_cap)])
+        np.save(os.path.join(args.out_dir, f"{stem}_qcaps.npy"),
+                np.array([q0_cap, q1_cap]))
 
         try:
             result = fit_merton_x(y, Q, max_iter=args.max_iter)

@@ -144,8 +144,10 @@ def main():
         df["date"] = pd.to_datetime(df["date"], format="%d/%m/%Y")
         df = df.sort_values("date").reset_index(drop=True)
 
-        Q_var = np.column_stack([df["open"].values ** 2,
-                                 (df["high"].values - df["low"].values) ** 2])
+        qcaps_path = os.path.join(args.merton_dir, f"{stem}_qcaps.npy")
+        q0_cap, q1_cap = np.load(qcaps_path) if os.path.exists(qcaps_path) else (np.inf, np.inf)
+        Q_var = np.column_stack([np.minimum(df["open"].values ** 2, q0_cap),
+                                 np.minimum((df["high"].values - df["low"].values) ** 2, q1_cap)])
 
         n      = len(df)
         starts = list(range(0, n - args.seq_len + 1, args.stride))
