@@ -65,14 +65,8 @@ where the suffix X signals the inclusion of exogenous conditioning variables
 drawn from the same per-day OHLC information that the diffusion model receives
 as its conditioning set $\mathcal{C}=\{O,H,L\}$.\\
 
-Since each column of the processed dataset contains \emph{log-returns}
-(Eq.~\ref{eq:log_returns}), all OHLC quantities are already in log-space. In
-particular, the column labelled ``open'' is the overnight log-return
-$o_t = \log(O_t / C_{t-1})$, and the column labelled ``high'' minus ``low''
-equals $\log(H_t/L_t)$, the log-range, a well-established realised volatility
-proxy \cite{parkinson1980extreme}. Both models are fitted independently
-per ticker by maximum likelihood using L-BFGS-B, making them the tractable,
-interpretable counterparts to the neural generative model.
+The models are both feeded OHLC quantities already in log-space, and specifically the overnight return and the intraday range, because it is a better conditioning than log-transformed variables. Moreover, both models are fitted independently
+per ticker by maximum likelihood using L-BFGS-B [REFERENCE], making them ticket specific.
 
 \subsection{Log-GARCH-X with Student-$t$ Innovations}
 \label{sec:garchx_theoretical}
