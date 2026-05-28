@@ -22,7 +22,33 @@ FTS log-returns exhibit four core characteristics:
     \item Leverage Effect: negative returns are followed by higher future volatility asymmetrically \cite{black1976studies}. This is measure through lead-lag correlation \(L(k)=\mathbb{E}\left[r_tr_{t+k}^2 \right]/\mathbb{E}\left[r_t^2\right]^2<0\).
 \end{itemize}
 
-[INSERISCI LOG-RETURNS GRAPH]\\
+\begin{figure}[htbp]
+    \centering
+
+    \begin{subfigure}{0.32\textwidth}
+        \centering
+        \includegraphics[width=\linewidth]{images/gen_dist_replication_returns_other_pos_log.png}
+        \caption{Heavy-tail distribution}
+        \label{fig:ref_distribution}
+    \end{subfigure}
+    \hfill
+    \begin{subfigure}{0.32\textwidth}
+        \centering
+        \includegraphics[width=\linewidth]{images/ref_vol_clus_replication_returns_other.png}
+        \caption{Volatility clustering}
+        \label{fig:ref_vol_clustering}
+    \end{subfigure}
+    \hfill
+    \begin{subfigure}{0.32\textwidth}
+        \centering
+        \includegraphics[width=\linewidth]{images/lev_eff_replication_returns_other.png}
+        \caption{Leverage effect}
+        \label{fig:ref_lev_eff}
+    \end{subfigure}
+
+    \caption{Stylized Facts for FTS, S\&P500 log-returns.}
+    \label{fig:three_graphs}
+\end{figure}
 
 It is important to state that financial returns do not follow a Gaussian behavior, indeed large price fluctuations occur more frequently than under Brownian motion, breaking random walk assumption \cite{mandelbrot1963variation, fama1965random}. Moreover, the fact that returns have polynomial-like tail decay \cite{cont2001empirical} implies that, contrary to what was believed before \cite{mandelbrot1963variation}, they have finite variance, and often unstable of infinite fourth moment \cite{gopikrishnan1999scaling}. Therefore, it is modern consensus that returns are not necessarily symmetric Lévy-stable process \cite{mantegna1995scaling}, but that assuming a Gaussian tail distribution would significantly underestimate risk.\\
 
