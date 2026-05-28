@@ -20,8 +20,7 @@ structure and motivation for the implemented model.
 \label{sec:ohlc_theoretical}
 
 OHLC data are formally represented as \(X \in \mathbb{R}^{K \times L}\), 
-where \(K = 4\) denotes the number of channels (Open, High, Low, Close) 
-and \(L\) the number of time steps per window. This partition is 
+where \(K = 4\) denotes the number of channels (Open, High, Low, Close), or conditioning features, and \(L\) the number of time steps per window. This partition is 
 financially motivated: the opening price \(O_t\) is fixed at the start of 
 the trading session, while the intraday extremes \(H_t\) and \(L_t\) are 
 continuously observed throughout it, encoding both the direction of price 
@@ -30,7 +29,7 @@ movements and the microstructure of intraday volatility. The closing price
 derived quantities are particularly informative as conditioning signals: the 
 overnight return \(O_t / C_{t-1}\), which captures the opening gap with 
 respect to the previous close, and the intraday range \(H_t - L_t\), a 
-well-established realised volatility proxy \cite{parkinson1980extreme}. Moreover, log-returns are often preferred to nominal prices because of their stationarity \cite{cont2001empirical}, which makes them comparable across time and assets, removing underlying price trends.
+well-established realised volatility proxy \cite{parkinson1980extreme}. In addition, log-returns are often preferred to nominal prices because of their stationarity \cite{cont2001empirical}, which makes them comparable across time and assets, removing underlying price trends.
 
 According to what stated before data can be partitioned into a conditioning set 
 \(\mathcal{C} = \{O, H, L\}\) and a target set \(\mathcal{T} = \{C\}\), 
