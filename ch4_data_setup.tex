@@ -15,7 +15,7 @@ According to the authors:
     training the generative model.}
 \end{quote}
 For each selected stock, daily log-returns were computed as in Eq.~\ref{eq:log_returns},
-using the adjusted closing price on day \(t\).\\
+using the adjusted closing price on day \(t\).
 
 This selection is subject to survivorship bias: only companies that remained listed for a
 period substantially longer than the average tenure in the S\&P 500 index are included
@@ -34,7 +34,7 @@ and Low prices are each expressed as log-returns relative to the previous closin
     \hat{L}_t = \log\!\left(\frac{L_t}{C_{t-1}}\right)
 \]
 This formulation is consistent with the Close log-return defined in Eq.~\ref{eq:log_returns},
-expressing all channels relative to the same reference price \(C_{t-1}\).\\
+expressing all channels relative to the same reference price \(C_{t-1}\).
 
 A per-channel z-score normalisation is then applied independently to each of the four
 channels in Phase~2. This is a linear transformation that preserves the shape of each channel's
@@ -43,7 +43,7 @@ distribution while standardising it to zero mean and unit variance, so that
 stable across channels. However, because each channel is scaled by its own standard
 deviation, the ordering constraint \(L_t \leq \min(O_t, C_t) \leq \max(O_t, C_t) \leq H_t\),
 which holds in price space, is not preserved after normalisation. This is a structural
-limitation acknowledged throughout the evaluation.\\
+limitation acknowledged throughout the evaluation.
 
 To assess dataset similarity with Kim et al.\ \cite{kim2025diffusion}, 
 Figure~8 of that paper was used as a baseline reference for the 
@@ -51,8 +51,7 @@ distribution of absolute returns. In order to bring the empirical curves closer,
 HUBB, NVR, and WMB. These were removed because they exhibit absolute 
 log-returns exceeding 100\%, with a maximum of \(+330\%\) and a minimum 
 of \(-157\%\). Log-returns below \(-100\%\) are theoretically impossible 
-since they would imply a non-positive price; such values are therefore 
-likely artifacts of the adjustment procedure described 
+since they would imply a non-positive price; such values are therefore artifacts of the adjustment procedure described 
 in Sec.~\ref{sec:fts_literature}. It is speculated that Kim et al.\ 
 applied a similar filter, since retaining these observations would 
 distort the return distribution without a principled justification, 
@@ -85,7 +84,7 @@ materialises the full \(L \times L\) attention matrix, costing approximately 17 
 attention alone at \(L = 2048\), which exceeds the 40 GB budget once model parameters
 and activations are included. Reducing to \(L = 512\) brings the attention cost within
 budget while still covering approximately two years of daily returns; the stride of 100
-maintains sufficient window overlap and training set diversity.\\
+maintains sufficient window overlap and training set diversity.
 
 Overlapping windows introduce correlation between adjacent training samples, violating
 the i.i.d.\ batch assumption. This is a standard and accepted approximation in
@@ -95,7 +94,7 @@ be noted as a limitation when interpreting training dynamics.
 \section{Training Configuration}
 
 This section discusses the most relevant training configuration and design choices;
-full hyperparameter details are provided in Appendix~\ref{app:sec:training_config}.\\
+full hyperparameter details are provided in Appendix~\ref{app:sec:training_config}.
 
 \textbf{Optimizer} The optimiser used throughout this project is the same used in CSDI \cite{tashiro2021csdi}, that is \texttt{AdamW}
 \cite{loshchilov2019decoupled}. At each step, the first and second moment estimates
@@ -114,7 +113,7 @@ coefficient, \(\varepsilon\) is a small constant for numerical stability, and
 bias-corrected moment estimates with \(\beta_1, \beta_2\) controlling the exponential
 decay of the first and second moments respectively. This decoupling leads to more
 consistent regularisation across parameters with different gradient magnitudes, which
-improves generalisation in practice.\\
+improves generalisation in practice.
 
 \textbf{Learning Rate Scheduler} The learning rate is scheduled via cosine annealing \cite{loshchilov2017sgdr}, which
 decreases the learning rate progressively according to:
@@ -148,8 +147,7 @@ log-returns, \(\sigma_{\max} = 1\) and \(\sigma_{\min} = 0.01\); for GBM-style
 diffusion on cumulative log-returns, \(\sigma_{\max} = 10\) and
 \(\sigma_{\min} = 0.1\). For the VP formulation, the noise schedule is instead
 parameterised by \(\beta_{\max} = 8\) and \(\beta_{\min} = 0.01\). Two further parameters relevant specifically to Phase 2 are \(P_{\text{mean}}\) and
-\(P_{\text{std}}\), which control the log-normal noise level sampling distribution
-(Eq.\ref{eq:edm_sigma_sampling}). Their values were determined through ablation over the
+\(P_{\text{std}}\) (Eq.\ref{eq:edm_sigma_sampling}), whose values were determined through ablation over the
 grid \(P_{\text{mean}} \in \{-0.8,\,-1.0,\,-1.2,\,-1.4,\,-1.6\}\) and
 \(P_{\text{std}} \in \{1.0,\,1.2,\,1.4,\,1.6,\,1.8\}\). The configuration
 \(P_{\text{mean}} = -1.4\) and \(P_{\text{std}} = 1.6\) yielded the best training
