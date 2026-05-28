@@ -409,6 +409,50 @@ small number of outliers can dominate the estimation of $\lambda$ and $\sigma_J^
 leading to unstable parameter estimates. As with GARCH, all parameters are fixed
 after calibration and must be re-estimated if the market regime changes.
 
+\section{Classical Baseline Models: Likelihood and Estimation}
+\label{app:baselines}
+
+\subsection{Log-GARCH-X Likelihood}
+
+Given the variance recursion~(\ref{eq:garchx_var}), the standardised residual
+is $z_t = \varepsilon_t / \sigma_t$. The negative log-likelihood is:
+\begin{equation}
+    \label{eq:garchx_nll_app}
+    \mathcal{L}_{\text{GARCH-X}} = -\sum_{t=2}^T
+        \Bigl[\log p_{t_\nu}(z_t) - \tfrac{1}{2}\log\sigma_t^2\Bigr],
+\end{equation}
+where $p_{t_\nu}$ is the standardised Student-$t$ log-pdf. The
+recursion is initialised at $\sigma_1^2 = \operatorname{Var}(r)$, and the
+stability constant $c = 10^{-8}$ prevents $\log(\varepsilon_{t-1}^2 + c)$
+from becoming $-\infty$ on zero residuals.
+
+\subsection{Merton-X Likelihood}
+
+Conditional on $P_t = k$ jumps, $r_t \sim \mathcal{N}(\mu + k\mu_J,\,
+\nu_t^2 + k\sigma_J^2)$. Marginalising over the Poisson counts:
+\begin{equation}
+    \label{eq:mertonx_loglik_app}
+    \log p(r_t) = \log \sum_{k=0}^{K_{\max}}
+        \frac{e^{-\lambda}\lambda^k}{k!}\;
+        \mathcal{N}\!\left(r_t;\; \mu + k\mu_J,\;
+        \nu_t^2 + k\sigma_J^2\right),
+\end{equation}
+evaluated via the log-sum-exp identity for numerical stability. The
+truncation $K_{\max} = 30$ covers all relevant probability mass for
+$\lambda \lesssim 15$; at that intensity, $P(P_t > 30) < 10^{-6}$.
+The full-series log-likelihood is a sum of $T$ independent terms (no
+sequential dependency).
+
+\subsection{Estimation Procedure}
+
+Both models are fitted per ticker by minimising the negative
+log-likelihood with L-BFGS-B \cite{byrd1995limited}. To reduce
+sensitivity to initialisation, two structurally distinct starting
+points are tried and the one with the lower NLL is retained. For
+GARCH-X, $(\alpha_0, \beta_0) \in \{(0.05, 0.90),\, (0.03, 0.90)\}$;
+for Merton-X, $(\lambda_0, \sigma_{J,0}) \in \{(0.10, 0.01),\,
+(0.50, 0.05)\}$.
+
 \section{Deep Generative Models}
 \label{app:sec:dgm}
 
