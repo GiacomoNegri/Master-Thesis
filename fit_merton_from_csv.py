@@ -109,6 +109,20 @@ def fit_merton_x(y, Q, max_iter=5000):
     y     = np.asarray(y, dtype=float)
     Q     = np.asarray(Q, dtype=float)
     k_var = Q.shape[1]
+
+    # bounds order: mu, a0, a[0..k_var-1], log_lam, mu_J, log_sigma_J
+    # log_lam >= -6 (lambda >= 0.0025) prevents identifiability collapse:
+    # when lambda→0 the jump parameters become unidentified and drift to
+    # extreme values that explode during simulation.
+    bounds = (
+        [(-1.0,   1.0)]        +   # mu
+        [(-25.0,  2.0)]        +   # a0
+        [(-1e4,   1e4)] * k_var +  # a
+        [(-6.0,   3.0)]        +   # log_lam → lambda ∈ [0.0025, 20]
+        [(-0.5,   0.5)]        +   # mu_J
+        [(-8.0,   0.0)]            # log_sigma_J → sigma_J ∈ [3.4e-4, 1]
+    )
+
     best  = None
     for init in INIT_GRID:
         theta0 = build_initial_theta(y=y, k_var=k_var, **init)
@@ -117,6 +131,7 @@ def fit_merton_x(y, Q, max_iter=5000):
             theta0,
             args=(y, Q),
             method="L-BFGS-B",
+            bounds=bounds,
             options={"maxiter": max_iter},
         )
         if best is None or result.fun < best.fun:
