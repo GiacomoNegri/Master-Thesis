@@ -311,4 +311,147 @@ noise schedule are tightly coupled to the training procedure.
 
 
 
-% % 
+% %
+
+\section{Classical Baselines with OHLC Conditioning}
+\label{sec:classical_baselines_theoretical}
+
+As introduced in Sec.~\ref{sec:classical_models_literature}, GARCH and Merton
+models are the parametric benchmarks against which the diffusion model is
+evaluated. In both cases the standard formulations are extended in two
+coordinated directions: (i)~the Gaussian innovation assumption of GARCH is
+relaxed to a Student-$t$, and (ii)~both the conditional variance and the
+jump-volatility in Merton are made to depend on observed OHLC log-return
+features. The resulting models are denoted \emph{GARCH-X} and \emph{Merton-X},
+where the suffix X signals the inclusion of exogenous conditioning variables
+drawn from the same per-day OHLC information that the diffusion model receives
+as its conditioning set $\mathcal{C}=\{O,H,L\}$.\\
+
+Since each column of the processed dataset contains \emph{log-returns}
+(Eq.~\ref{eq:log_returns}), all OHLC quantities are already in log-space. In
+particular, the column labelled ``open'' is the overnight log-return
+$o_t = \log(O_t / C_{t-1})$, and the column labelled ``high'' minus ``low''
+equals $\log(H_t/L_t)$, the log-range, a well-established realised volatility
+proxy \cite{parkinson1980extreme}. Both models are fitted independently
+per ticker by maximum likelihood using L-BFGS-B, making them the tractable,
+interpretable counterparts to the neural generative model.
+
+\subsection{Log-GARCH-X with Student-$t$ Innovations}
+\label{sec:garchx_theoretical}
+
+The mean equation for the close log-return $r_t \equiv y_t$ is an AR(1)
+with constant mean:
+\begin{equation}
+    \label{eq:garchx_mean}
+    r_t = \mu + \phi\, r_{t-1} + \varepsilon_t, \qquad |\phi| < 0.5,
+\end{equation}
+where the AR coefficient $\phi$ is bounded to $(-0.5,\, 0.5)$ to prevent
+simulated paths from diverging, given that log-returns exhibit near-zero
+autocorrelation. The innovation $\varepsilon_t = \sigma_t z_t$, where
+$z_t \overset{\text{i.i.d.}}{\sim} t_{\nu}$, a standardised Student-$t$ with
+$\nu > 2$ degrees of freedom. The Student-$t$ tail index $\nu$ is estimated
+from data and directly governs tail heaviness, with Gaussian returns recovered
+in the limit $\nu \to \infty$.\\
+
+The conditional variance follows a \emph{log}-GARCH specification rather than
+the standard levels recursion of Sec.~\ref{sec:classical_models_literature}.
+Letting $c$ be a small positive stabiliser:
+\begin{equation}
+    \label{eq:garchx_var}
+    \log \sigma_t^2 = \omega
+        + \alpha \log(\varepsilon_{t-1}^2 + c)
+        + \beta  \log \sigma_{t-1}^2
+        + \boldsymbol{\delta}^\top \mathbf{q}_t,
+\end{equation}
+with stationarity enforced by $\alpha + \beta < 0.98$. The log-GARCH
+formulation keeps $\sigma_t^2$ strictly positive by construction, without
+the non-negativity constraints on $\omega, \alpha, \beta$ required by the
+standard GARCH(1,1). The OHLC conditioning vector is:
+\begin{equation}
+    \label{eq:garchx_q}
+    \mathbf{q}_t = \Bigl[ o_t^2,\;
+    \tfrac{(\log H_t/L_t)^2}{4 \log 2} \Bigr]^\top,
+\end{equation}
+where $o_t^2$ is the squared overnight log-return and
+$(\log H_t/L_t)^2 / (4 \log 2)$ is the Parkinson
+(1980)~\cite{parkinson1980extreme} realised variance estimator, which is
+asymptotically more efficient than the squared close-to-close return under
+Brownian motion. The coefficient vector $\boldsymbol{\delta} \in \mathbb{R}^2$
+controls how much intraday information shifts the conditional variance.\\
+
+The log-likelihood is evaluated sequentially: given an initial variance
+$\sigma_1^2 = \operatorname{Var}(r)$, the recursion~(\ref{eq:garchx_var})
+propagates forward in time producing $\{\sigma_t\}_{t=1}^T$; the standardised
+residuals $z_t = \varepsilon_t / \sigma_t$ are then scored under the
+Student-$t$ log-pdf, and the total negative log-likelihood is:
+\begin{equation}
+    \label{eq:garchx_nll}
+    \mathcal{L}_{\text{GARCH-X}} = -\sum_{t=2}^T
+        \Bigl[\log p_{t_\nu}(z_t) - \tfrac{1}{2}\log\sigma_t^2\Bigr].
+\end{equation}
+The free parameters are $(\mu, \phi, \omega, \alpha, \beta,
+\boldsymbol{\delta}, \nu)$, a total of seven scalars.
+
+\subsection{Merton-X: Jump-Diffusion with OHLC-Driven Volatility}
+\label{sec:mertonx_theoretical}
+
+Merton's discrete-time analogue (Sec.~\ref{sec:classical_models_literature})
+expresses the close log-return as a sum of a diffusive and a compound Poisson
+component:
+\begin{equation}
+    \label{eq:mertonx_return}
+    r_t = \mu + \nu_t Z_t + \sum_{i=1}^{P_t} Y_{t,i},
+\end{equation}
+where $Z_t \overset{\text{i.i.d.}}{\sim} \mathcal{N}(0,1)$ is the Brownian
+innovation, $P_t \sim \operatorname{Poisson}(\lambda)$ counts the jumps
+arriving on day $t$, and $Y_{t,i} \overset{\text{i.i.d.}}{\sim}
+\mathcal{N}(\mu_J, \sigma_J^2)$ are the jump sizes. The diffusive volatility
+$\nu_t > 0$ is time-varying and driven by OHLC features via:
+\begin{equation}
+    \label{eq:mertonx_logvar}
+    \log \nu_t^2 = a_0 + \mathbf{a}^\top \mathbf{q}_t, \qquad
+    \mathbf{q}_t = \bigl[o_t^2,\; (\log H_t/L_t)^2\bigr]^\top,
+\end{equation}
+where $a_0 \in \mathbb{R}$ and $\mathbf{a} \in \mathbb{R}^2$ are learned
+coefficients. This is an observation-driven specification: unlike the GARCH
+recursion, the volatility at time $t$ depends only on the \emph{same-day}
+OHLC information, with no feedback from past residuals. This makes Merton-X
+directly comparable to the diffusion model's conditioning structure, where
+$\{O_t, H_t, L_t\}$ are provided at inference time to generate $C_t$.\\
+
+Conditional on $P_t = k$ jumps, the return $r_t$ is Gaussian with mean
+$\mu + k\mu_J$ and variance $\nu_t^2 + k\sigma_J^2$. Marginalising over
+the Poisson counts gives the mixture log-likelihood:
+\begin{equation}
+    \label{eq:mertonx_loglik}
+    \log p(r_t) = \log \sum_{k=0}^{K_{\max}}
+        \underbrace{e^{-\lambda}\frac{\lambda^k}{k!}}_{\text{Poisson weight}}
+        \cdot\; \mathcal{N}\!\left(r_t;\; \mu + k\mu_J,\;
+        \nu_t^2 + k\sigma_J^2\right),
+\end{equation}
+evaluated via the log-sum-exp identity for numerical stability. The
+truncation $K_{\max} = 30$ covers all relevant probability mass for
+$\lambda \lesssim 15$. The free parameters are $(\mu, a_0, \mathbf{a},
+\lambda, \mu_J, \sigma_J)$, a total of six scalars. Unlike the GARCH-X,
+Merton-X has no sequential recursion: each day's likelihood depends only
+on same-day observables, so the full time-series log-likelihood is a
+sum of $T$ independent terms.
+
+\subsection{Role as Baselines}
+\label{sec:baselines_role}
+
+Both models are parametric, admit closed-form likelihoods, and are
+refitted whenever the estimation window changes. They capture complementary
+subsets of the stylized facts: GARCH-X models volatility clustering and
+heavy tails through the log-GARCH recursion and Student-$t$ innovations,
+while Merton-X models sudden price discontinuities through the Poisson
+jump component. Neither model learns the joint conditional distribution
+$p(r_t^C \mid r_t^O, r_t^H, r_t^L)$ in a non-parametric sense; they
+instead impose a parametric family and estimate its parameters globally
+over the full available history. The diffusion model, by contrast, trains
+a neural denoiser on sliding windows and learns to approximate this
+conditional distribution implicitly, at the cost of opacity and
+substantially higher computational expense. The comparison in
+Ch.~\ref{ch:experiments} is therefore between two different modelling
+philosophies: interpretable, analytically tractable, fixed-form models
+versus a flexible, data-driven generative approach.
