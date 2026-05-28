@@ -7,6 +7,7 @@
     \item no ablation was done on embeddings dimensions
     \item This makes \(t\)-EDM a possible future extension of the EDM--CSDI framework considered in this thesis, since it preserves much of the EDM structure while changing the tail behaviour of the noising distribution.
     \item Baseline comparison with other Deep learning models
+    \item different type of window selection, which for generation is fine, even if it means sampling in-distribution things, but for EDM comparison we kept a different approac
 \end{itemize}
 
 here are some \textbf{Future works}
@@ -15,4 +16,10 @@ here are some \textbf{Future works}
     \item learnable skip connection
     \item testing the two components individually: conditional information and preconditioning EDM
     \item add learnable parameter for PE (relative)
+    \item sigma\_max value experimentation 5-10 range
+    \item prior, posterior dataset
+    \item differen Pmean and Pstd
+    \item trimming and executing KS again
+    \item different ohlc conditions
+    \item constraint preserving mechanism for H>C>L
 \end{itemize}

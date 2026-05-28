@@ -1,0 +1,301 @@
+%    Include other referenced packages here.
+\usepackage{pgfplots}
+\pgfplotsset{compat=1.15}
+\usepackage{mathtools}
+\usepackage{amssymb,amsmath,amsthm}
+\usepackage[inline]{enumitem}
+\usepackage[nosolutionfiles]{answers}
+%\usepackage{answers}
+%\usepackage{amsrefs}
+\usepackage{relsize}
+\usepackage{multicol}
+\usepackage{booktabs}
+\usepackage{hyperref}
+\usepackage{calc}
+\usepackage{esdiff}
+\usepackage{systeme}
+\usepackage{bm}
+\usepackage{tikz-cd}
+
+% \newtheorem{exercise}{Exercise}
+\Newassociation{solution}{extsolution}{solution}
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+% definitions
+% numerical sets
+\newcommand{\real}{{\mathbb R}}
+\newcommand{\rn}{{{\mathbb R}^n}}
+\newcommand{\realm}{{{\mathbb R}^m}}
+\newcommand{\rational}{{\mathbb Q}}
+\newcommand{\integer}{{\mathbb Z}}
+\newcommand{\naturals}{{\mathbb N}}
+\newcommand{\complex}{{\mathbb C}}
+\newcommand{\F}{{\mathbb F}}
+\newcommand{\R}{{\mathbb R}}
+\newcommand{\C}{{\mathbb C}}
+\newcommand{\Rn}{{\mathbb R}^n}
+\newcommand{\Rm}{{\mathbb R}^m}
+\newcommand{\cn}{{\mathbb C}^n}
+\newcommand{\rnn}{{{\mathbb R}^{n\times n}}}
+\newcommand{\rnm}{{{\mathbb R}^{n\times m}}}
+\newcommand{\rmn}{{{\mathbb R}^{m\times n}}}
+\newcommand{\cnn}{{{\mathbb C}^{n\times n}}}
+
+% abs and norm, ceil and floor
+
+\DeclarePairedDelimiter\abs{\lvert}{\rvert}%
+\DeclarePairedDelimiter\norm{\lVert}{\rVert}%
+\DeclarePairedDelimiter\ceil{\lceil}{\rceil}
+\DeclarePairedDelimiter\floor{\lfloor}{\rfloor}
+
+% Swap the definition of \abs* and \norm*, so that \abs
+% and \norm resizes the size of the brackets, and the 
+% starred version does not.
+\makeatletter
+\let\oldabs\abs
+\def\abs{\@ifstar{\oldabs}{\oldabs*}}
+%
+\let\oldnorm\norm
+\def\norm{\@ifstar{\oldnorm}{\oldnorm*}}
+\makeatother
+
+% common functions
+\newcommand{\rtr}{\real\to\real}
+\newcommand{\rttr}{\real^2\to\real}
+
+% common matrices
+\newcommand{\MmnF}{M_{mn}(\F)}
+\newcommand{\MnF}{M_{n}(\F)}
+
+% diagonal matrix
+\DeclareMathOperator{\diag}{diag}
+
+% image of a linear operator
+\DeclareMathOperator{\Ima}{Im}
+
+% range of a linear operator
+\DeclareMathOperator{\range}{range}
+
+% Rank of a linear operator
+\DeclareMathOperator{\rank}{rank}
+
+% projection of a linear operator
+\DeclareMathOperator{\proj}{proj}
+
+% Null and Column space of a matrix
+\DeclareMathOperator{\rspace}{\mathcal{R}}
+\DeclareMathOperator{\nspace}{\mathcal{N}}
+\DeclareMathOperator{\cspace}{\mathcal{C}}
+
+% Trace of a linear operator
+\DeclareMathOperator{\tr}{tr}
+
+% Rank of a linear operator
+\DeclareMathOperator{\vspan}{span}
+
+% Sign of a function
+\DeclareMathOperator{\sign}{sgn}
+
+% differential d
+\newcommand{\dif}{\mathop{}\!\mathrm{d}}
+\newcommand{\od}[2]{\frac{\dif #1}{\dif #2}}
+\newcommand{\dod}[2]{\displaystyle\frac{\dif #1}{\dif #2}}
+
+% complement
+\newcommand{\scomp}[1]{{#1^\complement}}
+
+% interior & closure
+\newcommand{\interior}[1]{{\kern0pt#1}^{\mathrm{o}}}
+\newcommand{\closure}[1]{{\overline{#1}}}
+
+% evaluated integral 
+\newcommand\eval[3]{\left[#1\right]_{#2}^{#3}}
+
+% floor and ceiling
+%\newcommand\floor[1]{\lfloor#1\rfloor}
+%\newcommand\ceil[1]{\lceil#1\rceil}
+
+% base n numbers
+\newcommand{\basen}[2]{{#1}_{#2}}
+
+% matrices p q
+\newcommand{\rmat}[2]{{{\mathbb R}^{{#1}\times {#2}}}}
+
+% vectors
+\newcommand{\vect}[1]{\mathbf{#1}}
+\newcommand{\va}{\mathbf{a}}
+\newcommand{\vb}{\mathbf{b}}
+\newcommand{\vc}{\mathbf{c}}
+\newcommand{\vd}{\mathbf{d}}
+\newcommand{\ve}{\mathbf{e}}
+\newcommand{\vf}{\mathbf{f}}
+\newcommand{\vp}{\mathbf{p}}
+\newcommand{\vq}{\mathbf{q}}
+\newcommand{\vr}{\mathbf{r}}
+\newcommand{\vs}{\mathbf{s}}
+\newcommand{\vx}{\mathbf{x}}
+\newcommand{\vy}{\mathbf{y}}
+\newcommand{\vz}{\mathbf{z}}
+\newcommand{\vu}{\mathbf{u}}
+\newcommand{\vw}{\mathbf{w}}
+\newcommand{\vv}{\mathbf{v}}
+\newcommand{\vT}{\mathbf{T}}
+\newcommand{\vbeta}{\mathbf{\beta}}
+\newcommand{\vzero}{\mathbf{0}}
+\newcommand{\mzero}{\mathbf{O}}
+
+\newcommand{\vtn}[4]{
+\vect{#1}=\left[
+\begin{array}{c}
+#2 \\
+#3 \\
+#4
+\end{array}
+\right]}
+
+\newcommand{\vtu}[3]{
+\left[
+\begin{array}{c}
+#1 \\
+#2 \\
+#3
+\end{array}
+\right]}
+
+\newcommand{\vtd}[4]{
+\left[
+\begin{array}{c}
+#1 \\
+#2 \\
+#3 \\
+#4
+\end{array}
+\right]}
+
+\newcommand{\vdn}[3]{
+\vect{#1}=\left[
+\begin{array}{c}
+#2 \\
+#3 
+\end{array}
+\right]}
+
+\newcommand{\vdu}[2]{
+\left[
+\begin{array}{c}
+#1 \\
+#2 
+\end{array}
+\right]}
+
+\newcommand{\stlb}[3]{
+\left\{\begin{matrix}
+#1 \\ #2 \\ #3
+\end{matrix}\right.}
+
+\newcommand{\stlt}[3]{
+\left\{\begin{matrix}
+#1 \\ #2 \\ #3
+\end{matrix}\right.}
+
+% horbars in matrices
+\newcommand{\brows}[1]{%
+  \begin{bmatrix}
+  \begin{array}{@{\protect\rotvert\;}c@{\;\protect\rotvert}}
+  #1
+  \end{array}
+  \end{bmatrix}
+}
+\newcommand{\rotvert}{\rotatebox[origin=c]{90}{$\vert$}}
+\newcommand{\rowsvdots}{\multicolumn{1}{@{}c@{}}{\vdots}}
+
+% tikz
+\usepackage{tikz,ifthen,calc}
+\newcounter{mysum}
+\newcounter{myline}
+\usetikzlibrary{shapes,arrows,shadows,trees,patterns}
+\usetikzlibrary{fadings}
+\tikzfading[name=fade out, inner color=transparent!0, outer color=transparent!100]
+
+\tikzstyle{2dgraph}=[
+			interior1/.style={red!20!white},
+			boundary1/.style={very thick,red},
+			interior2/.style={blue!30!white},
+			boundary2/.style={very thick,blue},
+			boundary2b/.style={dashed,blue},
+			interior12/.style={orange!10!cyan!10!white},
+			obj/.style={very thick,blue},
+			objval/.style={sloped,midway,above,font=\footnotesize},
+			bcircle/.style={rectangle, rounded corners,draw,green!80!white,very thick,minimum height=0.6cm},
+			axes/.style={->,thick,black}]
+\usetikzlibrary{decorations.pathreplacing,decorations.pathmorphing,decorations.markings,matrix}
+
+\usepgfplotslibrary{fillbetween}
+
+\tikzstyle arrowstyle=[scale=1]
+\tikzstyle directed=[postaction={decorate,decoration={markings,
+    mark=at position .65 with {\arrow[arrowstyle]{stealth}}}}]
+
+% Venn diagrams
+
+\def\firstcircle{(0,0) circle (1.5cm)}
+\def\secondcircle{(0:2cm) circle (1.5cm)}
+\def\universe{(-2,2) rectangle (4,-2)}
+
+\colorlet{circle edge}{blue!50}
+\colorlet{circle area}{blue!20}
+\colorlet{empty area}{white}
+
+\tikzset{
+	filled/.style={fill=circle area, draw=circle edge, thick},
+	nofilled/.style={fill=empty area, draw=circle edge, thick},
+    outline/.style={draw=circle edge, thick}}
+
+\tikzset{
+	invisible/.style={opacity=0},
+	visible on/.style={alt={#1{}{invisible}}},
+	alt/.code args={<#1>#2#3}{%
+	\alt<#1>{\pgfkeysalso{#2}}{\pgfkeysalso{#3}} % \pgfkeysalso doesn't change the path
+	},
+}
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+% theorems
+%\newtheorem{theorem}{Theorem}[chapter]
+%\newtheorem{lemma}[theorem]{Lemma}
+%
+%\theoremstyle{definition}
+%\newtheorem{definitionx}[theorem]{Definition}
+%\newenvironment{definition}
+%  {\pushQED{\qed}\renewcommand{\qedsymbol}{$\Diamond$}\definitionx}
+%  {\popQED\enddefinitionx}
+%
+%% \newtheorem{example}[theorem]{Example}
+%\newtheorem{examplex}[theorem]{Example}
+%\newenvironment{example}
+%  {\pushQED{\qed}\renewcommand{\qedsymbol}{$\triangle$}\examplex}
+%  {\popQED\endexamplex}
+%  
+\newtheorem{exercise}{Exercise}[]
+%
+%\theoremstyle{remark}
+%\newtheorem{remark}[theorem]{Remark}
+%
+%\numberwithin{section}{chapter}
+%\numberwithin{equation}{chapter}
+
+
+%
+% for date in the title
+%
+\makeatletter
+\def\@adminfootnotes{%
+  \let\@makefnmark\relax  \let\@thefnmark\relax
+  \ifx\@empty\@date\else \@footnotetext{\@setdate}\fi%%   <------ added
+  \ifx\@empty\@subjclass\else \@footnotetext{\@setsubjclass}\fi
+  \ifx\@empty\@keywords\else \@footnotetext{\@setkeywords}\fi
+  \ifx\@empty\thankses\else \@footnotetext{%
+    \def\par{\let\par\@par}\@setthanks}%
+  \fi
+}
+\makeatother
