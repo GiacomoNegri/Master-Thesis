@@ -36,22 +36,11 @@ Setting $s = 0$ in property~3, we immediately obtain:
 \]
 The variance grows linearly in time: uncertainty accumulates at rate $\sqrt{t}$,
 not $t$. This sub-linear growth is the signature of diffusion and contrasts with
-a deterministic path (variance 0) or with a purely random variable with no time
-structure.\\
+a deterministic path (variance 0) or with a purely random variable with no time structure.
 
 \textbf{Covariance and correlation.} For $0 \leq s \leq t$, write
-$W_t = W_s + (W_t - W_s)$. Since $W_t - W_s$ is independent of $W_s$ (property~2)
-and has mean zero:
-\begin{align*}
-    \operatorname{Cov}(W_s, W_t)
-    &= \operatorname{Cov}\bigl(W_s,\; W_s + (W_t - W_s)\bigr) \\
-    &= \operatorname{Var}(W_s) + \underbrace{\operatorname{Cov}(W_s,\,
-    \;=\; s \;=\; \min(s, t).
-\end{align*}
-Consequently $\operatorname{Corr}(W_s, W_t) = \sqrt{s/t}$ for $s \leq t$.
-Two observations far apart in time are weakly correlated; the process has no
-long-range memory beyond the information contained in its current value, a
-property formalised next.\\
+$W_t = W_s + (W_t - W_s)$. Since $W_t - W_s$ is independent of $W_s$ (property~2) and has mean zero: \(\operatorname{Cov}(W_s, W_t)=s=\min(s,t)\). Consequently $\operatorname{Corr}(W_s, W_t) = \sqrt{s/t}$ for $s \leq t$.
+Two observations far apart in time are weakly correlated, so there is no long-range memory.
 
 \textbf{Markov property.} The future distribution of $W_t$ given all past
 information $\mathcal{F}_s = \sigma(W_u : u \leq s)$ depends on the past only
@@ -59,12 +48,6 @@ through the current value $W_s$:
 \[
     P(W_t \in A \mid \mathcal{F}_s) = P(W_t \in A \mid W_s), \qquad s \leq t.
 \]
-This follows from independent increments: $W_t - W_s \sim \mathcal{N}(0, t-s)$
-is independent of $\mathcal{F}_s$, so knowing the full path up to $s$ adds
-nothing beyond knowing $W_s$. Economically, this says that the noise driving
-asset prices has no exploitable history: past increments of $W$ carry no
-information about future ones.\\
-
 \textbf{Martingale property.} With respect to $\{\mathcal{F}_t\}$, $W_t$ is a
 martingale:
 \[
@@ -72,25 +55,22 @@ martingale:
 \]
 Proof: $\mathbb{E}[W_t \mid \mathcal{F}_s] = \mathbb{E}[W_s + (W_t - W_s)
 \mid \mathcal{F}_s] = W_s + \mathbb{E}[W_t - W_s] = W_s$, using independence
-and zero mean of the increment. The martingale property encodes the absence of
-predictable drift in the noise: knowing the path up to $s$, the best prediction
-of $W_t$ is simply $W_s$, with no systematic upward or downward tendency.
+and zero mean of the increment, where the martingale property encodes the absence of predictable drift in the noise.
 
 \section{It\^{o}'s Lemma and the Black-Scholes Model}
 \label{app:sec:ito}
 
 Ordinary calculus provides the chain rule: if $f$ is smooth and $x(t)$ is
 differentiable, then $df = f'(x)\,dx$. Because BM paths are not differentiable,
-this rule fails when $x$ is driven by a Brownian motion. It\^{o}'s Lemma provides the correct generalisation.
+this rule fails when $x$ is driven by a BM. It\^{o}'s Lemma provides the correct generalisation.
 
-\subsection{Statement and Heuristic Proof}
+\subsection{Statement}
 
 Let $\{X_t\}$ be an It\^{o} process satisfying:
 \[
     dX_t = a_t\, dt + b_t\, dW_t,
 \]
-where $a_t$ (the drift) and $b_t$ (the diffusion coefficient) are adapted
-stochastic processes satisfying standard integrability conditions
+where $a_t$ (the drift) and $b_t$ (the diffusion coefficient) are stochastic processes satisfying standard integrability conditions
 \cite{oksendal2003stochastic}. Let $f(t, x)$ be a function that is once
 continuously differentiable in $t$ and twice continuously differentiable in $x$.
 Then:
@@ -104,39 +84,13 @@ Then:
 \]
 
 The term $\frac{1}{2} b_t^2 \frac{\partial^2 f}{\partial x^2}\, dt$ is the
-It\^{o} correction. It is absent in ordinary calculus and arises
-because the stochastic increment has a non-negligible second-order contribution.
-
-\textit{Heuristic derivation.} Expand $f(t + dt, X_{t+dt})$ by Taylor's theorem
-to second order in $dX_t$ and first order in $dt$:
-\[
-    df = \frac{\partial f}{\partial t}\, dt
-       + \frac{\partial f}{\partial x}\, dX_t
-       + \frac{1}{2}\frac{\partial^2 f}{\partial x^2}(dX_t)^2
-       + \cdots
-\]
-Substitute $dX_t = a_t\, dt + b_t\, dW_t$ and expand $(dX_t)^2$:
-\[
-    (dX_t)^2 = a_t^2(dt)^2 + 2a_t b_t\, dt\, dW_t + b_t^2(dW_t)^2.
-\]
-Applying It\^{o}'s product rule we get:
-\[
-    (dX_t)^2 = b_t^2\, dt.
-\]
-The cross term $dt\,dW_t$ and the higher-order term $(dt)^2$ vanish. Collecting
-the surviving contributions:
-\[
-    df = \frac{\partial f}{\partial t}\, dt
-       + \frac{\partial f}{\partial x}(a_t\, dt + b_t\, dW_t)
-       + \frac{1}{2}\frac{\partial^2 f}{\partial x^2}\, b_t^2\, dt,
-\]
-which rearranges to Eq.~(\ref{eq:ito_lemma}).
+It\^{o} correction. It is absent in ordinary calculus and appear
+because the stochastic increment has a non-negligible second-order contribution. A proof is provided in \cite{oksendal2003stochastic}, chapter 4, \emph{The Itô Formula and the Martingale Representation Theorem.}
 
 \subsection{Proof of the Black-Scholes Price Equation}
 
 Chapter \ref{ch:literature_review} states that applying It\^{o}'s Lemma to $\log S_t$ under GBM
-(Eq.~\ref{eq:blackscholes}) yields the log-normal price formula. We derive
-this in full here. The GBM is the It\^{o} process with drift coefficient
+(Eq.~\ref{eq:blackscholes}) yields the log-normal price formula. It was derived in full here. The GBM is the It\^{o} process with drift coefficient
 $a_t = \mu S_t$ and diffusion coefficient $b_t = \nu S_t$:
 \[
     dS_t = \mu\, S_t\, dt + \nu\, S_t\, dW_t.
@@ -162,21 +116,23 @@ constant diffusion coefficient $\nu$. Integrating over $[0, t]$:
     = \left(\mu - \frac{1}{2}\nu^2\right)t + \nu W_t,
 \]
 and exponentiating:
-\begin{equation}
-    \label{eq:gbm_solution_app}
+\[
+\label{eq:gbm_solution_app}
     S_t = S_0 \exp\!\left[\left(\mu - \frac{1}{2}\nu^2\right)t
           + \nu W_t\right].
-\end{equation}
+\]
 Since $W_t \sim \mathcal{N}(0, t)$, the log-return over $[0, t]$ satisfies:
-\begin{equation}
+\[
     \label{eq:lognormal_returns_app}
     \log\!\left(\frac{S_t}{S_0}\right)
     \;\sim\; \mathcal{N}\!\left(\left(\mu - \frac{1}{2}\nu^2\right)t,\;
     \nu^2 t\right).
-\end{equation}
+\]
 Log-returns are normally distributed with mean proportional to $t$ and variance
 proportional to $t$, confirming the statement in Section \ref{sec:classical_models_literature} and the foundation
-of the Black--Scholes option pricing model \cite{black1973pricing}.\\
+of the Black--Scholes option pricing model \cite{black1973pricing}.
+
+[START BACK FROM HERE]
 
 \textbf{Interpreting the It\^{o} correction.} The term $-\frac{1}{2}\nu^2$ is
 not an approximation error: it is the exact price of the convexity of the

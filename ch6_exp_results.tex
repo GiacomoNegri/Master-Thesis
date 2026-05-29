@@ -4,17 +4,19 @@ Another problem to consider is fully held-out windows.
     \item Lower error for smaller ts between linear and exponential because of higher discriminative power
 \end{itemize}
 
+1. Phase 1, 2048/400 replication
+2. Phase 2, expansion to edm 512/100 performance and comparison with baseline models
+3. Further expansion and evaluation of EDM models (against baseline possibly)
+
 \section{Introduction}
-In this chapter we will analyse the experiments conducted and the results yielded. Before proceeding it is important the two core questions we are trying to answer here:
+In this chapter we will analyse the experiments conducted and the results yielded. Before proceeding it is important to underline the two core questions we are trying to answer here:
 \begin{itemize}
     \item Are we able to replicate the results obtained by Kim et al. \cite{kim2025diffusion} and to which extent?
     \item Does the embedding into EDM and the introduction of conditional information improved models' performance and ability to replicate true FTS distribution?
 \end{itemize}
-The primary data source will be S\&P500 OHLC daily log-returns, sequence length with \(L=512\) and stride \(100\).
 \section{Phase 1}
-For phase 1 the settings are available at Tab.[REFERENCE TABLE with training settings]. On top of this models were trained for 1000 epochs, similarly to Kim et al. \cite{kim2025diffusion} with batch size of 64. The main sampling strategy used is the probability fo\\
+For phase 1 the settings are available at Tab.\ref{tab:training_setup}. On top of these, models were trained for 1000 epochs, similarly to Kim et al. \cite{kim2025diffusion} with batch size of 64. The sampling technique is probability flow ODE, which empirically have been show produing more reliable and replicable results.
 
-\textbf{Replication, \(L=2048\) and \(s=400\)} Starting from the replication part we noticed that [EXPLAIN THE RESULTS FINDED]
 
 [INCLUDE IMAGES THAT SHOW FTS AND RELEVANT OTHER GRAPHS OR TABLE]
 
