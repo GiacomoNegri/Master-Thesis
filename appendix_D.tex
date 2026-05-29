@@ -122,3 +122,18 @@ The two configurations differ by $1{,}189{,}824$ parameters
 = 1{,}189{,}632 + 192$),
 entirely attributable to the six feature Transformer layers absent in the
 univariate case and the larger feature embedding vocabulary.
+
+\section{Attention Memory and Sequence Length Constraint}
+\label{app:sec:attention_memory}
+
+The CSDI self-attention computes a score matrix of shape \((B \times K,\, H,\, L,\, L)\), and
+PyTorch selects among three SDPA kernels at runtime. Flash SDPA avoids materialising
+the full matrix but requires more CUDA cores than the available MIG slices provide.
+Memory-Efficient SDPA encounters an internal limit of 65,535 on the
+\(\text{batch} \times \text{heads}\) dimension: with \(K = 4\), \(B = 64\), and
+\(L = 2048\), this product reaches 524,288. The only remaining fallback, Math SDPA,
+materialises the full \(L \times L\) attention matrix, costing approximately 17 GB for
+attention alone at \(L = 2048\), which exceeds the 40 GB budget once model parameters
+and activations are included. Reducing to \(L = 512\) brings the attention cost within
+budget while still covering approximately two years of daily returns; the stride of 100
+maintains sufficient window overlap and training set diversity.

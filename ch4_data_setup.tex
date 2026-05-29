@@ -75,21 +75,11 @@ incurs an \(\mathcal{O}(L^2)\) cost in sequence length, making it computationall
 expensive. The shorter \(L = 512\) setting was adopted for Phase 2 due to hardware
 constraints imposed by MIG partitioning of the A100 GPU into 40 GB slices.
 
-Importantly, for Phase 1 it was assumed that Kim et al.\ \cite{kim2025diffusion} compute first the windows and then selected the validation ones, or did not used any validation at all. In this thesis' case validation windows were extracted but consistently with the supposed implementation, they were hold out randomly, but because of the stride there is a probable, as confirm by training perfomance, partial overlap between windows used in training and validation one.
+For Phase 1, it is assumed that Kim et al.\ \cite{kim2025diffusion} either constructed windows first and then selected validation ones, or did not employ any validation set at all. In this work, validation windows were extracted and held out randomly, consistently with the supposed implementation; however, due to the stride, partial overlap between training and validation windows is likely, as corroborated by training performance.
 
-For Phase 2, in order to evaluate discriminative power of conditioning information validation windows were fully held out, meaning that for any tickets whose window was selected no other windows shared the same time range. Now this has the disadvantages that with respect to before the model has higher difficulties learning the time embeddings, because it sees less examples, but it was supposed that because of the higher number of samples, due to smaller window size the impact would've been mitigated.
+For Phase 2, in order to assess the discriminative power of the conditioning information, validation windows were fully held out: for any ticker whose window was selected for validation, no other window covering the same time range appeared in the training set. This reduces the number of training examples available for learning time embeddings; however, this effect was expected to be mitigated by the larger number of windows produced by the shorter sequence length.
 
-The CSDI self-attention computes a score matrix of shape \((B \times K,\, H,\, L,\, L)\), and
-PyTorch selects among three SDPA kernels at runtime. Flash SDPA avoids materialising
-the full matrix but requires more CUDA cores than the available MIG slices provide.
-Memory-Efficient SDPA encounters an internal limit of 65,535 on the
-\(\text{batch} \times \text{heads}\) dimension: with \(K = 4\), \(B = 64\), and
-\(L = 2048\), this product reaches 524,288. The only remaining fallback, Math SDPA,
-materialises the full \(L \times L\) attention matrix, costing approximately 17 GB for
-attention alone at \(L = 2048\), which exceeds the 40 GB budget once model parameters
-and activations are included. Reducing to \(L = 512\) brings the attention cost within
-budget while still covering approximately two years of daily returns; the stride of 100
-maintains sufficient window overlap and training set diversity.
+The shorter \(L = 512\) setting keeps the self-attention cost within the 40 GB MIG budget; the full memory analysis is given in Appendix~\ref{app:sec:attention_memory}.
 
 Overlapping windows introduce correlation between adjacent training samples, violating
 the i.i.d.\ batch assumption. This is a standard and accepted approximation in
