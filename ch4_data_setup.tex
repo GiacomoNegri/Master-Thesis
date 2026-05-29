@@ -73,8 +73,13 @@ A window of length \(L = 2048\) spans approximately ten years of daily returns a
 therefore well-suited to capturing long-term trends. However, the temporal Transformer
 incurs an \(\mathcal{O}(L^2)\) cost in sequence length, making it computationally
 expensive. The shorter \(L = 512\) setting was adopted for Phase 2 due to hardware
-constraints imposed by MIG partitioning of the A100 GPU into 40 GB slices. The CSDI
-self-attention computes a score matrix of shape \((B \times K,\, H,\, L,\, L)\), and
+constraints imposed by MIG partitioning of the A100 GPU into 40 GB slices.
+
+Importantly, for Phase 1 it was assumed that Kim et al.\ \cite{kim2025diffusion} compute first the windows and then selected the validation ones, or did not used any validation at all. In this thesis' case validation windows were extracted but consistently with the supposed implementation, they were hold out randomly, but because of the stride there is a probable, as confirm by training perfomance, partial overlap between windows used in training and validation one.
+
+For Phase 2, in order to evaluate discriminative power of conditioning information validation windows were fully held out, meaning that for any tickets whose window was selected no other windows shared the same time range. Now this has the disadvantages that with respect to before the model has higher difficulties learning the time embeddings, because it sees less examples, but it was supposed that because of the higher number of samples, due to smaller window size the impact would've been mitigated.
+
+The CSDI self-attention computes a score matrix of shape \((B \times K,\, H,\, L,\, L)\), and
 PyTorch selects among three SDPA kernels at runtime. Flash SDPA avoids materialising
 the full matrix but requires more CUDA cores than the available MIG slices provide.
 Memory-Efficient SDPA encounters an internal limit of 65,535 on the
@@ -90,6 +95,8 @@ Overlapping windows introduce correlation between adjacent training samples, vio
 the i.i.d.\ batch assumption. This is a standard and accepted approximation in
 deep learning on time series, analogous to patch sampling in image models, but it should
 be noted as a limitation when interpreting training dynamics.
+
+[INTRODUCE WINDOW'S CREATION DIFFERENCE AND include this also in the TABLE for set up; include also sampler for fair comparison]
 
 \section{Training Configuration}
 
