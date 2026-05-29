@@ -4,7 +4,7 @@
 Section~\ref{sec:csdi_literature} described the four-step lineage PixelCNN, WaveNet, DiffWave, CSDI. Here the explanation is expanded, focusing on which ideas each introduced and which it
 passed forward.
 
-\subsection{PixelCNN}
+\section{PixelCNN}
 
 PixelCNN \cite{oord2016pixel} generates images autoregressively by factorising
 the joint over pixels in Raster order (left to right, row by row, top to bottom). To implement this with a convolutional
@@ -25,7 +25,7 @@ PixelCNN's limitation for long sequences is its sequential inference: each new
 token requires conditioning on all previous ones, giving $O(L)$ passes through
 the network for a sequence of length $L$.
 
-\subsection{WaveNet}
+\section{WaveNet}
 
 WaveNet \cite{oord2016wavenet} transfers PixelCNN's gated residual structure
 to raw audio by replacing 2D masked image convolutions with 1D
@@ -36,7 +36,7 @@ growing receptive field of $2^L$ samples using only $O(L)$ parameters per
 block, while causality is preserved by ensuring the kernel never reaches
 forward in time.
 
-\subsection{DiffWave}
+\section{DiffWave}
 
 DiffWave \cite{kong2021diffwave} adopts the WaveNet-style residual blocks
 (gated activations, dilated convolutions, skip aggregation, conditioning
