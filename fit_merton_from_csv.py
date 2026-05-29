@@ -24,6 +24,7 @@ Usage:
         --out_dir      ./checkpoints/merton \
         [--max_iter 5000]
 python fit_merton_from_csv.py --input_folder ./data/SNP500_individual_processed --out_dir ./checkpoints/merton --max_iter 1000
+python fit_merton_from_csv.py --input_folder ./data/SNP500_individual_processed_replication --out_dir ./checkpoints/merton_replication --max_iter 1000
 """
 
 import argparse

@@ -29,7 +29,8 @@ Usage:
         --input_folder ./data/SNP500_individual_processed \
         --out_dir      ./checkpoints/garch_fast \
         [--max_iter 1000]
-python fit_garch_from_csv.py --input_folder ./data/SNP500_individual_processed --out_dir ./checkpoints/garch --max_iter 1000
+python fit_garch_from_csv_modified.py --input_folder ./data/SNP500_individual_processed --out_dir ./checkpoints/garch --max_iter 1000
+python fit_garch_from_csv_modified.py --input_folder ./data/SNP500_individual_processed_replication --out_dir ./checkpoints/garch_replication --max_iter 1000
 """
 
 import argparse
