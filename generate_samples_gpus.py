@@ -100,7 +100,8 @@ def reconstruct_split(config, repo_root):
     date_col = columns[0]
 
     abs_root = os.path.normpath(os.path.join(repo_root, data_root))
-    files    = sorted(glob.glob(os.path.join(abs_root, "*.csv")))
+    files    = sorted(f for f in glob.glob(os.path.join(abs_root, "*.csv"))
+                      if os.path.basename(f) != "normalization_stats.csv")
     assert len(files) > 0, f"No CSVs found in {abs_root}"
     print(f"Data root   : {abs_root}  ({len(files)} files)")
 
