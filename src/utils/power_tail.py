@@ -6,7 +6,7 @@ Reference: full stock series (no windowing). Generated: all CSVs in GEN_DIRECTOR
 
 # ── USER INPUTS ───────────────────────────────────────────────────────────────
 REF_DIRECTORY = "data/replication_returns_other"
-GEN_DIRECTORY = "data/generated/final/replication/EDM_HEUN_ODE_rho7.0_NO_NO_REPL_RET_OTHER_UNCO_ep-1000_sde-ve_noise-linear_20260526_024027_N200_seed50"
+GEN_DIRECTORY = "data/generated/final/replication/ODE_NO_NO_REPL_RET_OTHER_UNCO_ep-1000_sde-vp_noise-linear_20260526_105330_N2000_seed50_seq512_str100"
 SEED          = 50
 MAX_SAMPLE    = 300_000   # subsample cap for fit_powerlaw_fast
 # ─────────────────────────────────────────────────────────────────────────────
