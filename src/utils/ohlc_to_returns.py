@@ -24,6 +24,8 @@ COLS = ["date", "open", "high", "low", "close"]
 def process_file(src: str, dst: str) -> None:
     df = pd.read_csv(src, usecols=COLS, parse_dates=["date"], dayfirst=True)
     df = df.sort_values("date").reset_index(drop=True)
+    df = df.dropna(subset=COLS[1:])  # drop rows with any NaN OHLC price
+    df = df[df["close"] > 0].reset_index(drop=True)  # drop zero/negative close
 
     close = df["close"].to_numpy(dtype=np.float64)
     log_ret = np.log(close[1:] / close[:-1])
@@ -62,6 +64,8 @@ def main(ref_folder: str, out_folder: str, col_normalization: bool = False) -> N
             try:
                 df = pd.read_csv(src, usecols=COLS, parse_dates=["date"], dayfirst=True)
                 df = df.sort_values("date").reset_index(drop=True)
+                df = df.dropna(subset=COLS[1:])
+                df = df[df["close"] > 0].reset_index(drop=True)
                 close = df["close"].to_numpy(dtype=np.float64)
                 out = pd.DataFrame()
                 out["date"] = df["date"].iloc[1:].dt.strftime("%d/%m/%Y")

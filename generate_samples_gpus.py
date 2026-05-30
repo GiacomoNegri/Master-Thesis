@@ -133,23 +133,82 @@ def reconstruct_split(config, repo_root):
     dataset_size = len(flat_index)
     print(f"Total windows: {dataset_size}")
 
-    rng_torch   = torch.Generator().manual_seed(seed)
-    all_indices = torch.randperm(dataset_size, generator=rng_torch).tolist()
-
+    # Bug 1 — replicate SP500WindowDataset.split_indices: per-file temporal block hold-out.
+    # The old code used torch.randperm over all dataset_size indices (a global random
+    # permutation), which produces a completely different partition from the one used
+    # during training.  Training uses np.random.default_rng(seed) to carve a contiguous
+    # calendar block out of each file independently; windows straddling the boundary are
+    # discarded to prevent data-point leakage.  We reproduce that logic exactly here so
+    # that the "val" windows in the output CSVs are the true held-out windows.
     if val_ratio is not None and 0 < val_ratio < 1:
-        val_size    = max(1, int(dataset_size * val_ratio))
-        val_indices = all_indices[:val_size]
-        train_pool  = all_indices[val_size:]
-        print(f"Val windows : {val_size}")
+        rng_np = np.random.default_rng(seed)
+
+        file_val_start = {}
+        file_val_end   = {}
+        n_skipped = 0
+
+        for fi, T in enumerate(file_lengths):
+            val_block_size = max(seq_len, int(T * val_ratio))
+            lo = seq_len
+            hi = T - val_block_size
+            if lo > hi:
+                file_val_start[fi] = -1   # too short — all windows go to training
+                n_skipped += 1
+                continue
+            val_start = int(rng_np.integers(lo, hi + 1))
+            file_val_start[fi] = val_start
+            file_val_end[fi]   = val_start + val_block_size
+
+        if n_skipped:
+            warnings.warn(
+                f"reconstruct_split: {n_skipped}/{len(file_lengths)} files are too short "
+                f"to yield both training and validation windows; "
+                f"all their windows go to training.",
+            )
+
+        train_pool  = []
+        val_indices = []
+
+        for i, (fi, start) in enumerate(flat_index):
+            vs = file_val_start[fi]
+            if vs == -1:
+                train_pool.append(i)
+                continue
+            ve  = file_val_end[fi]
+            end = start + seq_len
+
+            if end <= vs:
+                train_pool.append(i)        # entirely left of val block
+            elif start >= ve:
+                train_pool.append(i)        # entirely right of val block
+            elif start >= vs and end <= ve:
+                val_indices.append(i)       # entirely inside val block
+            # else: straddles boundary — discard (prevents data-point leakage)
+
+        print(f"Val windows : {len(val_indices)}")
     else:
         val_indices = []
-        train_pool  = all_indices
+        train_pool  = list(range(dataset_size))
         print("Val windows : 0  (no val_split_ratio in config)")
 
+    # Bug 3 — shuffle train_pool (not all dataset indices) with torch.randperm.
+    # Training calls torch.randperm(len(train_pool)) after the val carve-out, so the
+    # permutation input size is the post-carve-out pool, not dataset_size.  Using
+    # dataset_size as the input to randperm (old code) produces a different sequence
+    # even with the same seed, because torch.randperm(N) and torch.randperm(M) with
+    # N != M draw different elements from the same PRNG state.
+    rng_torch      = torch.Generator().manual_seed(seed)
+    shuffled_order = torch.randperm(len(train_pool), generator=rng_torch).tolist()
+    train_pool     = [train_pool[i] for i in shuffled_order]
+
+    # Bug 4 — subset_ratio base is len(train_pool), not dataset_size.
+    # Training computes int(len(train_pool) * subset_ratio) after the val carve-out, so
+    # applying the ratio to dataset_size (old code) over-counts by including val windows
+    # and produces a larger (and different) subset than what was actually trained on.
     if subset_size is not None:
         n_train = min(int(subset_size), len(train_pool))
     elif subset_ratio is not None:
-        n_train = max(1, int(dataset_size * subset_ratio))
+        n_train = max(1, int(len(train_pool) * subset_ratio))
         n_train = min(n_train, len(train_pool))
     else:
         n_train = len(train_pool)
