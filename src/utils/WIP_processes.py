@@ -364,6 +364,7 @@ class Diffusion_Processes:
         sigma_min: float = None,
         sigma_max: float = None,
         device: torch.device = None,
+        snapshot_steps=None,
     ) -> torch.Tensor:
         """
         EDM deterministic Heun sampler (S_churn=0, purely deterministic).
@@ -390,10 +391,17 @@ class Diffusion_Processes:
                            For VP/subVP SDEs this argument must be supplied explicitly.
             sigma_max:     Maximum sigma.  Same note as sigma_min.
             device:        Inference device.  Inferred from model if None.
+            snapshot_steps: Optional iterable of int step indices at which to capture
+                            the model's denoised estimate D_x.  When provided the
+                            function returns (x, snapshots) instead of just x, where
+                            snapshots = [(step: int, sigma: float, D_x: cpu Tensor), …]
+                            ordered by step index.  Existing callers that do not pass
+                            this argument are unaffected (return type is still Tensor).
 
         Returns:
             x: (B, K, L) generated samples, with OHL channels replaced by
                observed_data if self.enforce_observed is True.
+            When snapshot_steps is provided, returns (x, snapshots) instead.
         """
         assert num_steps >= 2, "edm_sampler requires num_steps >= 2"
 
@@ -427,6 +435,9 @@ class Diffusion_Processes:
         log_every  = max(1, num_steps // 10)
         step_start = time.time()
 
+        _snap_set  = set(snapshot_steps) if snapshot_steps is not None else set()
+        _snapshots = []
+
         # ── 3. Heun loop ──────────────────────────────────────────────────────────
         for i in range(num_steps):
             sigma_cur  = sigmas[i]                             # scalar tensor
@@ -444,6 +455,9 @@ class Diffusion_Processes:
                 cond_mask=cond_mask,
                 observed_tp=observed_tp,
             )                                                   # (B, K, L)
+
+            if i in _snap_set:
+                _snapshots.append((i, sigma_cur.item(), D_x_cur.detach().cpu()))
 
             # Probability-flow ODE direction: d = (x - D_x) / sigma
             d_cur  = (x - D_x_cur) / sigma_cur
@@ -488,4 +502,6 @@ class Diffusion_Processes:
         if self.enforce_observed:
             x = cond_mask * observed_data + (1.0 - cond_mask) * x
 
+        if snapshot_steps is not None:
+            return x, _snapshots
         return x
