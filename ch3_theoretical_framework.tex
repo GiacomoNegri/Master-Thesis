@@ -319,10 +319,12 @@ concentrates denoising steps at low \(\sigma\), where ODE curvature is
 highest and discretisation errors have the greatest impact on sample 
 quality.
 
-A key advantage of the EDM framework is the decoupling of the sampler 
-from the training objective: a model trained with the EDM loss can be 
-evaluated with any compatible ODE or SDE solver without retraining. This 
-is in contrast to DDPM \cite{ho2020ddpm}, where the sampler and the 
+The choice of \(\sigma_{\text{max}}\) and \(S_{\text{churn}}\) jointly determines the character of sampling. \(\sigma_{\text{max}}\) sets the noise level at which the reverse process begins, so the prior from which samples are drawn is \(x_N \sim \mathcal{N}(0,\sigma_{\text{max}}^2 I)\); for this prior to be approximately data-free, \(\sigma_{\text{max}}\) must be large enough that the signal-to-noise ratio is negligible. For standardised OHLC log-returns with \(\sigma_{\text{data}} = 1\), values of \(\sigma_{\text{max}} \gg 1\) are required, and setting it too small results in a prior that retains residual data structure, biasing every generated sample. As discussed in Sec.~\ref{sec:edm_literature}, \(S_{\text{churn}}\) governs the amount of stochasticity reinjected per step via the noise inflation \(\hat{\sigma}_i = \sigma_i\sqrt{1+\gamma_i^2}\): a value of \(S_{\text{churn}} = 0\) recovers the deterministic Heun ODE, while positive values allow the sampler to escape discretisation errors by temporarily re-entering a higher-noise regime, at the cost of additional noise injections along each trajectory.
+
+A key advantage of the EDM framework is the decoupling of the sampler
+from the training objective: a model trained with the EDM loss can be
+evaluated with any compatible ODE or SDE solver without retraining. This
+is in contrast to DDPM \cite{ho2020ddpm}, where the sampler and the
 noise schedule are tightly coupled to the training procedure.
 
 % \section{Summary}

@@ -256,9 +256,18 @@ a $\rho$-power noise schedule:
 \left(\sigma_{\text{min}}^{1/\rho} - \sigma_{\text{max}}^{1/\rho}\right)
 \right)^{\!\rho}, \quad i = 0, \dots, N-1
 \end{equation}
-with $\rho = 7$. The power-law schedule concentrates discretisation steps at 
-small $\sigma$, where the ODE curvature is highest and denoising errors have the 
+with $\rho = 7$. The power-law schedule concentrates discretisation steps at
+small $\sigma$, where the ODE curvature is highest and denoising errors have the
 greatest impact on sample quality, which is why instead of \(\rho=3\) that equalize the truncation error at each step they chose higher values. This resulted in equivalent sample quality to DDPM with approximately $7\times$ fewer NFEs. Moreover, the sampler is independent of the training procedure, therefore a model trained with the EDM loss could be evaluated with any compatible ODE or SDE solver.
+
+\textbf{Stochastic Heun sampler} \label{sec:stochastic_heun}
+Karras et al.\ also propose a stochastic variant of the Heun solver in which a controlled amount of noise is reinjected before each denoising step. Before applying the standard second-order Heun update, the current noise level $\sigma_i$ is temporarily inflated to
+\begin{equation}
+    \label{eq:stochastic_heun}
+    \hat{\sigma}_i = \sigma_i\sqrt{1 + \gamma_i^2}, \qquad
+    \gamma_i = \min\!\left(\frac{S_{\text{churn}}}{N},\;\sqrt{2}-1\right),
+\end{equation}
+and the sample is perturbed as $\hat{x}_i = x_i + \sqrt{\hat{\sigma}_i^2 - \sigma_i^2}\;\epsilon_i$ with $\epsilon_i \sim \mathcal{N}(0,I)$, before the Heun step proceeds from $(\hat{x}_i,\hat{\sigma}_i)$ to $\sigma_{i+1}$. The scalar $S_{\text{churn}} \geq 0$ is the sole stochasticity parameter: when $S_{\text{churn}} = 0$ every $\gamma_i = 0$ and the algorithm collapses to the deterministic ODE solver, while positive values allow the trajectory to briefly re-enter a higher-noise regime at each step, counteracting discretisation errors at the cost of additional noise injections.
 
 \section{Conditional Score-Based Diffusion for Time Series (CSDI)}
 \label{sec:csdi_literature}
