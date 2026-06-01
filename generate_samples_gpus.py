@@ -71,6 +71,14 @@ def parse_args():
                    help="Number of Close paths to generate per OHL context window.")
     p.add_argument("--num_reverse_steps", type=int, default=None,
                    help="Override reverse diffusion steps (default: value in checkpoint config).")
+    p.add_argument("--S_churn", type=float, default=0.0,
+                   help="Stochastic noise budget per step. 0 = deterministic Heun sampler.")
+    p.add_argument("--S_tmin",  type=float, default=0.05,
+                   help="Lower sigma bound for stochastic noise injection.")
+    p.add_argument("--S_tmax",  type=float, default=float('inf'),
+                   help="Upper sigma bound for stochastic noise injection.")
+    p.add_argument("--S_noise", type=float, default=1.0,
+                   help="Noise amplification factor for stochastic injection.")
     p.add_argument("--chunk_size",        type=int, default=10,
                    help="Number of windows batched into a single edm_sampler call. "
                         "Larger = fewer calls and better GPU utilisation, but more VRAM.")
@@ -231,6 +239,7 @@ def run_split_ddp(
     device, out_dir, rho,
     date_to_idx, date_col,
     rank, world_size, is_main,
+    S_churn=0.0, S_tmin=0.05, S_tmax=float('inf'), S_noise=1.0,
 ):
     """
     Distributes window_indices across ranks (round-robin), runs the EDM
@@ -307,6 +316,10 @@ def run_split_ddp(
                 num_steps     = num_steps,
                 rho           = rho,
                 device        = device,
+                S_churn       = S_churn,
+                S_tmin        = S_tmin,
+                S_tmax        = S_tmax,
+                S_noise       = S_noise,
             )   # (B, K, L)
 
             # Split back into per-window arrays of shape (num_samples, L)
@@ -526,6 +539,10 @@ def main():
                 "seq_len":           seq_len,
                 "close_idx":         close_idx,
                 "world_size":        world_size,
+                "S_churn":           args.S_churn,
+                "S_tmin":            args.S_tmin,
+                "S_tmax":            args.S_tmax,
+                "S_noise":           args.S_noise,
             },
         )
         print(f"W&B run: {wandb.run.url}")
@@ -557,6 +574,10 @@ def main():
         rank           = rank,
         world_size     = world_size,
         is_main        = is_main,
+        S_churn        = args.S_churn,
+        S_tmin         = args.S_tmin,
+        S_tmax         = args.S_tmax,
+        S_noise        = args.S_noise,
     )
 
     # ── Generate for VAL split ────────────────────────────────────────────────
@@ -588,6 +609,10 @@ def main():
             rank           = rank,
             world_size     = world_size,
             is_main        = is_main,
+            S_churn        = args.S_churn,
+            S_tmin         = args.S_tmin,
+            S_tmax         = args.S_tmax,
+            S_noise        = args.S_noise,
         )
 
     plt.close("all")

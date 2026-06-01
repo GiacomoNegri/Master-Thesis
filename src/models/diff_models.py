@@ -125,6 +125,10 @@ class ResidualBlock(nn.Module):
         self.cond_projection = Conv1d_with_init(side_dim, 2 * channels, 1)
         self.mid_projection = Conv1d_with_init(channels, 2 * channels, 1)
         self.output_projection = Conv1d_with_init(channels, 2 * channels, 1)
+        # Per-block learnable linear over the sinusoidal time PE frequency components.
+        # Mirrors diffusion_projection: each ResidualBlock learns to weight the PE
+        # frequencies independently rather than sharing one fixed basis across all layers.
+        self.time_pe_proj = nn.Linear(channels, channels)
 
         self.is_linear = is_linear
         if is_linear:
@@ -154,8 +158,13 @@ class ResidualBlock(nn.Module):
             return y
         y = y.reshape(B, channel, K, L).permute(0, 2, 1, 3).reshape(B * K, channel, L)
 
-        # Positional encoding injected prior to the Transformer (relative sequence position)
-        y = y + self._sinusoidal_pe(L, channel, y.device)  # (BK, channel, L)
+        # Sinusoidal basis projected through a per-block learnable linear (time_pe_proj).
+        # Shape: (1,C,L) → permute to (1,L,C) → Linear(C,C) → permute back to (1,C,L).
+        # nn.Linear requires the feature dimension last, hence the permute pair.
+        # The result broadcasts over (BK, C, L) identically to the fixed PE it replaces.
+        pe = self._sinusoidal_pe(L, channel, y.device)                  # (1, C, L)
+        pe = self.time_pe_proj(pe.permute(0, 2, 1)).permute(0, 2, 1)   # (1, C, L)
+        y = y + pe
 
         if self.is_linear:
             y = self.time_layer(y.permute(0, 2, 1)).permute(0, 2, 1)

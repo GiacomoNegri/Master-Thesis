@@ -95,6 +95,16 @@ def parse_args():
     p.add_argument("--num_reverse_steps", type=int, default=None,
                    help="Override reverse diffusion steps (default: value in checkpoint config).")
 
+    # Stochastic sampler parameters (S_churn=0 gives deterministic Heun)
+    p.add_argument("--S_churn", type=float, default=0.0,
+                   help="Stochastic noise budget per step. 0 = deterministic Heun sampler.")
+    p.add_argument("--S_tmin",  type=float, default=0.05,
+                   help="Lower sigma bound for stochastic noise injection.")
+    p.add_argument("--S_tmax",  type=float, default=float('inf'),
+                   help="Upper sigma bound for stochastic noise injection.")
+    p.add_argument("--S_noise", type=float, default=1.0,
+                   help="Noise amplification factor for stochastic injection.")
+
     # Reproducibility
     p.add_argument("--seed", type=int, default=42)
 
@@ -228,6 +238,7 @@ def run_split(
     processes, model, num_samples, num_steps,
     device, out_dir, rho,
     date_to_idx, date_col,
+    S_churn=0.0, S_tmin=0.05, S_tmax=float('inf'), S_noise=1.0,
 ):
     """
     For each window in window_indices:
@@ -286,6 +297,10 @@ def run_split(
                 num_steps     = num_steps,
                 rho           = rho,
                 device        = device,
+                S_churn       = S_churn,
+                S_tmin        = S_tmin,
+                S_tmax        = S_tmax,
+                S_noise       = S_noise,
             )   # (B, K, L)
 
             gen_close_list.append(samples[:, close_idx, :].cpu().numpy())   # (B, L)
@@ -447,6 +462,10 @@ def main():
                 "target_dim":        target_dim,
                 "seq_len":           seq_len,
                 "close_idx":         close_idx,
+                "S_churn":           args.S_churn,
+                "S_tmin":            args.S_tmin,
+                "S_tmax":            args.S_tmax,
+                "S_noise":           args.S_noise,
             },
         )
         print(f"W&B run: {wandb.run.url}")
@@ -471,6 +490,10 @@ def main():
         rho            = rho,
         date_to_idx    = date_to_idx,
         date_col       = date_col,
+        S_churn        = args.S_churn,
+        S_tmin         = args.S_tmin,
+        S_tmax         = args.S_tmax,
+        S_noise        = args.S_noise,
     )
 
     # ── Generate for VAL split ────────────────────────────────────────────────
@@ -495,6 +518,10 @@ def main():
             rho            = rho,
             date_to_idx    = date_to_idx,
             date_col       = date_col,
+            S_churn        = args.S_churn,
+            S_tmin         = args.S_tmin,
+            S_tmax         = args.S_tmax,
+            S_noise        = args.S_noise,
         )
 
     plt.close("all")

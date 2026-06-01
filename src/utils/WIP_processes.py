@@ -364,9 +364,13 @@ class Diffusion_Processes:
         sigma_min: float = None,
         sigma_max: float = None,
         device: torch.device = None,
+        S_churn: float = 0.0,
+        S_tmin: float = 0.05,
+        S_tmax: float = float('inf'),
+        S_noise: float = 1.0,
     ) -> torch.Tensor:
         """
-        EDM deterministic Heun sampler (S_churn=0, purely deterministic).
+        EDM Heun sampler — deterministic when S_churn=0, stochastic when S_churn>0.
 
         Implements Algorithm 2 from Karras et al. 2022, adapted for the
         conditional CSDI setting (B, K, L) with fixed OHL context.
@@ -390,6 +394,13 @@ class Diffusion_Processes:
                            For VP/subVP SDEs this argument must be supplied explicitly.
             sigma_max:     Maximum sigma.  Same note as sigma_min.
             device:        Inference device.  Inferred from model if None.
+            S_churn:       Total stochastic noise budget.  0 = deterministic (default).
+                           Typical values from Karras et al.: 0 (deterministic) to 80.
+            S_tmin:        Lower sigma threshold for noise injection.  Steps where
+                           sigma_cur < S_tmin are left deterministic.  Default: 0.05.
+            S_tmax:        Upper sigma threshold for noise injection.  Default: inf.
+            S_noise:       Noise amplification factor applied to the injected noise.
+                           Default: 1.0 (no amplification, per Karras et al.).
 
         Returns:
             x: (B, K, L) generated samples, with OHL channels replaced by
@@ -432,22 +443,33 @@ class Diffusion_Processes:
             sigma_cur  = sigmas[i]                             # scalar tensor
             sigma_next = sigmas[i + 1]                         # scalar tensor (0 at last step)
 
+            # ── Stochastic noise injection (Karras et al. 2022, stochastic variant) ──
+            # gamma > 0 only when S_churn > 0 and sigma_cur is in [S_tmin, S_tmax].
+            # When S_churn=0 (default), gamma=0, sigma_hat=sigma_cur — identical to
+            # the deterministic path.
+            gamma = (min(S_churn / num_steps, 2**0.5 - 1)
+                     if S_tmin <= sigma_cur.item() <= S_tmax else 0.0)
+            sigma_hat = sigma_cur * (1.0 + gamma)
+            if gamma > 0:
+                noise_mag = (sigma_hat ** 2 - sigma_cur ** 2).clamp(min=0.0).sqrt()
+                x = x + torch.randn_like(x) * (S_noise * noise_mag)
+
             # Broadcast scalar sigma to (B,) as required by model.denoise
-            sigma_cur_b = sigma_cur.reshape(1).expand(B)       # (B,)
+            sigma_hat_b = sigma_hat.reshape(1).expand(B)       # (B,)
 
             # ── Euler step ────────────────────────────────────────────────────────
-            # D_x ≈ E[x0 | x_t, sigma]: the model's denoised estimate at sigma_cur.
+            # D_x ≈ E[x0 | x_t, sigma]: the model's denoised estimate at sigma_hat.
             D_x_cur = model.denoise(
                 x_t=x,
-                sigma=sigma_cur_b,
+                sigma=sigma_hat_b,
                 observed_data=observed_data,
                 cond_mask=cond_mask,
                 observed_tp=observed_tp,
             )                                                   # (B, K, L)
 
             # Probability-flow ODE direction: d = (x - D_x) / sigma
-            d_cur  = (x - D_x_cur) / sigma_cur
-            x_next = x + (sigma_next - sigma_cur) * d_cur
+            d_cur  = (x - D_x_cur) / sigma_hat
+            x_next = x + (sigma_next - sigma_hat) * d_cur
 
             # ── 2nd-order Heun correction ─────────────────────────────────────────
             # Skipped at the last step where sigma_next = 0 to avoid log(0) and
@@ -463,7 +485,7 @@ class Diffusion_Processes:
                     observed_tp=observed_tp,
                 )                                               # (B, K, L)
                 d_prime = (x_next - D_x_next) / sigma_next
-                x_next  = x + (sigma_next - sigma_cur) * (0.5 * d_cur + 0.5 * d_prime)
+                x_next  = x + (sigma_next - sigma_hat) * (0.5 * d_cur + 0.5 * d_prime)
 
             x = x_next
 
@@ -477,7 +499,7 @@ class Diffusion_Processes:
                 kurt  = ((diff ** 4).mean() / (var ** 2  + 1e-8) - 3.0).item()
                 elapsed, step_start = time.time() - step_start, time.time()
                 print(
-                    f"[EDM step {i+1:4d}/{num_steps} | σ={sigma_cur.item():.4f}]  "
+                    f"[EDM step {i+1:4d}/{num_steps} | σ_cur={sigma_cur.item():.4f}  σ_hat={sigma_hat.item():.4f}]  "
                     f"mean={x_cpu.mean():.4f}  std={x_cpu.std():.4f}  "
                     f"min={x_cpu.min():.4f}  max={x_cpu.max():.4f}  "
                     f"skew={skew:.3f}  kurt={kurt:.3f}  "
