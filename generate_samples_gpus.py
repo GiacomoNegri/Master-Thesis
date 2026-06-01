@@ -74,6 +74,8 @@ def parse_args():
     p.add_argument("--chunk_size",        type=int, default=10,
                    help="Number of windows batched into a single edm_sampler call. "
                         "Larger = fewer calls and better GPU utilisation, but more VRAM.")
+    p.add_argument("--sigma_max",          type=float, default=None,
+                   help="Override sigma_max from checkpoint config (default: use checkpoint value).")
     p.add_argument("--seed",              type=int, default=42)
     p.add_argument("--out_dir",           type=str,
                    default=os.path.join("data", "generated", "conditional"))
@@ -460,6 +462,10 @@ def main():
     model.eval()
 
     # ── Diffusion processes ───────────────────────────────────────────────────
+    if args.sigma_max is not None:
+        if is_main:
+            print(f"Overriding sigma_max: {config['process']['sigma_max']} → {args.sigma_max}")
+        config["process"]["sigma_max"] = args.sigma_max
     processes = Diffusion_Processes(config["process"])
     num_steps = args.num_reverse_steps if args.num_reverse_steps is not None else processes.N
     rho       = float(config.get("edm", {}).get("rho", 7.0))
