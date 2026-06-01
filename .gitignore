@@ -68,3 +68,4 @@ tables/
 
 compare_tickers.py
 csv_to_parquet.py
+inspect_checkpoint.py

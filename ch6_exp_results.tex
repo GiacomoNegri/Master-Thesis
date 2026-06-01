@@ -1,38 +1,911 @@
-\chapter{Experiments and results}
-Another problem to consider is fully held-out windows.
-\begin{itemize}
-    \item Lower error for smaller ts between linear and exponential because of higher discriminative power
-\end{itemize}
-
-1. Phase 1, 2048/400 replication
-2. Phase 2, expansion to edm 512/100 performance and comparison with baseline models
-3. Further expansion and evaluation of EDM models (against baseline possibly)
+\chapter{Experiments and Results}
+\label{ch:experiments_results}
 
 \section{Introduction}
-In this chapter we will analyse the experiments conducted and the results yielded. Before proceeding it is important to underline the two core questions we are trying to answer here:
-\begin{itemize}
-    \item Are we able to replicate the results obtained by Kim et al. \cite{kim2025diffusion} and to which extent?
-    \item Does the embedding into EDM and the introduction of conditional information improved models' performance and ability to replicate true FTS distribution?
-\end{itemize}
-\section{Phase 1}
-For phase 1 the settings are available at Tab.\ref{tab:training_setup}. On top of these, models were trained for 1000 epochs, similarly to Kim et al. \cite{kim2025diffusion} with batch size of 64. The sampling technique is probability flow ODE, which empirically have been show produing more reliable and replicable results.
+\label{sec:exp_introduction}
 
+This chapter presents the experimental evaluation of the two modelling phases introduced
+in Chapters~\ref{ch:theoretical_framework} and~\ref{ch:data_setup}, assessed with the
+metrics defined in Chapter~\ref{ch:evaluation_methodology}. Two research questions guide
+the analysis:
 
-[INCLUDE IMAGES THAT SHOW FTS AND RELEVANT OTHER GRAPHS OR TABLE]
+\begin{enumerate}
+    \item \textbf{Phase~1 --- Replication.} Is a CSDI-based diffusion architecture capable
+    of learning and reproducing the stylized facts of financial time series when trained
+    under the SDE framework proposed by Kim et al.~\cite{kim2025diffusion}?
+    \item \textbf{Phase~2 --- EDM-CSDI.} Does embedding the same architecture within the
+    Elucidated Diffusion Model (EDM) framework of Karras et al.~\cite{karras2022elucidating}
+    and conditioning generation on same-day Open, High, and Low log-returns improve
+    generation quality over the Phase~1 baseline?
+\end{enumerate}
 
-General structure:
-* Aggregate statistics
-* distributional information
-* Stylized facts + alpha
-* path illustration
+The chapter is organised in two sequential parts that mirror the experimental structure
+introduced in Chapter~\ref{ch:theoretical_framework}. Phase~1
+(Sec.~\ref{sec:phase1}) replicates the work of Kim et al.~\cite{kim2025diffusion} on
+unconditional univariate generation of S\&P~500 close log-returns across three SDE
+variants and multiple noise schedules, seeking to establish a validated baseline and to
+verify the claims made in the original paper regarding the GBM-inspired forward process.
+Phase~2 (Sec.~\ref{sec:phase2}) extends the validated backbone to the multivariate OHLC
+setting within the EDM framework, evaluating conditional generation quality on both
+training windows and fully held-out validation windows.
 
-For conditional add also:
-* CRPS
-* Interval Coverage
+A key design difference between the two phases concerns the validation split. In Phase~1,
+validation windows are drawn randomly from the full sliding-window pool; because the
+stride $s=400$ is substantially shorter than the window length $L=2048$, consecutive
+windows share the majority of their time steps, and some degree of temporal leakage
+between training and validation windows is likely. In Phase~2, validation windows are
+strictly held out: for any ticker whose window is selected for validation, no other
+window covering the same time range appears in the training set for that ticker. This
+construction is intended to test the model's ability to generalise to time periods it has
+not encountered during training and to assess the discriminative power of the OHLC
+conditioning signal in a strictly out-of-sample regime.
 
-\section{Phase 2}
-In this section it is conducted a comparative study of EDM alongside previous implementation. Specifically, we evaluate the conditioning. In order to have a fair assessment, the models analysed in Phase 1 were re-trained with \(L=512\) and \(stride=100\) and the same Heun's ODE sampler was used.
+Both phases use the same underlying CSDI-inspired backbone: 128 model channels, 6
+residual layers, and the factored two-dimensional attention mechanism described in
+Sec.~\ref{sec:model_architecture}. The diffusion framework, noise schedule, masking
+strategy, and sampler differ between phases as summarised in Tab.~\ref{tab:comparisons}
+and Tab.~\ref{tab:training_setup}. Metric definitions are not restated here; readers are
+referred to Chapter~\ref{ch:evaluation_methodology} for precise formulations of all
+evaluation criteria used in this chapter.
 
-In this experiments we distinguish between training and valuation windows, since the latter are fully held out, according to what described in Sec.\ref{sec:sliding_window_ch4}.
+\section{Phase 1 --- Replication}
+\label{sec:phase1}
 
-[DOUBLE CHECK]
+\subsection{Setup and Motivation}
+\label{sec:phase1_setup}
+
+Phase~1 aims to replicate the generative approach of Kim et al.~\cite{kim2025diffusion},
+who applied a CSDI backbone~\cite{tashiro2021csdi} to unconditional generation of
+financial time series under three SDE-inspired forward processes. As discussed in
+Sec.~\ref{sec:scorediffmodels}, the VE, VP, and GBM-inspired formulations differ in how
+variance evolves along the forward diffusion trajectory, and each admits multiple noise
+schedule parametrisations. The experimental grid therefore covers three SDE variants
+crossed with three noise schedules --- linear, exponential, and cosine --- yielding nine
+candidate configurations in principle. Two of these, VP with exponential schedule and VP
+with cosine schedule, were not pursued due to time constraints and preliminary evidence
+of unpromising training dynamics observed in early runs. The remaining seven
+configurations were each trained to convergence and evaluated in full. This grid is
+intended to reproduce the main claim of Kim et al.~\cite{kim2025diffusion} that the
+GBM-inspired SDE captures the stylized facts of financial returns more faithfully than VE
+and VP variants.
+
+All Phase~1 models are trained on univariate close log-returns ($K=1$) using the
+unconditional masking strategy, in which $m^{\text{co}} = \mathbf{0}$ everywhere and the
+loss is computed on all sequence entries without any side information. Sliding windows of
+length $L=2048$ (approximately ten years of daily data) are constructed with stride
+$s=400$, yielding approximately 5,500 training windows across the full S\&P~500
+constituent dataset. The sampler used for generation is the probability flow ODE, which
+produces deterministic trajectories governed entirely by the learned score field and
+corresponds to the primary evaluation sampler of Song et al.~\cite{song2021score}.
+Remaining architectural and optimiser details are given in Tab.~\ref{tab:training_setup}.
+
+It is important to recall that the stride of $s=400$ is substantially shorter than the
+window length $L=2048$, so consecutive windows drawn from the same ticker share
+approximately 1,648 time steps. Validation windows drawn at random from the full
+window pool will therefore, in most cases, overlap temporally with one or more training
+windows for the same ticker. Any measured performance gap between the training and
+validation splits should be interpreted with this limitation in mind. This is a known
+characteristic of the Phase~1 setup, acknowledged in Sec.~\ref{sec:sliding_window_ch4},
+and it provides one motivation for the stricter separation strategy adopted in Phase~2.
+
+\subsection{Aggregate Statistics and Distributional Similarity}
+\label{sec:phase1_aggregate}
+
+The first layer of evaluation targets the unconditional marginal distribution of generated
+close log-returns. For each of the seven trained configurations, an ensemble of windows
+of length $L=2048$ is generated, and the pooled generated returns are compared against
+the pooled training returns using the KS statistic $D_{\text{KS}}$ and the Wasserstein
+distance $W_1$, as defined in Chapter~\ref{ch:evaluation_methodology}. Pathwise
+higher-order moments --- mean, variance, skewness, and excess kurtosis --- are computed
+window-by-window and then aggregated, providing direct evidence of whether the model
+reproduces the non-Gaussian shape of the return distribution beyond the first two
+moments. Skewness and excess kurtosis are of particular interest: the former captures
+the asymmetry between positive and negative returns, and the latter indicates whether
+the model reproduces the heavy-tailed character of the data, which is the defining
+feature of financial log-return distributions.
+
+% [PLACEHOLDER: TABLE — aggregate distributional statistics (mean, std, skewness, excess
+% kurtosis, min, max) for generated vs. training close log-returns across all 7 Phase 1
+% configurations. Rows: training reference, VE-linear, VE-exponential, VE-cosine,
+% VP-linear, GBM-linear, GBM-exponential, GBM-cosine. Bold best per column.]
+\begin{table}[htbp]
+    \centering
+    \caption{Aggregate distributional statistics for Phase~1 generated and training close
+    log-returns. Values are computed over pooled window-level returns. Excess kurtosis is
+    reported relative to the Gaussian reference of zero. KS and $W_1$ measure global
+    discrepancy between the generated and training marginals.}
+    \label{tab:phase1_aggregate}
+    % [PLACEHOLDER: table content]
+\end{table}
+
+% [PLACEHOLDER: FIGURE — QQ plots (top row) and ECDF comparisons (bottom row) for
+% a representative subset of Phase 1 configurations, e.g., one per SDE family (VE-best,
+% VP-linear, GBM-best) and the training reference. KS gap marked on each ECDF panel.]
+\begin{figure}[htbp]
+    \centering
+    % [PLACEHOLDER: figure content]
+    \caption{Quantile--quantile plots (top row) and empirical cumulative distribution
+    function comparisons (bottom row) for selected Phase~1 configurations. Generated
+    distributions are shown as dashed lines; the training reference as a solid line.
+    The maximum vertical gap in each ECDF panel corresponds to the KS statistic
+    $D_{\text{KS}}$.}
+    \label{fig:phase1_qq_ecdf}
+\end{figure}
+
+The QQ plots and ECDF comparisons in Fig.~\ref{fig:phase1_qq_ecdf} serve complementary
+diagnostic purposes. Deviations from the diagonal in the QQ plot at extreme quantiles
+indicate that the model underestimates or overestimates the frequency of large absolute
+returns relative to the training data; this is the most direct visual test of tail
+fidelity. The ECDF comparison, by contrast, is most sensitive to the bulk of the
+distribution, where the mass is concentrated and where the KS gap is typically largest.
+Together, the two panels allow bulk and tail performance to be assessed simultaneously
+for each configuration.
+
+Based on the results in Tab.~\ref{tab:phase1_aggregate} and
+Fig.~\ref{fig:phase1_qq_ecdf},
+% [PLACEHOLDER: narrative interpretation — which configurations achieve the lowest KS
+% and W1 values? Are skewness and excess kurtosis reproduced by any SDE variant?
+% Does the GBM-inspired SDE or any particular noise schedule show a consistent
+% advantage in distributional matching? Note whether the bulk or the tails are the
+% main source of discrepancy across configurations.]
+
+\subsection{Stylized Facts}
+\label{sec:phase1_stylized}
+
+Beyond the marginal distribution, a model trained on financial time series should
+reproduce the dynamic properties of the data --- specifically the three stylized facts
+introduced in Sec.~\ref{sec:fts_literature}: heavy-tailed return distributions,
+volatility clustering, and the leverage effect. These properties are evaluated following
+the implementation of Takahashi et al.~\cite{stakahashy_fingan}, as described in
+Chapter~\ref{ch:evaluation_methodology}, consistent with the evaluation protocol of
+Kim et al.~\cite{kim2025diffusion} and enabling direct comparison with the figures
+reported in that work.
+
+\textbf{Heavy-Tailed Distributions.}
+The tail behaviour of the generated return distribution is assessed through log-log tail
+distribution plots and the power-law tail exponent $\alpha$, estimated using the
+\texttt{powerlaw} package of Alstott et al.~\cite{alstott2014powerlaw}. Recall from
+Sec.~\ref{sec:fts_literature} that empirical tail exponents for equity returns typically
+fall in the range $\alpha \in [3,5]$, with the S\&P~500 constituents used in this study
+yielding an empirical benchmark of approximately $\alpha \approx 4.35$.
+% [PLACEHOLDER: confirm empirical alpha value against computed data]
+An estimated $\alpha$ below this benchmark indicates that the generated distribution has
+heavier tails than the training data, producing too many extreme events; an $\alpha$
+above it indicates lighter tails, corresponding to an underestimation of the frequency
+of large return shocks. Both deviations carry practical consequences for downstream
+applications such as risk management and stress testing.
+
+% [PLACEHOLDER: FIGURE — log-log tail distribution plots for all 7 Phase 1
+% configurations (VE-linear, VE-exponential, VE-cosine, VP-linear, GBM-linear,
+% GBM-exponential, GBM-cosine) and the empirical S&P500 training reference.
+% Estimated alpha values annotated on each panel. Arrange as a 3x3 grid
+% (with two panels empty for the missing VP configurations) or as overlaid curves
+% within each SDE family.]
+\begin{figure}[htbp]
+    \centering
+    % [PLACEHOLDER: figure content]
+    \caption{Log-log tail distribution plots for Phase~1 configurations and the
+    empirical S\&P~500 training reference (solid black line). The power-law tail
+    exponent $\alpha$ is annotated for each configuration; the empirical benchmark
+    is $\alpha \approx 4.35$.}
+    \label{fig:phase1_tails}
+\end{figure}
+
+Based on Fig.~\ref{fig:phase1_tails},
+% [PLACEHOLDER: narrative — which SDE variant and noise schedule combination produces
+% an alpha closest to the empirical benchmark? Is there evidence that the GBM-inspired
+% SDE tends to produce heavier tails than VE or VP, as claimed by Kim et al.? Does the
+% noise schedule choice (linear, exponential, cosine) have a consistent effect within
+% each SDE family? Comment on whether any configuration underestimates or overestimates
+% tail heaviness systematically.]
+
+\textbf{Volatility Clustering.}
+Volatility clustering is assessed via the autocorrelation function (ACF) of absolute
+returns $|r_t|$, plotted on a log-log scale. As established in
+Sec.~\ref{sec:fts_literature}, the ACF of absolute returns in real equity data decays
+hyperbolically as $\text{Corr}(|r_t|, |r_{t+k}|) \sim k^{-\beta}$, with $\beta \in
+[0.1, 0.5]$, corresponding to a straight line on a log-log plot. A model that fails to
+capture this property will exhibit ACF decay that is either exponentially fast,
+producing a curve that drops below the empirical reference at short lags, or
+effectively flat at zero beyond a small lag horizon. Capturing volatility clustering is
+non-trivial for a diffusion model trained on return sequences: it requires the temporal
+Transformer to learn and encode persistent amplitude dependencies across hundreds of
+time steps within each window of length $L=2048$.
+
+% [PLACEHOLDER: FIGURE — ACF of absolute returns on log-log scale for all 7 Phase 1
+% configurations and the empirical S&P500 reference. Arrange consistently with
+% Fig.~\ref{fig:phase1_tails}.]
+\begin{figure}[htbp]
+    \centering
+    % [PLACEHOLDER: figure content]
+    \caption{Autocorrelation function of absolute returns on a log-log scale for
+    Phase~1 configurations and the empirical S\&P~500 reference (solid black line).
+    A curve that closely tracks the reference line indicates faithful reproduction of
+    volatility clustering.}
+    \label{fig:phase1_acf}
+\end{figure}
+
+Based on Fig.~\ref{fig:phase1_acf},
+% [PLACEHOLDER: narrative — which configurations reproduce slow hyperbolic ACF decay
+% versus fast collapse? Does the GBM-inspired SDE outperform VE and VP at this metric?
+% Is there a noise schedule that consistently improves clustering reproduction?
+% Note if the decay exponent beta implied by the generated ACF falls within the
+% empirical range [0.1, 0.5].]
+
+\textbf{Leverage Effect.}
+The leverage effect captures the empirical observation that negative return shocks are
+followed by disproportionately higher future volatility, and is measured through the
+lead-lag correlation $L(k) = \mathbb{E}[r_t r_{t+k}^2] / \mathbb{E}[r_t^2]^2$, which
+is persistently negative for small positive lags $k$ in real financial data, as defined
+in Sec.~\ref{sec:fts_literature}. Reproducing this property requires the model to
+generate sequences in which periods of elevated volatility are systematically associated
+with preceding negative returns --- an asymmetric temporal dependency that is absent
+from symmetric noise processes unless it is explicitly encoded by the data-driven
+component of the model. As discussed in Sec.~\ref{sec:scorediffmodels}, the
+GBM-inspired forward process introduces a form of heteroskedastic noise structure in
+log-price space that may predispose it to capture this asymmetry more readily than the
+symmetric VE and VP formulations.
+
+% [PLACEHOLDER: FIGURE — lead-lag correlation L(k) plots for all 7 Phase 1
+% configurations and the empirical S&P500 reference, for k in an appropriate range
+% (e.g., k = -20, ..., 20). Arrange consistently with Figs.~\ref{fig:phase1_tails}
+% and~\ref{fig:phase1_acf}.]
+\begin{figure}[htbp]
+    \centering
+    % [PLACEHOLDER: figure content]
+    \caption{Lead-lag correlation $L(k)$ for Phase~1 configurations and the empirical
+    S\&P~500 reference. Persistent negative values for $k > 0$ are the signature of the
+    leverage effect; values near zero for all lags indicate failure to reproduce this
+    asymmetry.}
+    \label{fig:phase1_leverage}
+\end{figure}
+
+Based on Fig.~\ref{fig:phase1_leverage},
+% [PLACEHOLDER: narrative — do any configurations reproduce persistent negative L(k)
+% for small positive lags? Is the GBM-inspired SDE notably better than VE or VP?
+% If no configuration captures the leverage effect, note this as a structural
+% limitation: a Gaussian diffusion kernel, even with heteroskedastic inspiration,
+% may lack the directional asymmetry required to generate this property.]
+
+\subsection{Sample Paths}
+\label{sec:phase1_paths}
+
+As a qualitative complement to the quantitative metrics, unnormalised sample paths are
+examined to assess whether the model generates sequences that resemble plausible equity
+price trajectories. The unnormalisation procedure inverts the global z-score applied
+during preprocessing, recovering approximate price-level paths that can be visually
+compared against historical S\&P~500 price trajectories over a comparable time horizon.
+This assessment does not constitute a formal metric; rather, it serves as a plausibility
+check. A model may achieve competitive KS and tail exponent values while still generating
+paths with structurally unrealistic features, such as monotonically trending returns,
+implausibly persistent volatility regimes, or abrupt discontinuities at window boundaries.
+Conversely, a model that produces visually convincing paths but fails on quantitative
+metrics suggests that the evaluation metrics may not be capturing the full range of
+relevant properties.
+
+% [PLACEHOLDER: FIGURE — unnormalised generated price paths (multiple samples) from
+% the representative best Phase 1 configuration (e.g., best by alpha or KS),
+% alongside real S&P500 price trajectories for a comparable time window.
+% Both panels should be initialised at a common starting price for visual comparability.]
+\begin{figure}[htbp]
+    \centering
+    % [PLACEHOLDER: figure content]
+    \caption{Unnormalised price paths generated by the best Phase~1 configuration
+    (left panel, multiple samples shown in light colour with mean trajectory overlaid)
+    and representative real S\&P~500 price trajectories (right panel) over a comparable
+    time window. Both panels are normalised to a common starting price of 100 for
+    visual comparison.}
+    \label{fig:phase1_paths}
+\end{figure}
+
+% [PLACEHOLDER: narrative — brief qualitative assessment of whether generated paths
+% exhibit plausible drift, volatility clustering, and occasional sharp movements.
+% Note any obvious structural deviations from realistic equity price behaviour, such
+% as excessive mean-reversion, lack of regime changes, or path crossings that would
+% violate non-negativity of prices at realistic price levels.]
+
+\subsection{Summary and Selection of Best Phase~1 Configuration}
+\label{sec:phase1_summary}
+
+The seven Phase~1 configurations are evaluated jointly across all metrics to identify
+which SDE variant and noise schedule combination best reproduces the statistical
+properties of the training data. Tab.~\ref{tab:phase1_ranking} provides a consolidated
+view of each configuration's performance across the primary metrics: KS statistic,
+$W_1$ distance, power-law tail exponent $\alpha$, and qualitative assessments of
+volatility clustering and leverage effect reproduction. The table is intended to surface
+trade-offs between metrics --- a configuration that achieves a superior tail exponent
+may not simultaneously minimise the KS statistic --- and to support a principled
+selection of the best overall model for comparison with Phase~2.
+
+% [PLACEHOLDER: TABLE — summary ranking of all 7 Phase 1 configurations. Rows:
+% VE-linear, VE-exponential, VE-cosine, VP-linear, GBM-linear, GBM-exponential,
+% GBM-cosine. Columns: KS, W1, alpha, ACF decay quality (qualitative: good/moderate/poor),
+% leverage effect (qualitative), overall rank. Highlight (bold) the selected
+% best configuration.]
+\begin{table}[htbp]
+    \centering
+    \caption{Summary of Phase~1 configuration performance across primary evaluation
+    metrics. The tail exponent $\alpha$ should be compared against the empirical
+    benchmark of approximately $4.35$. Volatility clustering and leverage effect are
+    assessed qualitatively from the corresponding figures. The configuration selected
+    as the Phase~1 baseline for Phase~2 comparison is highlighted in bold.}
+    \label{tab:phase1_ranking}
+    % [PLACEHOLDER: table content]
+\end{table}
+
+Based on Tab.~\ref{tab:phase1_ranking},
+% [PLACEHOLDER: narrative — identify the selected best Phase 1 configuration and
+% justify the selection. Discuss any tension between metrics that complicated the
+% choice (e.g., a configuration with the best alpha but an inferior KS, or vice versa).
+% State explicitly whether the GBM-inspired SDE advantage claimed by Kim et al. is
+% confirmed or only partially supported by the results.]
+The selected configuration is carried forward as the Phase~1 baseline in the
+Phase~2 comparison of Sec.~\ref{sec:phase2_comparison}. To ensure a fair comparison
+on windows identical in length and temporal structure to those used in Phase~2,
+this configuration is retrained from scratch at $L=512$ and stride $s=100$, and is
+referred to as Phase~1$^*$ throughout Sec.~\ref{sec:phase2}.
+
+\section{Phase 2 --- EDM-CSDI Conditional Generation}
+\label{sec:phase2}
+
+\subsection{Setup and Motivation}
+\label{sec:phase2_setup}
+
+Phase~2 extends the validated CSDI-backbone architecture to the multivariate conditional
+setting within the EDM framework. Relative to Phase~1, three structural changes are
+introduced, each with a distinct theoretical motivation.
+
+\textbf{EDM training framework.} The shift from the Song et al.~\cite{song2021score}
+SDE formulation to EDM~\cite{karras2022elucidating} replaces the heuristic loss
+weighting $\lambda(\sigma_i) = \sigma_i^2$ with the principled scheme
+$\lambda(\sigma) = c_{\text{out}}(\sigma)^{-2}$, which equalises the loss contribution
+across all noise levels rather than allowing high-noise training steps to dominate the
+gradient signal (Sec.~\ref{sec:edm_literature}). EDM also introduces the preconditioning
+scheme $D_\theta(x;\sigma) = c_{\text{skip}}(\sigma)x + c_{\text{out}}(\sigma)
+F_\theta(c_{\text{in}}(\sigma)x;\,c_{\text{noise}}(\sigma))$ with
+$\sigma_{\text{data}} = 1.0$ set by the per-channel z-score normalisation, and replaces
+the discrete step index embedding with the continuous noise-level encoding
+$c_{\text{noise}}(\sigma) = \frac{1}{4}\ln\sigma$. The noise level at training time is
+sampled from a log-normal distribution, $\ln\sigma \sim \mathcal{N}(P_{\text{mean}},
+P_{\text{std}}^2)$, concentrating training effort on the noise range that is most
+informative for the data at hand. The values $P_{\text{mean}} = -1.4$ and $P_{\text{std}}$
+are determined by the ablation described in Sec.~\ref{sec:phase2_ablation}.
+
+\textbf{Multivariate OHLC conditioning.} The model now operates on $K=4$ channels
+(Open, High, Low, Close), all expressed as log-returns relative to the previous closing
+price as detailed in Sec.~\ref{sec:sliding_window_ch4}. The \texttt{predict\_close}
+masking strategy assigns $m^{\text{co}}_{k,l} = 1$ for $k \in \{O, H, L\}$ and
+$m^{\text{ta}}_{k,l} = 1$ for $k = C$, so that the Open, High, and Low channels
+are fully observed at all time steps and the Close channel is the sole generation target.
+This configuration is financially motivated: the intraday range $\hat{H}_t - \hat{L}_t$
+is a well-established realised volatility proxy~\cite{parkinson1980extreme}, and the
+overnight log-return $\hat{O}_t = \log(O_t / C_{t-1})$ encodes the opening gap with
+respect to the previous session. Both signals carry substantive intraday information about
+the Close log-return that is unavailable to an unconditional model, as discussed in
+Sec.~\ref{sec:ohlc_theoretical}. The central question of Phase~2 is whether the model
+learns to exploit these signals to produce conditional forecasts that are both more
+accurate and better calibrated than the unconditional Phase~1 baseline.
+
+\textbf{Validation and sampling.} The window length is reduced to $L=512$ (approximately
+two years of daily data) and the stride to $s=100$, as necessitated by hardware
+constraints (Sec.~\ref{sec:sliding_window_ch4}). Validation windows are strictly held
+out: for any ticker contributing a validation window, no training window covers an
+overlapping time range for that ticker. At inference, the Heun second-order
+predictor--corrector sampler replaces the probability flow ODE used in Phase~1. The Heun
+sampler requires two network evaluations per denoising step but reduces the local
+truncation error to $\mathcal{O}(h^3)$ and is fully decoupled from the training
+objective, meaning the same trained checkpoint can be evaluated with alternative samplers
+without retraining (Sec.~\ref{sec:model_architecture}).
+
+The model achieving the best performance in the ablation of Sec.~\ref{sec:phase2_ablation}
+is referred to as the Best Model (BM) throughout the remainder of this chapter. All
+Phase~2 evaluations reported in subsequent sections use BM unless otherwise stated.
+
+\subsection{Noise Schedule Ablation --- Selecting \texorpdfstring{\(P_{\text{std}}\)}{P\_std}}
+\label{sec:phase2_ablation}
+
+The parameter $P_{\text{std}}$ controls the width of the log-normal distribution from
+which noise levels $\sigma$ are drawn during training (Eq.~\ref{eq:edm_sigma_sampling}).
+A narrow $P_{\text{std}}$ concentrates gradient signal on a limited noise range, which
+can improve performance at the dominant noise levels at the cost of reduced coverage of
+the extremes. A wide $P_{\text{std}}$ spreads gradient signal across a broader range of
+noise levels, potentially improving the model's ability to handle both fine-grained
+reconstruction at low $\sigma$ and coarse-scale generation at high $\sigma$, but risks
+diluting the gradient at the most informative noise levels. The optimal value is a
+calibration question that depends on the distributional properties of the training data
+and cannot be derived from first principles.
+
+The ablation is conducted by training the full Phase~2 architecture to convergence
+independently for each value of $P_{\text{std}}$ in the grid
+$\{1.0, 1.2, 1.4, 1.6, 1.8\}$, with $P_{\text{mean}} = -1.4$ fixed. This value of
+$P_{\text{mean}}$ was identified as the best-performing choice across the prior
+ablation grid $P_{\text{mean}} \in \{-0.8, -1.0, -1.2, -1.4, -1.6\}$; the full results
+of that grid are available in Appendix~\ref{app:sec:training_config}. Models are compared
+on validation loss and on the primary generation metrics at a fixed evaluation checkpoint.
+The validation loss is the primary selection criterion; KS, $W_1$, and CRPS computed on
+training windows serve as supporting evidence that improvements in loss translate to
+improvements in generation quality.
+
+% [PLACEHOLDER: TABLE — validation loss, training loss, KS statistic, W1 distance,
+% and CRPS for each P_std in {1.0, 1.2, 1.4, 1.6, 1.8} and, if available, P_std=2.0.
+% Bold the selected BM configuration. Include training CRPS and validation CRPS in
+% separate columns if available.]
+\begin{table}[htbp]
+    \centering
+    \caption{Noise schedule ablation for Phase~2: validation loss, KS statistic,
+    $W_1$ distance, and CRPS for each candidate $P_{\text{std}}$ value, with
+    $P_{\text{mean}} = -1.4$ fixed. The selected BM configuration is highlighted in bold.}
+    \label{tab:phase2_ablation}
+    % [PLACEHOLDER: table content]
+\end{table}
+
+% [PLACEHOLDER: FIGURE — training and validation loss curves for each P_std value,
+% plotted on the same axes. Smooth curves if necessary. Mark the evaluation checkpoint
+% used for Tab.~\ref{tab:phase2_ablation} with a vertical line.]
+\begin{figure}[htbp]
+    \centering
+    % [PLACEHOLDER: figure content]
+    \caption{Training (solid) and validation (dashed) loss curves for the
+    $P_{\text{std}}$ ablation. Each colour corresponds to one candidate value of
+    $P_{\text{std}}$. The vertical line marks the evaluation checkpoint used in
+    Tab.~\ref{tab:phase2_ablation}.}
+    \label{fig:phase2_ablation_curves}
+\end{figure}
+
+Based on Tab.~\ref{tab:phase2_ablation} and Fig.~\ref{fig:phase2_ablation_curves},
+% [PLACEHOLDER: narrative — state which P_std was selected as BM and by what margin
+% it outperformed adjacent values on validation loss. Is the selection robust across
+% the generation metrics? Comment on whether wider P_std values tend to improve or
+% degrade calibration (CRPS) relative to distributional fidelity (KS, W1).]
+
+\subsection{Baseline Comparisons --- Phase~1 Best vs.\ EDM Conditional}
+\label{sec:phase2_comparison}
+
+A necessary condition for attributing Phase~2 improvements to the EDM framework or to
+the conditioning signal is a fair comparison with the Phase~1 baseline on identical
+windows and identical evaluation splits. To this end, the best Phase~1 configuration
+identified in Sec.~\ref{sec:phase1_summary} is retrained from scratch at $L=512$ and
+stride $s=100$, using the probability flow ODE sampler and the same validation split
+employed in Phase~2. This retrained model is referred to as Phase~1$^*$ throughout
+this section. Because the window length, stride, and evaluation split are now identical
+for both models, differences in generation quality can be attributed to the modelling
+choices rather than to differences in the data seen during training.
+
+The comparison is conducted on the metrics used throughout Phase~1 --- KS statistic,
+$W_1$ distance, tail exponent $\alpha$, and pathwise aggregate statistics --- computed
+on the generated Close log-return channel in both cases. CRPS is reported for Phase~2 BM
+but is not applicable to Phase~1$^*$, which is unconditional and does not produce a
+predictive distribution over the Close channel given OHL context. The isolated
+contribution of conditioning to generation quality is examined in
+Sec.~\ref{sec:phase2_unconditional}, which introduces an unconditional EDM baseline
+as an intermediate control.
+
+% [PLACEHOLDER: TABLE — side-by-side metric comparison: training data reference,
+% Phase 1* (SDE framework, retrained at L=512), and Phase 2 BM (EDM framework,
+% conditioned). Rows: KS statistic, W1 distance, alpha, mean, std, skewness,
+% excess kurtosis. Bold improvements over Phase 1* in the Phase 2 BM column.]
+\begin{table}[htbp]
+    \centering
+    \caption{Distributional comparison of Phase~1$^*$ (best Phase~1 configuration
+    retrained at $L=512$, unconditional SDE framework) and Phase~2 BM (EDM-CSDI,
+    conditioned on OHL). All metrics are computed on the generated Close log-return
+    channel. The training data reference is included for context.}
+    \label{tab:phase2_comparison}
+    % [PLACEHOLDER: table content]
+\end{table}
+
+Based on Tab.~\ref{tab:phase2_comparison},
+% [PLACEHOLDER: narrative — does Phase 2 BM improve over Phase 1* on distributional
+% metrics? Note explicitly that any improvement observed here conflates the contribution
+% of the EDM framework change, the shorter window length, and the OHLC conditioning;
+% the decomposition into framework and conditioning contributions is provided in
+% Sec.~\ref{sec:phase2_unconditional}. If Phase 2 BM does not uniformly dominate
+% Phase 1*, discuss which metrics regress and why.]
+
+\subsection{Conditional Generation Quality}
+\label{sec:phase2_conditional}
+
+The defining evaluation of Phase~2 is the quality of the conditional predictive
+distribution $p(r^C \mid r^O, r^H, r^L)$ generated by the model at each time step
+within each window. Unlike the distributional metrics of Sec.~\ref{sec:phase2_comparison},
+which assess whether the marginal distribution of generated Close log-returns resembles
+the training data, the CRPS and interval coverage metrics assess whether individual
+conditional forecasts are accurate and calibrated given the specific OHL context
+provided at inference time.
+
+For each window, the model generates an ensemble of Close log-return trajectories,
+each conditioned on the same observed OHL channels. The ensemble is used to compute
+the CRPS (as defined in Chapter~\ref{ch:evaluation_methodology}) and the empirical
+interval coverage at nominal levels $\alpha \in \{0.01, 0.05, 0.50, 0.75, 0.99\}$.
+Both metrics are computed separately for training windows and for the strictly held-out
+validation windows. A large gap between training and validation performance would
+indicate overfitting to the temporal patterns seen during training, while comparable
+performance across both splits would indicate that the model has learned conditioning
+relationships that generalise to unseen market periods.
+
+% [PLACEHOLDER: TABLE — CRPS and empirical interval coverage at all five nominal levels,
+% for Phase 2 BM on training and validation windows separately. Include the coverage gap
+% (empirical minus nominal) as an additional column for each level.]
+\begin{table}[htbp]
+    \centering
+    \caption{CRPS and empirical interval coverage for Phase~2 BM, reported separately for
+    training windows and fully held-out validation windows. Coverage gap is the empirical
+    coverage minus the nominal level; a positive gap indicates underconfidence (intervals
+    too wide) and a negative gap indicates overconfidence (intervals too narrow).}
+    \label{tab:phase2_crps}
+    % [PLACEHOLDER: table content]
+\end{table}
+
+% [PLACEHOLDER: FIGURE — CRPS decomposition per time step: accuracy term E[|X - y|]
+% and spread term 0.5 * E[|X - X'|], averaged across windows, shown separately for
+% training and validation sets. A lower accuracy term relative to the spread term
+% indicates sharper, better-calibrated forecasts.]
+\begin{figure}[htbp]
+    \centering
+    % [PLACEHOLDER: figure content]
+    \caption{CRPS decomposition for Phase~2 BM: accuracy term $\mathbb{E}[|X - y|]$ and
+    spread term $\frac{1}{2}\mathbb{E}[|X - X'|]$, averaged across time steps. Results
+    are shown separately for training (solid) and validation (dashed) windows. A lower
+    accuracy term relative to the spread term indicates well-calibrated, sharp forecasts.}
+    \label{fig:phase2_crps_decomposition}
+\end{figure}
+
+% [PLACEHOLDER: FIGURE — interval coverage calibration plot: empirical coverage vs.
+% nominal coverage at each of the five levels, for training and validation windows
+% on the same axes. A perfectly calibrated model lies on the diagonal.]
+\begin{figure}[htbp]
+    \centering
+    % [PLACEHOLDER: figure content]
+    \caption{Interval coverage calibration plot for Phase~2 BM. Each point corresponds
+    to one nominal coverage level. Points on the diagonal indicate perfect calibration;
+    points above indicate underconfidence (intervals too wide); points below indicate
+    overconfidence (intervals too narrow). Training and validation windows are
+    distinguished by marker shape.}
+    \label{fig:phase2_calibration}
+\end{figure}
+
+% [PLACEHOLDER: FIGURE — generated Close log-return paths (multiple ensemble members,
+% shaded band showing inter-quartile range) conditioned on held-out OHL context from
+% the validation set, with the ground-truth Close trajectory overlaid. Show 3--5 windows
+% selected to represent different market conditions (e.g., low volatility, high volatility,
+% trend reversal).]
+\begin{figure}[htbp]
+    \centering
+    % [PLACEHOLDER: figure content]
+    \caption{Generated Close log-return paths conditioned on held-out OHL context from
+    the validation set. Shaded bands show the inter-quartile range of the generated
+    ensemble; the ground-truth Close trajectory is overlaid as a solid line. Each panel
+    corresponds to a different validation window, selected to represent a range of
+    market conditions.}
+    \label{fig:phase2_sample_paths}
+\end{figure}
+
+Based on Tab.~\ref{tab:phase2_crps} and
+Figs.~\ref{fig:phase2_crps_decomposition}--\ref{fig:phase2_sample_paths},
+% [PLACEHOLDER: narrative — interpret the CRPS values: is there a sizeable gap between
+% training and validation, and what does this imply about generalisation? Is the model
+% over- or underconfident on average, as indicated by the calibration plot? What does
+% the CRPS decomposition reveal about the relative contributions of accuracy and
+% sharpness? Are the sample paths in Fig.~\ref{fig:phase2_sample_paths} consistent
+% with the ground-truth Close in the sense of covering it reliably within the ensemble?]
+
+\subsection{Stylized Facts under Conditional Generation}
+\label{sec:phase2_stylized}
+
+A conditional model that achieves strong pointwise CRPS performance may still fail to
+reproduce the dynamic statistical properties of the Close log-return series at the
+sequence level. This section repeats the stylized fact evaluation of
+Sec.~\ref{sec:phase1_stylized} on the generated Close channel from Phase~2 BM, using
+the same metrics and the same visual format, so that direct comparison with Phase~1 is
+possible without any ambiguity about evaluation protocol. In Phase~2, only the Close
+channel is generated; the OHL channels retain their observed values and are not evaluated
+as generative outputs. The stylized facts are therefore computed on the marginal
+distribution of generated Close log-returns within each window.
+
+Conditioning on OHL should not, in principle, prevent the model from reproducing the
+stylized facts of the Close marginal: fat tails, volatility clustering, and the leverage
+effect are properties of the underlying data-generating process and are present in the
+conditional distribution $p(r^C \mid r^O, r^H, r^L)$ as well as in the unconditional
+marginal. However, if the model exploits the OHL conditioning to reduce forecast variance
+--- for example, by placing most ensemble mass near the conditional mean --- extreme Close
+returns may be suppressed relative to their unconditional frequency. If this occurs, it
+constitutes an informative result about the trade-off between conditional accuracy and
+marginal distributional fidelity under the current model parametrisation.
+
+\textbf{Heavy-Tailed Distributions.}
+% [PLACEHOLDER: FIGURE — log-log tail distribution plot for Phase 2 BM generated Close
+% log-returns, with the empirical S&P500 training reference and the estimated alpha
+% annotated. Format identical to Fig.~\ref{fig:phase1_tails} to allow direct visual
+% comparison.]
+\begin{figure}[htbp]
+    \centering
+    % [PLACEHOLDER: figure content]
+    \caption{Log-log tail distribution for Phase~2 BM generated Close log-returns, with
+    the empirical S\&P~500 training reference (solid black line). The estimated power-law
+    tail exponent $\alpha$ is annotated. Compare with Fig.~\ref{fig:phase1_tails} for
+    Phase~1 results.}
+    \label{fig:phase2_tails}
+\end{figure}
+
+Based on Fig.~\ref{fig:phase2_tails},
+% [PLACEHOLDER: narrative — does the tail exponent alpha improve over Phase 1*?
+% Does conditioning appear to shrink the tail by concentrating mass near the
+% conditional mean, or does the model preserve heavy-tail behaviour despite conditioning?
+% If alpha deviates notably from Phase 1*, discuss what this implies about the model's
+% conditional generation behaviour.]
+
+\textbf{Volatility Clustering.}
+% [PLACEHOLDER: FIGURE — ACF of absolute Close log-returns for Phase 2 BM on log-log
+% scale, with the empirical S&P500 training reference. Format identical to
+% Fig.~\ref{fig:phase1_acf}.]
+\begin{figure}[htbp]
+    \centering
+    % [PLACEHOLDER: figure content]
+    \caption{Autocorrelation function of absolute Close log-returns on a log-log scale for
+    Phase~2 BM, with the empirical S\&P~500 reference (solid black line). Compare with
+    Fig.~\ref{fig:phase1_acf} for Phase~1 results.}
+    \label{fig:phase2_acf}
+\end{figure}
+
+Based on Fig.~\ref{fig:phase2_acf},
+% [PLACEHOLDER: narrative — does Phase 2 BM reproduce slow hyperbolic ACF decay?
+% Is the result better or worse than Phase 1*? Consider whether conditioning on the
+% H-L range, a realised volatility proxy, aids the model in reproducing volatility
+% clustering at the sequence level, or whether the gain is masked by the shorter
+% window length L=512 relative to Phase 1's L=2048.]
+
+\textbf{Leverage Effect.}
+% [PLACEHOLDER: FIGURE — lead-lag correlation L(k) for Phase 2 BM generated Close
+% log-returns, with the empirical S&P500 reference. Format identical to
+% Fig.~\ref{fig:phase1_leverage}.]
+\begin{figure}[htbp]
+    \centering
+    % [PLACEHOLDER: figure content]
+    \caption{Lead-lag correlation $L(k)$ for Phase~2 BM generated Close log-returns,
+    with the empirical S\&P~500 reference. Persistent negative values for $k > 0$
+    indicate that the leverage effect is present in the generated sequences.}
+    \label{fig:phase2_leverage}
+\end{figure}
+
+Based on Fig.~\ref{fig:phase2_leverage},
+% [PLACEHOLDER: narrative — does the leverage effect emerge in the conditional Close
+% generation? Compare the L(k) profile with Phase 1* results. If conditioning suppresses
+% the asymmetry required for L(k) < 0 — for example, by generating Close values that
+% are too tightly distributed around the OHL-implied range — note this as a limitation
+% of the conditioning approach.]
+
+\subsection{Unconditional EDM Baseline}
+\label{sec:phase2_unconditional}
+
+The comparison between Phase~1$^*$ and Phase~2 BM in Sec.~\ref{sec:phase2_comparison}
+conflates two distinct sources of any observed performance difference: the change in
+training framework (from the Song et al.~\cite{song2021score} SDE formulation to EDM)
+and the introduction of OHLC conditioning information. Without an intermediate model
+that applies the EDM framework while withholding the conditioning signal, it is not
+possible to attribute any observed improvement to conditioning alone rather than to the
+framework change.
+
+To isolate these contributions, an unconditional EDM model is trained using the same
+architecture, EDM loss, preconditioning, and noise schedule as Phase~2 BM, but with
+$m^{\text{co}} = \mathbf{0}$ everywhere and $K=1$, so that only the univariate Close
+log-return channel is provided and no OHL side information is available at any stage of
+training or inference. This model is structurally identical to Phase~2 BM in its training
+framework and window configuration ($L=512$, $s=100$), and structurally identical to
+Phase~1$^*$ in its conditioning (none). Any performance difference between Phase~1$^*$
+and the unconditional EDM model can therefore be attributed to the framework change,
+while any remaining gap between the unconditional EDM model and Phase~2 BM can be
+attributed to the OHL conditioning signal. If the unconditional EDM model matches or
+exceeds Phase~2 BM on distributional metrics, this would indicate that the EDM framework
+itself is responsible for the bulk of any improvement over Phase~1$^*$, and that the OHL
+conditioning contributes primarily to conditional forecast calibration rather than to
+marginal distributional fidelity.
+
+% [PLACEHOLDER: TABLE — metric decomposition across three models: Phase 1* (SDE,
+% unconditional), unconditional EDM (EDM framework, unconditional), and Phase 2 BM
+% (EDM framework, OHL conditioned). Rows: KS, W1, alpha, mean, std, skewness, excess
+% kurtosis. CRPS is shown only for Phase 2 BM. Add a column indicating relative
+% improvement from Phase 1* to uncond. EDM (framework contribution) and from uncond.
+% EDM to Phase 2 BM (conditioning contribution).]
+\begin{table}[htbp]
+    \centering
+    \caption{Decomposition of performance improvements into framework and conditioning
+    contributions. Phase~1$^*$ uses the Song et al.\ SDE framework without conditioning;
+    the unconditional EDM baseline applies the EDM framework without conditioning;
+    Phase~2 BM applies the EDM framework with OHLC conditioning. The rightmost columns
+    isolate the contribution of each change.}
+    \label{tab:phase2_decomposition}
+    % [PLACEHOLDER: table content]
+\end{table}
+
+Based on Tab.~\ref{tab:phase2_decomposition},
+% [PLACEHOLDER: narrative — quantify the framework contribution (delta from Phase 1*
+% to uncond. EDM) and the conditioning contribution (delta from uncond. EDM to BM).
+% If conditioning does not improve distributional metrics but does improve CRPS, note
+% that this is an expected and interpretable outcome: conditioning reduces pointwise
+% uncertainty without necessarily altering the unconditional marginal. If conditioning
+% improves distributional metrics as well, suggest that the OHL signals carry
+% regime-level information that allows the model to allocate generative capacity more
+% effectively. If conditioning degrades distributional metrics, discuss the possible
+% explanation in terms of the trade-off between conditional accuracy and marginal
+% distributional fidelity noted in Sec.~\ref{sec:phase2_stylized}.]
+
+\subsection{Sampler Ablations}
+\label{sec:phase2_sampler}
+
+A key advantage of the EDM framework is the decoupling of the numerical sampler from
+the training objective, enabling inference-only experiments without any retraining. The
+following three ablations are applied to the Phase~2 BM checkpoint and, where indicated,
+to the Phase~1$^*$ checkpoint, to characterise the sensitivity of generation quality to
+sampler configuration. All ablations are conducted after training is complete and involve
+only changes to the inference procedure.
+
+\textbf{Stochastic Sampler --- \(S_{\text{churn}}\).}
+In its deterministic form, the Heun probability flow ODE produces identical Close
+trajectories for identical OHL context across all ensemble members, since the ODE is
+fully determined by its initial condition and the learned score field. For conditional
+generation, this implies that all ensemble samples collapse to the same trajectory for
+a given OHL window, eliminating the ability to quantify predictive uncertainty through
+ensemble spread. While this is acceptable for point forecasting, it renders the model
+unable to represent the distribution $p(r^C \mid r^O, r^H, r^L)$, which is the primary
+evaluation object in Phase~2. The parameter $S_{\text{churn}}$ injects controlled
+stochastic perturbations at each denoising step, restoring ensemble diversity by adding
+noise at a rate calibrated to the local curvature of the score field. Larger values of
+$S_{\text{churn}}$ increase the spread of the generated ensemble but may also introduce
+additional discretisation error if the perturbations push trajectories into regions of
+the score field where the ODE approximation is less accurate.
+
+% [PLACEHOLDER: TABLE — CRPS, KS statistic, and W1 distance for S_churn in
+% {0, 5, 10, 20, 40} on Phase 2 BM, evaluated on training and validation windows.
+% For S_churn = 0 (deterministic), report KS and W1 but note that CRPS is not
+% meaningful as the ensemble collapses to a single trajectory.]
+\begin{table}[htbp]
+    \centering
+    \caption{Effect of the stochastic corrector strength $S_{\text{churn}}$ on Phase~2
+    BM generation quality. CRPS is computed on both training and validation windows; KS
+    and $W_1$ are computed on the pooled generated Close marginal. For $S_{\text{churn}}
+    = 0$, the sampler is deterministic and CRPS is not meaningful.}
+    \label{tab:schurn}
+    % [PLACEHOLDER: table content]
+\end{table}
+
+% [PLACEHOLDER: FIGURE — ensemble standard deviation of generated Close log-returns
+% (averaged across time steps and windows) as a function of S_churn, shown separately
+% for training and validation windows. Include the empirical standard deviation of the
+% training Close log-returns as a horizontal reference line.]
+\begin{figure}[htbp]
+    \centering
+    % [PLACEHOLDER: figure content]
+    \caption{Ensemble standard deviation of generated Close log-returns as a function
+    of $S_{\text{churn}}$, averaged across time steps and windows. The dashed horizontal
+    line indicates the empirical standard deviation of the training Close log-returns.
+    Training and validation windows are shown separately.}
+    \label{fig:schurn_diversity}
+\end{figure}
+
+Based on Tab.~\ref{tab:schurn} and Fig.~\ref{fig:schurn_diversity},
+% [PLACEHOLDER: narrative — does CRPS improve at intermediate S_churn values relative
+% to the deterministic baseline? Is there a value of S_churn at which ensemble diversity
+% matches the empirical standard deviation of Close log-returns while maintaining
+% acceptable KS and W1? Report the recommended S_churn value and discuss whether it
+% is consistent with the theoretical expectation that moderate stochasticity restores
+% distributional coverage without compromising accuracy.]
+
+\textbf{Prior Sensitivity --- \(\sigma_{\max}\).}
+The value of $\sigma_{\max}$ at inference time defines the noise level of the prior
+distribution from which sampling begins. A value that is too low means the sampler
+starts in a partially denoised state, potentially inheriting residual structure from
+the initialisation rather than generating from the correct prior. A value that is too
+high wastes denoising budget on noise levels that carry no recoverable information about
+the data, and may introduce numerical issues if the score estimate is poorly conditioned
+at extreme noise levels. This ablation characterises the sensitivity of Phase~1$^*$ and
+Phase~2 BM to the choice of $\sigma_{\max}$, providing practical guidance on the
+robustness of the inference procedure.
+
+% [PLACEHOLDER: TABLE — KS, W1, and CRPS for a grid of sigma_max values applied at
+% inference time, for Phase 1* (left block) and Phase 2 BM (right block).
+% The training-time sigma_max is included as a reference row in each block.]
+\begin{table}[htbp]
+    \centering
+    \caption{Sensitivity of generation quality to $\sigma_{\max}$ at inference time for
+    Phase~1$^*$ and Phase~2 BM. The training-time $\sigma_{\max}$ is included as a
+    reference. CRPS is reported only for Phase~2 BM.}
+    \label{tab:sigmamax}
+    % [PLACEHOLDER: table content]
+\end{table}
+
+Based on Tab.~\ref{tab:sigmamax},
+% [PLACEHOLDER: narrative — is generation quality sensitive to the choice of sigma_max?
+% Do Phase 1* and Phase 2 BM exhibit similar or different sensitivity profiles?
+% Is there a robust operating range within which quality is approximately constant,
+% or does performance degrade rapidly as sigma_max moves away from its training-time
+% value? Discuss practical implications for deployment.]
+
+\textbf{Number of Denoising Steps --- NFEs.}
+Karras et al.~\cite{karras2022elucidating} report that the Heun sampler achieves sample
+quality comparable to Euler--Maruyama at approximately seven times fewer neural function
+evaluations, due to the higher-order truncation error and the concentration of
+discretisation steps at low $\sigma$ where ODE curvature is highest
+(Sec.~\ref{sec:edm_literature}). For deployment in applications such as scenario
+generation or Monte Carlo simulation, sampling efficiency is practically relevant, since
+the cost of generation scales linearly with the number of denoising steps. In the Heun
+sampler, each denoising step requires two network evaluations (one for the predictor and
+one for the corrector), so a schedule of $N$ steps incurs a total of $2N$ NFEs.
+
+% [PLACEHOLDER: TABLE — KS, W1, and CRPS for N in {10, 20, 50, 100, 200} denoising
+% steps, for Phase 1* (probability flow ODE) and Phase 2 BM (Heun sampler), evaluated
+% on training and validation windows. For Phase 2 BM, report NFE = 2N alongside N.]
+\begin{table}[htbp]
+    \centering
+    \caption{Generation quality as a function of the number of denoising steps $N$,
+    for Phase~1$^*$ (probability flow ODE) and Phase~2 BM (Heun sampler). Total NFE
+    count for Phase~2 BM is $2N$. Results are evaluated on training and validation
+    windows; CRPS is reported only for Phase~2 BM.}
+    \label{tab:nfe}
+    % [PLACEHOLDER: table content]
+\end{table}
+
+% [PLACEHOLDER: FIGURE — KS statistic, W1 distance, and CRPS as a function of total
+% NFE count, for Phase 1* (solid) and Phase 2 BM (dashed). The horizontal axis should
+% be NFE rather than N to enable direct comparison between samplers. Indicate the
+% default evaluation NFE with a vertical marker.]
+\begin{figure}[htbp]
+    \centering
+    % [PLACEHOLDER: figure content]
+    \caption{Generation quality metrics as a function of total neural function evaluations
+    (NFEs) for Phase~1$^*$ (solid) and Phase~2 BM (dashed). The vertical marker
+    indicates the NFE count used in all other evaluations. Metrics plateau once sufficient
+    denoising budget is allocated; the knee of this curve indicates the minimum viable
+    NFE for each model.}
+    \label{fig:nfe_curve}
+\end{figure}
+
+Based on Tab.~\ref{tab:nfe} and Fig.~\ref{fig:nfe_curve},
+% [PLACEHOLDER: narrative — at what NFE count does quality plateau for each model?
+% Does the Heun sampler achieve the reported ~7x efficiency advantage relative to
+% Euler-Maruyama in this domain? If the knee occurs at a higher NFE for financial data
+% than for natural images, discuss whether this may be related to the different curvature
+% of the score field over financial time series compared to image distributions.]
+
+\section{Summary}
+\label{sec:experiments_summary}
+
+This chapter has presented the experimental evaluation of two complementary modelling
+phases. Phase~1 assessed seven SDE and noise schedule configurations on unconditional
+univariate generation of S\&P~500 close log-returns, seeking to replicate the claims of
+Kim et al.~\cite{kim2025diffusion}. Phase~2 embedded the same architecture within the
+EDM framework with OHLC conditioning, evaluating both conditional forecast calibration
+and marginal distributional fidelity on training and strictly held-out validation windows.
+
+% [PLACEHOLDER: first paragraph — answer RQ1 (replication). To what extent were the
+% results of Kim et al. replicated across the seven configurations? Which stylized fact
+% was most consistently reproduced across configurations, and which proved most
+% difficult? Was the claimed advantage of the GBM-inspired SDE over VE and VP confirmed,
+% and if so, on which metrics? Were there configurations that the original paper reported
+% but that did not replicate here, and what are the likely causes given the documented
+% ambiguities in Kim et al. discussed in Sec.~\ref{sec:edm_literature}?]
+
+% [PLACEHOLDER: second paragraph — answer RQ2 (EDM + conditioning). Did Phase 2 BM
+% improve over Phase 1* on distributional metrics? Was this improvement attributable
+% to the EDM framework, to the conditioning signal, or to both equally (with reference
+% to the decomposition in Tab.~\ref{tab:phase2_decomposition})? Did the model produce
+% well-calibrated conditional forecasts, and did conditioning improve CRPS over the
+% unconditional EDM baseline? Were stylized facts preserved under conditional generation?]
+
+% [PLACEHOLDER: third paragraph — limitations. Identify the main limitations surfaced
+% by the experiments: (1) OHLC ordering constraint violations due to per-channel
+% normalisation, which means the generated Close may not always fall within the
+% generated H-L range even though the OHL conditioning is observed; (2) the Gaussian
+% forward process assumption, which may underestimate tail events relative to a heavy-
+% tailed perturbation kernel; (3) the absence of hard intraday consistency guarantees,
+% which means the generated Close trajectories are not constrained to respect the
+% ordering L <= min(O, C) <= max(O, C) <= H; (4) the single-market scope of the
+% S&P 500 universe, which limits the generalisability of the results to other asset
+% classes or geographies; and (5) survivorship bias in the dataset, which may cause
+% the training distribution to underrepresent adverse market events associated with
+% delistings or index exclusions.]
+
+The conclusions chapter revisits these findings in the broader context of the literature
+on generative models for financial time series, and outlines directions for future work,
+including non-Gaussian perturbation kernels, constraint-preserving normalisation
+strategies, extension to cross-asset or higher-frequency data, and the potential role
+of heavy-tailed forward processes as discussed in Sec.~\ref{sec:edm_literature}.
