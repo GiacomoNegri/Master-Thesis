@@ -25,3 +25,41 @@ here are some \textbf{Future works}
     \item different ohlc conditions
     \item constraint preserving mechanism for H>C>L
 \end{itemize}
+
+\section{Limitations}
+In this section we would discuss some of the limitations of the thesis approach.
+
+\textbf{Training Ablation} \quad The main limitation is the level of ablation exprimented across many parameters. This was due to time and computational constraint it was not possible to test the more extensively some of the parameters.
+
+For instance, some of the variables are:
+\begin{itemize}
+    \item \(P_{\text{mean}}\) and \(P_{\text{std}}\): testing higher values (e.g. 2.0,2.2) would check whether the log-normal sigma distribution needs heavier coverage of the high-\(\sigma\) tail to properly learn from the more volatile windows in the S\&P 500.
+    \item \(\sigma_{\text{data}}\): since by construction \(\sigma_{\text{data}}=1\), the value is solid but window-wise variations and \(c_{\text{skip}}\) sensibility might make variation around 1 worth exploring.
+    \item \(\sigma_{\max}\): range exploration between \([5,10]\) could improve generation, since a higher value may be needed to properly move away from out-of-distribution noise.
+    \item{\(c_{\text{noise}}(\sigma)\)}: the current value of \(1/4\) is an empirical choice form Karras et al.\ \cite{karras2022elucidating} for numerical stability of the diffusion step embedding. Alternative scalings could give the backbone a better-calibrated noise-level signal.
+\end{itemize}
+
+\textbf{Sampler Hyperparameters} \quad After training also generation has a significant number of parameters that could be explored:
+\begin{itemize}
+     \item \(\rho\): the EDM paper sets \(\rho=7\), but it is \(\rho=3\) that equalizes the truncation error, therefore the priority to fine-grained reconstruction. For financial data the fine structure matters differently than for images, for instance volatility clustering focus errors at mid-range \(\sigma\), therefore different values should be explored.
+    \item Number of denoising steps: the overall NFEs could be tested to check if less steps yields the same quality.
+    \item Stochastic sampler: the thesis exclusively uses the deterministic Heun ODE \((S_{\text{churn}}=0)\). Karras et al. show that stochastic sampling (adding Langevin-like churn) can improve sample quality in the image domain. For FTS, stochasticity during sampling might help correct for errors in early denoising steps, specifically in high-volatility windows where the ODE might deviate significantly.
+\end{itemize}
+
+\textbf{Architecture Ablation} \quad Specific choices, influenced by Kim et al. work, were made for architectural choices, nevertheless further exploration could be conducted regarding: embedding dimensions, number of residual layers, learnable positional encoding, which could reflect better the specific data pattern, as well as learnable skip connections.
+
+\section{Future Work}
+In this thesis a comprehensive amount of investigation have been conducted, nevertheless computational and time constraints has not made it possible to cover all the aspects.
+
+\textbf{Masking Strategy} \quad
+The \texttt{predict\_close} mask used throughout Phase~2 is a fixed
+channel-wise partition. This means the model
+learns only the single conditional distribution $p(C\mid O,H,L)$, whereas
+CSDI's \texttt{randmask}, which stochastically varies the conditioning set at each training step, allows the model to learn conditional distributions over arbitrary subsets of channels. A model trained with random masking would, in principle, support alternative inference tasks
+such as predicting the intraday range given only the opening return, or imputing missing channels under any observed pattern. Exploring whether
+the added generality of \texttt{randmask} degrades or improves performance on the \texttt{predict\_close} task specifically, or
+whether it better captures the joint OHLC distribution would be something worth investigating.
+
+\textbf{\(\sigma_{\max}\) selection} \quad It could be worth exploring the optimal noise schedule design proposed by Pandey et al.\ \cite{pandey2024heavytailed}, where they estimated \(\sigma_{\max}\) from the empirical observed samples by minimizing the statistical mutual information between datapoints from data distribution and noisy counterparts, circumventing the needs to rely on an ad-hoc choice that might influence downstream sampler performance.
+
+\textbf{EDM Stochastic Sampler}

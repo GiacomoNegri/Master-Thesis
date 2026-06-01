@@ -215,7 +215,7 @@ injected immediately before each Transformer call, both along the
 temporal and feature axes. Without this the Transformer would be permutation-invariant, which would destroy the temporal order, which is essential for financial return sequences.
 
 \section{Masking strategies}
-
+\label{sec:masking_strategies_ch3}
 This work employs two masking strategies: \texttt{unconditional} and \texttt{predict\_close}. The \texttt{unconditional} setting is used for Phase 1, where \(K=1\) and the model is trained on 
 univariate log-returns with no conditioning information. The conditioning 
 mask is \(m^{\text{co}}=0\) everywhere, and the target mask is 
