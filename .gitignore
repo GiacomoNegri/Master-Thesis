@@ -48,4 +48,5 @@ tea_debug.log
 compare_tickers.py
 csv_to_parquet.py
 jobs_launcher_martusia.py
+inspect_checkpoint.py
 
