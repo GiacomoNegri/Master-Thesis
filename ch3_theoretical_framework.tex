@@ -5,7 +5,9 @@ The following chapter builds on the previous one, detailing the theoretical stru
 \section{Adapting the Framework to OHLC Financial Time Series}
 \label{sec:ohlc_theoretical}
 
-OHLC data are formally represented as \(X \in \mathbb{R}^{K \times L}\), 
+Data are formally represented as \(X \in \mathbb{R}^{K \times L}\), where \(K\) denotes the number of channels and \(L\) the number of time steps per window. In Phase~1, \(K = 1\) and the input reduces to a univariate sequence of Close log-returns.
+
+\(\text{Phase 2}\quad\) OHLC data are formally represented as \(X \in \mathbb{R}^{K \times L}\),
 where \(K = 4\) denotes the number of channels (Open, High, Low, Close), or conditioning features, and \(L\) the number of time steps per window. This partition is 
 financially motivated: the opening price \(O_t\) is fixed at the start of 
 the trading session, while the intraday extremes \(H_t\) and \(L_t\) are 
@@ -98,9 +100,11 @@ at the cost of higher complexity.
 \section{SDE and the VE Instantiation}
 As discussed in Sec.~\ref{sec:scorediffmodels}, diffusion models were 
 originally developed in distinct formulations before being unified under 
-the EDM framework. These structures are relevant for the Phase 1, which aims to replicate the results of Kim et al.\cite{kim2025diffusion}. Meanwhile, for Phase 2 we will move towards the EDM framework. 
+the EDM framework. These structures are relevant for Phase~1, which aims to replicate the results of Kim et al.\cite{kim2025diffusion}. Meanwhile, for Phase~2 we will move towards the EDM framework.
 
-Phase 1 is identical in its implementation to Song et al. in \cite{song2021score}, but in a simplified version [CITE REPOSITORY]. For the second pahse, we can look at the forward VE formulation, Eq.\ref{eq:reverse_sde}, the corresponding reverse SDE for VE case is \[dx=-\sigma\nabla_x \log p_\sigma(x)\] when defined in \(\sigma\)-space (with \(\sigma\) decresing) instead of \(t\)-space, due to EDM conditioning modeling choices. With the deterministic counterparts, the probability flow ODE is:
+\(\text{Phase 1}\quad\) Phase~1 is identical in its implementation to Song et al. in \cite{song2021score}, but in a simplified version [CITE REPOSITORY].
+
+\(\text{Phase 2}\quad\) For Phase~2, we can look at the forward VE formulation, Eq.\ref{eq:reverse_sde}, the corresponding reverse SDE for VE case is \[dx=-\sigma\nabla_x \log p_\sigma(x)\] when defined in \(\sigma\)-space (with \(\sigma\) decreasing) instead of \(t\)-space, due to EDM conditioning modeling choices. With the deterministic counterparts, the probability flow ODE is:
 \[
 \frac{dx}{d\sigma}=-\frac{\sigma}{2}\nabla_x\log p_\sigma(x)
 \]
@@ -116,6 +120,8 @@ therefore denoiser and score function are connected by:
 implying that rather than learn the score field directly, which is hard and ill-conditioned regression target in high dimensions, we train a denoiser \(D_\theta\) to approximate \(D^*\), and we later recover the score analytically.
 
 \section{EDM}
+The components described in this section apply exclusively to Phase~2. Phase~1 follows the standard Song et al.\ \cite{song2021score} VE--SDE formulation without EDM preconditioning or loss weighting.
+
 \textbf{Preconditioning} Training a raw network \(F_\theta (x_t;\sigma)\) directly as a denoiser is impractical because according to 
 Eq.\ref{eq:forward_ve} the inputs have variance \(\sigma_{\text{data}}+\sigma^2\), which means that the network sees input that varies by orders of magnitude across the distribution of \(\sigma\), which display different noise levels, as discussed in Sec.\ref{sec:edm_literature}. EDM addresses both problems introducing preconditioned denoiser \(D_\theta\) (Eq.\ref{eq:edm_denoiser}). 
 
@@ -146,6 +152,8 @@ also have empirically optimal values for this domain remains an open calibration
 
 \section{Architecture}
 \label{sec:model_architecture}
+The CSDI-based backbone described in this section is shared by both phases. The sole phase-specific difference is in the diffusion-step embedding, noted in the Embeddings paragraph below.
+
 U-Net architectures \cite{ronneberger2015unet} have been widely adopted 
 in diffusion models for image generation, where hierarchical downsampling 
 and convolutional inductive biases provide strong local structure and 
@@ -217,13 +225,15 @@ temporal and feature axes. Without this the Transformer would be permutation-inv
 
 \section{Masking strategies}
 \label{sec:masking_strategies_ch3}
-This work employs two masking strategies: \texttt{unconditional} and \texttt{predict\_close}. The \texttt{unconditional} setting is used for Phase 1, where \(K=1\) and the model is trained on 
-univariate log-returns with no conditioning information. The conditioning 
-mask is \(m^{\text{co}}=0\) everywhere, and the target mask is 
-\(m^{\text{ta}}=1\) everywhere, so the loss reduces to the 
+This work employs two masking strategies: \texttt{unconditional} and \texttt{predict\_close}.
+
+\(\text{Phase 1}\quad\) The \texttt{unconditional} setting is used for Phase~1, where \(K=1\) and the model is trained on
+univariate log-returns with no conditioning information. The conditioning
+mask is \(m^{\text{co}}=0\) everywhere, and the target mask is
+\(m^{\text{ta}}=1\) everywhere, so the loss reduces to the
 standard denoising objective evaluated on all entries without any side information.
 
-When \(K>1\) we use \texttt{predict\_close} strategy which is a fixed deterministic mask:
+\(\text{Phase 2}\quad\) When \(K>1\) we use \texttt{predict\_close} strategy which is a fixed deterministic mask:
 \[
     m^{\text{co}}_{k,l} = 1 \quad \text{for } k \in \{O,H,L\}, 
     \qquad
@@ -290,8 +300,8 @@ outputs for those positions.
 
 \section{Sampling}
 
-As discussed in Sec.~\ref{sec:scorediffmodels}, the Euler--Maruyama 
-method performs a first-order discretisation of the reverse SDE, at each 
+\(\text{Phase 1}\quad\) As discussed in Sec.~\ref{sec:scorediffmodels}, the Euler--Maruyama
+method performs a first-order discretisation of the reverse SDE, at each
 step removing noise while injecting a small stochastic perturbation. 
 Because it is first-order, the local truncation error is 
 \(\mathcal{O}(h^2)\), and acceptable sample quality typically requires 
@@ -307,7 +317,7 @@ phase together with the probability flow ODE:
 where the learned score \(s_\theta(x_t,t)\) is substituted for the 
 intractable \(\nabla_x \log p_t(x_t)\).
 
-In the EDM phase, we replace this with the Heun second-order 
+\(\text{Phase 2}\quad\) In the EDM phase, we replace this with the Heun second-order
 predictor--corrector sampler (Eq.~\ref{eq:edm_sampler}), which 
 integrates the probability flow ODE rather than the reverse SDE. The 
 corrector step requires twice the number of network evaluations per 
