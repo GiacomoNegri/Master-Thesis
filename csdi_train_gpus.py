@@ -148,7 +148,7 @@ def train(
                 print(f"  [scheduler] Fast-forwarded cosine to epoch {start_epoch}")
 
     # DDP: wrap model after checkpoint load, before training
-    model = DDP(model, device_ids=[local_rank])
+    model = DDP(model, device_ids=[local_rank], find_unused_parameters=True)  # needed when K=1: ResidualBlock.forward_feature skips feature_layer, leaving its params grad-free
 
     # DDP: per-rank seed offset so random masks differ across GPUs
     set_seed(int(config["train"]["seed"]) + local_rank)
