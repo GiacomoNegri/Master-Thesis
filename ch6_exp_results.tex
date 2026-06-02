@@ -13,8 +13,7 @@ the analysis:
     \item \textbf{Phase~1 --- Replication.} Is a CSDI-based diffusion architecture capable
     of learning and reproducing the stylized facts of financial time series when trained
     under the SDE framework proposed by Kim et al.~\cite{kim2025diffusion}?
-    \item \textbf{Phase~2 --- EDM-CSDI.} Does embedding the same architecture within the
-    Elucidated Diffusion Model (EDM) framework of Karras et al.~\cite{karras2022elucidating}
+    \item \textbf{Phase~2 --- EDM-CSDI.} Does embedding the same architecture within the EDM framework of Karras et al.~\cite{karras2022elucidating}
     and conditioning generation on same-day Open, High, and Low log-returns improve
     generation quality over the Phase~1 baseline?
 \end{enumerate}
@@ -22,31 +21,16 @@ the analysis:
 The chapter is organised in two sequential parts that mirror the experimental structure
 introduced in Chapter~\ref{ch:theoretical_framework}. Phase~1
 (Sec.~\ref{sec:phase1}) replicates the work of Kim et al.~\cite{kim2025diffusion} on
-unconditional univariate generation of S\&P~500 close log-returns across three SDE
-variants and multiple noise schedules, seeking to establish a validated baseline and to
-verify the claims made in the original paper regarding the GBM-inspired forward process.
+unconditional univariate generation of S\&P~500 close log-returns.
 Phase~2 (Sec.~\ref{sec:phase2}) extends the validated backbone to the multivariate OHLC
 setting within the EDM framework, evaluating conditional generation quality on both
 training windows and fully held-out validation windows.
 
-A key design difference between the two phases concerns the validation split. In Phase~1,
-validation windows are drawn randomly from the full sliding-window pool; because the
-stride $s=400$ is substantially shorter than the window length $L=2048$, consecutive
-windows share the majority of their time steps, and some degree of temporal leakage
-between training and validation windows is likely. In Phase~2, validation windows are
-strictly held out: for any ticker whose window is selected for validation, no other
-window covering the same time range appears in the training set for that ticker. This
-construction is intended to test the model's ability to generalise to time periods it has
-not encountered during training and to assess the discriminative power of the OHLC
-conditioning signal in a strictly out-of-sample regime.
+A key design difference between the two phases concerns the validation split, as described in Sec.\ref{sec:sliding_window_ch4}. In Phase~1,
+validation windows are drawn randomly from the full sliding-window pool. In Phase~2, validation windows are strictly held out.
 
-Both phases use the same underlying CSDI-inspired backbone: 128 model channels, 6
-residual layers, and the factored two-dimensional attention mechanism described in
-Sec.~\ref{sec:model_architecture}. The diffusion framework, noise schedule, masking
-strategy, and sampler differ between phases as summarised in Tab.~\ref{tab:comparisons}
-and Tab.~\ref{tab:training_setup}. Metric definitions are not restated here; readers are
-referred to Chapter~\ref{ch:evaluation_methodology} for precise formulations of all
-evaluation criteria used in this chapter.
+Both phases use the same underlying CSDI-inspired backbone, whose details are available Tab.~\ref{tab:comparisons}
+and Tab.~\ref{tab:training_setup}. Metric definitions are readable at Ch. ~\ref{ch:evaluation_methodology}.
 
 \section{Phase 1 --- Replication}
 \label{sec:phase1}
