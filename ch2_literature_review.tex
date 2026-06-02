@@ -1,4 +1,4 @@
-\chapter{Literature Review}
+\chapter{Background and Related Work}
 \label{ch:literature_review}
 \section{Financial Time Series and Stylized Facts}
 \label{sec:fts_literature}
@@ -51,8 +51,6 @@ FTS log-returns exhibit four core characteristics:
 \end{figure}
 
 It is important to state that financial returns do not follow a Gaussian behavior, indeed large price fluctuations occur more frequently than under Brownian motion, breaking random walk assumption \cite{mandelbrot1963variation, fama1965random}. Moreover, the fact that returns have polynomial-like tail decay \cite{cont2001empirical} implies that, contrary to what was believed before \cite{mandelbrot1963variation}, they have finite variance, and often unstable of infinite fourth moment \cite{gopikrishnan1999scaling}. Therefore, it is modern consensus that returns are not necessarily symmetric Lévy-stable process \cite{mantegna1995scaling}, but that assuming a Gaussian tail distribution would significantly underestimate risk. 
-
-Another important event that needs to be highlighted is the decimalization process mandated by the Security and Exchange Commission in January 2000, and that was required to be brought to completion before the 9th of April 2001 \cite{furfine2003decimalization}. Before this period US stock prices were quoted in fractions, specifically 1/16th of a dollar, meaning that the minimum price movement needed to record an effective change in price was 0.0625 dollars. After decimalization this changed to 1 cent. This often manifest as 0\% daily returns prior the change.
 
 \section{Classical Models}
 \label{sec:classical_models_literature}
@@ -193,7 +191,7 @@ of the loss across noise levels, and the numerical solver used at sampling time.
 EDM separates these into four independent components and optimises each 
 separately.
 
-\textbf{Preconditioning} EDM parametrises the denoiser as:
+\textbf{Preconditioning} \quad EDM parametrises the denoiser as:
 \begin{equation}
     \label{eq:edm_denoiser}
     D_\theta(x;\sigma) = c_{\text{skip}}(\sigma)\,x + 
@@ -223,7 +221,7 @@ the data; at high $\sigma$, $c_{\text{skip}} \to 0$ and the network must
 reconstruct the clean signal from scratch. This mechanism helps stabilizing the training 
 across the full noise range without requiring separate tuning for each noise level. 
 
-\textbf{Loss weighting} The EDM training objective is defined with respect to the denoiser 
+\textbf{Loss weighting} \quad The EDM training objective is defined with respect to the denoiser 
 $D_\theta(x;\sigma)$. Given a clean sample $x_0 \sim p_0$ and noise 
 $\epsilon \sim \mathcal{N}(0, I)$, the noisy observation is 
 $\tilde{x} = x_0 + \sigma\epsilon$, as in VE, and the loss is:
@@ -247,7 +245,7 @@ high $\sigma$ the target collapses to the dataset mean. The informative region i
 with defaults $P_{\text{mean}} = -1.2$ and $P_{\text{std}} = 1.2$, calibrated 
 on ImageNet \cite{deng2009imagenet}. 
 
-\textbf{Sampler design}
+\textbf{Sampler design} \quad
 At inference time, EDM employs a deterministic second-order Heun ODE solver with 
 a $\rho$-power noise schedule:
 \begin{equation}
@@ -260,8 +258,7 @@ with $\rho = 7$. The power-law schedule concentrates discretisation steps at
 small $\sigma$, where the ODE curvature is highest and denoising errors have the
 greatest impact on sample quality, which is why instead of \(\rho=3\) that equalize the truncation error at each step they chose higher values. This resulted in equivalent sample quality to DDPM with approximately $7\times$ fewer NFEs. Moreover, the sampler is independent of the training procedure, therefore a model trained with the EDM loss could be evaluated with any compatible ODE or SDE solver.
 
-\textbf{Stochastic Heun sampler} \label{sec:stochastic_heun}
-Karras et al.\ also propose a stochastic variant of the Heun solver in which a controlled amount of noise is reinjected before each denoising step. Before applying the standard second-order Heun update, the current noise level $\sigma_i$ is temporarily inflated to
+\textbf{Stochastic Heun Sampler} \label{sec:stochastic_heun} \quad Karras et al.\ also propose a stochastic variant of the Heun solver in which a controlled amount of noise is reinjected before each denoising step. Before applying the standard second-order Heun update, the current noise level $\sigma_i$ is temporarily inflated to
 \begin{equation}
     \label{eq:stochastic_heun}
     \hat{\sigma}_i = \sigma_i\sqrt{1 + \gamma_i^2}, \qquad
@@ -275,7 +272,7 @@ and the sample is perturbed as $\hat{x}_i = x_i + \sqrt{\hat{\sigma}_i^2 - \sigm
 Standard diffusion models, as described in the previous sections, learn to 
 generate unconditionally from $p_{\text{data}}$. For time series imputation, or more generally for conditional generation, given a subset of conditioning observed values related to the target entries we can compute the conditional distribution $p(x^{\text{ta}} | x^{\text{co}})$. CSDI \cite{tashiro2021csdi} make this possible via a masking mechanism that is applied both at training and inference time. 
 
-\textbf{Architectural lineage}
+\textbf{Architectural lineage} \quad
 To understand the architectural choices made in CSDI, it is useful to look at  
 evolution of CSDI's backbone. PixelCNN \cite{oord2016pixel} established the core 
 ideas of modeling high-dimensional data through local conditional information by using masked convolutions, residual connections, and gated activations, enabling the understanding of local and global relationships. WaveNet \cite{oord2016wavenet} transferred 
@@ -285,7 +282,7 @@ with 1D causal dilated convolutions, allowing the receptive field to grow expone
 inherited components from WaveNet are the stacks of residual blocks, the diffusion-step conditioning, gated activations, and skip aggregation. CSDI \cite{tashiro2021csdi} then adapts this DiffWave backbone to multivariate 
 time-series imputation, replacing the convolutional modeling with 
 two-dimensional attention and introducing an explicit conditioning mechanism 
-for observed values. The therefore follows a clear progression: firstly autoregressive local dependency modelling, secondly dilated temporal convolutions, thirdly  diffusion denoising with WaveNet-style residual blocks, and then CSDI's conditional time-series denoiser with attention. 
+for observed values. The evolution therefore follows a clear progression: firstly autoregressive local dependency modelling, secondly dilated temporal convolutions, thirdly  diffusion denoising with WaveNet-style residual blocks, and then CSDI's conditional time-series denoiser with attention. 
 
 % CSDI high-level overview
 \begin{figure}[htbp]
@@ -297,7 +294,7 @@ for observed values. The therefore follows a clear progression: firstly autoregr
   \label{fig:csdi_high_level}
 \end{figure}
 
-\textbf{Conditional denoising mechanism} At each denoising step $t$, the CSDI model takes as input three quantities: 
+\textbf{Conditional denoising mechanism} \quad At each denoising step $t$, the CSDI model takes as input three quantities: 
 the noisy target $x^{\text{ta}}_t$, which gets zero-padded at conditioning indices; the 
 clean conditioning observations $x^{\text{co}}_0$, which gets zero-padded at target indices; and a binary mask $m^{\text{co}} \in \{0,1\}^{K \times L}$ indicating which entries are observed, where $K$ is the number of channels and $L$ is the sequence length. The conditional score network is therefore 
 $\epsilon_\theta(x^{\text{ta}}_t, t \mid x^{\text{co}}_0, m^{\text{co}})$, and 
@@ -323,8 +320,7 @@ target entries are denoised.
   \label{fig:csdi_high_level}
 \end{figure}
 
-\textbf{2D attention over time and features}
-The central innovation of CSDI over DiffWave is the replacement of dilated 
+\textbf{2D attention over time and features} \quad The central innovation of CSDI over DiffWave is the replacement of dilated 
 temporal convolutions with a two-dimensional attention mechanism. Two Transformer 
 layers \cite{vaswani2017attention} operate in sequence within each residual block: a temporal Transformer which operates along the time axis, capturing short- and long-range temporal dependencies within each channel, and a feature Transformer operating along the channel axis, capturing cross-channel dependencies between variables. This 2D attention allows the model to learn both the temporal dynamics of each channel and the 
 contemporaneous relationships between channels, without the quadratic cost of 
@@ -332,21 +328,20 @@ attending jointly over the full time-feature product space. The overall block
 structure residual connections, skip aggregation, and gated activations 
 is inherited directly from DiffWave and ultimately from WaveNet. 
 
-\textbf{Positional and diffusion-step embeddings} Three types of embeddings are added to the latent representation to allow the model to simultaneously distinguish temporal position, noise level, and channel 
+\textbf{Positional and diffusion-step embeddings} \quad Three types of embeddings are added to the latent representation to allow the model to simultaneously distinguish temporal position, noise level, and channel 
 identity: a sinusoidal diffusion-step embedding encoding the current noise level 
 $t$; a temporal embedding encoding absolute position along the time axis; and a 
 feature embedding encoding the identity of each channel. The diffusion-step 
 embedding plays the same role as the noise conditioning $c_{\text{noise}}(\sigma)$ 
 in the EDM preconditioning, ensuring that the denoiser is aware of the current noise level. 
 
-\textbf{Self-supervised training strategy and limitations}
-CSDI introduces several masking strategies for training (random, historical, 
+\textbf{Self-supervised training strategy and limitations} \quad CSDI introduces several masking strategies for training (random, historical, 
 mixed, and test-pattern) that simulate different conditioning and target splits 
 during training, effectively providing a sort of data augmentation through varied 
 masking.
 
 \section{GBM--style SDE and CSDI}
-The idea of using CSDI for FTS modeling was explored previously by Gihum Kim et al. in \emph{A diffusion-based generative model for financial time series via geometric Brownian motion}. While interesting this work lack the details needed in order to be replicable and provide ambiguous statements about what is actually persue. 
+The idea of using CSDI for FTS modeling was explored previously by Gihum Kim et al. in \emph{A diffusion-based generative model for financial time series via geometric Brownian motion} \cite{kim2025diffusion}. While interesting this work lack the details needed in order to be replicable and provide ambiguous statements about what is actually persue. 
 
 They showed that starting from the Black--Scholes equation (Eq.~\ref{eq:blackscholes}) and 
 applying It\^{o}'s lemma to \(X_t = \log S_t\), one obtains:
