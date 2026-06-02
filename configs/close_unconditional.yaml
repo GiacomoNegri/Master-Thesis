@@ -1,0 +1,74 @@
+data:
+  target_dim: 1                                   # Close only — single feature
+  columns: ["date", "close"]                      # date = time axis, close = only feature
+  close_idx: 0                                    # unused in unconditional mode; kept valid
+
+model:
+  timeemb: 128
+  featureemb: 64
+  is_unconditional: true                          # cond_mask forced to zeros
+  sigma_data: 1.0
+
+diffusion:
+  num_steps: 100
+  diffusion_embedding_dim: 256
+  channels: 128
+  layers: 6
+  nheads: 4
+  is_linear: false
+
+process:
+  sde_type: ve
+  noise_schedule: exponential
+  sigma_min: 0.002
+  sigma_max: 3.5
+  beta_min: 0.01
+  beta_max: 20.0
+  N: 1000
+  model_steps: 100
+  eps: 1.0e-3
+  enforce_observed: true
+
+train:
+  seed: 42
+  epochs: 200
+  batch_size: 64
+  lr: 1.0e-4
+  weight_decay: 1.0e-4
+  use_amp: true
+
+  mask_mode: unconditional
+  cond_min_ratio: 0.1
+  cond_max_ratio: 0.9
+
+  debug: false
+  likelihood_weighting: false
+  importance_sampling: false
+  lr_cosine_annealing: false
+  lr_eta_min: 1.0e-6
+  ema_beta: 0.98
+
+  log_every_steps: 100
+  save_every_steps: 1000
+
+  seq_len: 512
+  stride: 100
+
+  num_workers: 0
+  shuffle: true
+  pin_memory: true
+
+  data_root: ./data/SNP500_individual_normalized
+  out_dir: ./checkpoints/edm_unconditional
+
+  early_stop_patience: 20
+
+edm:
+  P_mean: -1.4
+  P_std: 1.6
+  rho: 7.0
+
+wandb:
+  entity: thesis-giacomo-negri
+  project: csdi-ohlc
+  # run_name:
