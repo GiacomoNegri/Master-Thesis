@@ -4,10 +4,10 @@
 \section{Data}
 
 The dataset follows the source and structure reported by Kim et al.\ \cite{kim2025diffusion}.
-Specifically, the list of current S\&P 500 members was taken as the starting universe, and
+Specifically, the list of current S\&P 500 members was taken as the starting universe (as of April 2026), and
 tickers with non-standard symbols (e.g., BRK.B, BF.B) were excluded. For each remaining
 ticker, the maximum available daily price history was downloaded. The dataset was then
-filtered to retain only those stocks whose available history extends more than 40 years back.
+filtered to retain only those stocks whose available history extends at leas 40 years back.
 According to the authors:
 \begin{quote}
     \emph{This selection criterion ensures that the dataset encompasses diverse market
@@ -17,13 +17,9 @@ According to the authors:
 For each selected stock, daily log-returns were computed as in Eq.~\ref{eq:log_returns},
 using the adjusted closing price on day \(t\).
 
-This selection is subject to survivorship bias: only companies that remained listed for a
-period substantially longer than the average tenure in the S\&P 500 index are included
-\texttt{[REFERENCE]}. The resulting universe therefore over-represents long-lived firms
-and may understate the frequency of adverse market events associated with delistings
-and failures.
-
-Another important event that needs to be highlighted is the decimalization process mandated by the Security and Exchange Commission in January 2000, and that was required to be brought to completion before the 9th of April 2001 \cite{furfine2003decimalization}. Before this period US stock prices were quoted in fractions, specifically 1/16th of a dollar, meaning that the minimum price movement needed to record an effective change in price was 0.0625 dollars. After decimalization this changed to 1 cent. This manifest as about 7.5\% of all returns displaying 0\% daily returns prior the change.
+This selection is subject to some limitations. First, survivorship bias: only companies that remained listed for a
+period substantially longer than the average tenure in the S\&P 500 index, which is 15 years \cite{slok_apollo_longevity}, are included. The resulting universe therefore may understate the frequency of adverse market events associated with delistings
+and corporate failures. The second aspect regards the decimalization process, which was mandated by the Security and Exchange Commission in January 2000 and completed by the 9th of April 2001 \cite{furfine2003decimalization}. Before this period US stock prices were quoted in fractions, specifically 1/16th of a dollar, meaning that the minimum price movement needed to record an effective change in price was 0.0625 dollars. After decimalization this changed to 1 cent. This manifest as 7.1928\% of all returns displaying an exact 0\% daily returns.
 
 \section{Preprocessing}
 
@@ -37,6 +33,7 @@ and Low prices are each expressed as log-returns relative to the previous closin
 \]
 This formulation is consistent with the Close log-return defined in Eq.~\ref{eq:log_returns},
 expressing all channels relative to the same reference price \(C_{t-1}\).
+
 \(\textbf{Phase~2}\quad\) A per-channel z-score normalisation is then applied independently to each of the four
 distribution while standardising it to zero mean and unit variance, so that
 \(\sigma_{\text{data}} = 1\) holds by construction and network inputs remain numerically

@@ -340,7 +340,8 @@ mixed, and test-pattern) that simulate different conditioning and target splits
 during training, effectively providing a sort of data augmentation through varied 
 masking.
 
-\section{GBM--style SDE and CSDI}
+\section{GBM--style SDE}
+\label{sec:gbm_sde_ch2}
 The idea of using CSDI for FTS modeling was explored previously by Gihum Kim et al. in \emph{A diffusion-based generative model for financial time series via geometric Brownian motion} \cite{kim2025diffusion}. While interesting this work lack the details needed in order to be replicable and provide ambiguous statements about what is actually persue. 
 
 They showed that starting from the Black--Scholes equation (Eq.~\ref{eq:blackscholes}) and 
@@ -365,7 +366,7 @@ process is no longer a pure GBM but rather a VE-type diffusion in
 log-price space inspired by it. The financial interpretation is that, 
 while noise remains additive in log-price space, the exponential map back to price space induces effective heteroskedasticity with volatility that scales with the price level.
 
-However, an ambiguity in the original paper requires clarification. In Section 3.1, 'Geometric Brownian motion in score-based Models', of \cite{kim2025diffusion} they state:
+However, an ambiguity in the original paper requires clarification. In Section 3.1, 'Geometric Brownian motion in score-based Models' is stated:
 \begin{quote}
     \emph{[...] the GBM-based formulation naturally injects larger noise into higher--value regimes, thereby preserving economically meaningful dynamics in the generated trajectories. It inherently scales noise with the underlying price level, enhancing the model’s sensitivity to large market movements. As a result, the diffusion process can more accurately capture stylized facts such as volatility clustering and heavy tails.}
 \end{quote}
@@ -380,32 +381,7 @@ Nevertheless, in Section 3.1.2, the authors state:
 This indicates that the model is trained on log-returns, not on log-prices. 
 Log-prices \(X_t = \log S_t\) are non-stationary, making them undesirable 
 as direct training targets. The GBM-style diffusion derivation above 
-operates on log-prices in theory, but practical training on log-returns 
-is likely a cumulative interpretation: defining \(R_t = X_t - X_0\) as the 
-cumulative log-return from the window origin, the VE forward process 
-applies to \(R_t\) rather than \(X_t\) directly. Under constant volatility 
-\(\nu\), the variance grows linearly as \(\operatorname{Var}(R_t) = \nu^2 
-t\), consistent with the VE assumption. This interpretation is not stated 
-explicitly in the paper, but is the only reading consistent with both the 
-theoretical derivation and the experimental results shown in Figures~4--6 of 
-\cite{kim2025diffusion}, even if in disagreement with the training parameters shared by the authors: \(\sigma_{\min}=0.01\) and \(\sigma_{\max}=1.0\) for GBM-style diffusion. The replication in this work proceeds under this assumption. 
-
-\begin{figure}[htbp]          % placement: here, top, bottom, page
-  \centering
-  \includegraphics[width=0.9\textwidth]{images/Kim_et_al_architecture.png}
-  \caption{CSDI-based diffusion architecture. Source: Kim et al.\ \cite{kim2025diffusion}.}
-  \label{fig:kim_architecture}
-\end{figure}
-
-Another inconsistency arises between and the described use of time, positional, and diffusion-step embeddings. The text states that
-\begin{quote}
-    \emph{These embeddings are added to the latent representation and passed through a Transformer block, which models global dependencies across time.}
-\end{quote}
-However, Fig.\ref{fig:kim_architecture} clearly shows that the time embeddings is provided only after the Transformer layer. This last interpretation was used. 
-
-Based on the model architecture presented in Fig.\ref{fig:kim_architecture}, the diffusion-step, temporal, and positional embeddings were interpreted as being injected independently at every residual block, consistently with the approach adopted in CSDI \cite{tashiro2021csdi}. This reading is further supported by Fig.\ref{fig:kim_architecture} itself, their position is probably justified by the fact that they are computed once. Notably, Kim et al.\ \cite{kim2025diffusion} describe the time embedding as combining sinusoidal functions with learnable vectors, while the positional embedding relies solely on fixed sinusoidal functions with no learnable parameters; this distinction suggests that the positional embedding is the only one among the three that contains no trainable weights, and accordingly it was not included as a separate learnable layer in the replicated model. 
-
-In addition, Kim et al.\cite{kim2025diffusion} did not release a common dataset, source code, or key implementation details, including data pre-processing, the masking strategy (e.g., unconditional, random, or alternatives), the model’s loss function or prediction target (noise or score), kernel size, transformer hyperparameters, activation functions, optimizer configuration, and others. All these aspects will be examined in detail in Ch.\ref{ch:theoretical_framework} and Ch.\ref{ch:data_setup}.
+operates on log-prices in theory, but practical training on log-returns.
 
 \section{Heavy--Tailed Diffusion Models}
 

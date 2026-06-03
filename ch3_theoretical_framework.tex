@@ -118,6 +118,35 @@ therefore denoiser and score function are connected by:
 \]
 implying that rather than learn the score field directly, which is hard and ill-conditioned regression target in high dimensions, we train a denoiser \(D_\theta\) to approximate \(D^*\), and we later recover the score analytically.
 
+\section{GBM--style SDE and CSDI}
+\label{sec:gbm_sde_ch3}
+In Sec.\ref{sec:gbm_sde_ch2} we mentioned the 
+cumulative interpretation of log-returns, which stands from the fact that training diffusion models on raw log-prices $X_t = \log S_t$ is inadvisable 
+for two reasons. First, log-prices are non-stationary, therefore their mean grows approximately linearly and with different scales across tickers and time periods. Second, the sampling process relies on a Gaussian prior 
+$\mathcal{N}(0, \sigma_{\max}^2 I)$ that should be well-matched to the training distribution, which in this case means only if the data input is approximately centered at zero with a scale commensurate with $\sigma_{\max}$. 
+Raw log-prices violate both conditions significantly. Daily log-returns 
+$r_t = \log(S_t / S_{t-1})$ solve non-stationarity, however, 
+working with cumulative log-returns 
+$C_{\tau+k} = \sum_{j=1}^{\tau+k} r_j$ 
+is motivated by the GBM theoretical derivation of Sec.~\ref{sec:gbm_sde_ch2} and by the experimental results shown in Figures~4--6 of \cite{kim2025diffusion}, that otherwise wouldn't have any reason to differentiate VE with GBM.
+
+\begin{figure}[htbp]          % placement: here, top, bottom, page
+  \centering
+  \includegraphics[width=0.9\textwidth]{images/Kim_et_al_architecture.png}
+  \caption{CSDI-based diffusion architecture. Source: Kim et al.\ \cite{kim2025diffusion}.}
+  \label{fig:kim_architecture}
+\end{figure}
+
+Another inconsistency arises between the described use of time, positional, and diffusion-step embeddings. The text states that
+\begin{quote}
+    \emph{These embeddings are added to the latent representation and passed through a Transformer block, which models global dependencies across time.}
+\end{quote}
+However, Fig.\ref{fig:kim_architecture} clearly shows that the time embeddings is provided only after the Transformer layer. This last interpretation was used. 
+
+Based on the model architecture presented in Fig.\ref{fig:kim_architecture}, the diffusion-step, temporal, and positional embeddings were interpreted as being injected independently at every residual block, consistently with the approach adopted in CSDI \cite{tashiro2021csdi}. This reading is further supported by Fig.\ref{fig:kim_architecture} itself, their position is probably justified by the fact that they are computed once. Notably, Kim et al.\ \cite{kim2025diffusion} describe the time embedding as combining sinusoidal functions with learnable vectors, while the positional embedding relies solely on fixed sinusoidal functions with no learnable parameters; this distinction suggests that the positional embedding is the only one among the three that contains no trainable weights. 
+
+% The authors Kim et al.\cite{kim2025diffusion} did not release a common dataset, source code, or key implementation details, including data pre-processing, the masking strategy, the model’s loss function or prediction target, kernel size, transformer hyperparameters, optimizer configuration, and others. All these aspects will be examined in detail in Ch.\ref{ch:data_setup}.
+
 \section{EDM}
 The components described in this section apply exclusively to Phase~2.
 
@@ -144,7 +173,7 @@ with \(\sigma_{\text{data}} = 0.5\), \(P_{\text{mean}} = -1.2\), and
 of natural images after unit-variance normalisation. OHLC log-returns differ 
 in a relevant respect: after global standardisation, each channel has unit 
 variance by construction, so \(\sigma_{\text{data}} = 1.0\) is the 
-appropriate choice. It is important to notice that \(P_{\text{mean}}\) shift the distribution, where lower values concentrate training on fine-grained reconstruction, and viceversa. \(P_{\text{std}}\) control the spread, where wider spread gives more uniform coverage. It is important that the \(\sigma_{\max}\) used for the prior sampling in the reverse process, covers approximately 95\% of the distribution \(\ln (\sigma)\sim \mathcal{N}(P_{\text{mean}}, P_{\text{std}})\). Whether \(P_{\text{mean}}\) and \(P_{\text{std}}\) 
+appropriate choice. It is important to notice that \(P_{\text{mean}}\) shift the distribution, where lower values concentrate training on fine-grained reconstruction, and viceversa. \(P_{\text{std}}\) control the spread, where wider spread gives more uniform coverage. It is important that the \(\sigma_{\max}\) used for the prior sampling in the reverse process, covers approximately 95\% or more of the distribution \(\ln (\sigma)\sim \mathcal{N}(P_{\text{mean}}, P_{\text{std}})\). Whether \(P_{\text{mean}}\) and \(P_{\text{std}}\) 
 also have empirically optimal values for this domain remains an open calibration question only partially addressed in this work. 
 
 \textbf{Loss function} EDM varies also the loss function characterization by moving away from noise prediction as in Eq.\ref{eq:csdi_objective}, to a "clean" data prediction, Eq.\ref{eq:edm_loss}, with different weighting, as discussed in Sec.\ref{sec:edm_literature}.
@@ -160,16 +189,14 @@ multi-scale spatial representations. Financial time series, however, are
 not characterised by local spatial regularity but by long-range temporal 
 dependencies and contemporaneous cross-channel relationships, for which 
 the locality assumptions of convolutions are a poor fit. Transformers, by 
-contrast, attend globally over the input by construction, making them 
+contrast, attend globally over the input, making them 
 theoretically better suited to this domain. 
 
 As discussed in Sec.~\ref{sec:csdi_literature}, CSDI factors the full 
 \(K \times L\) attention into a temporal Transformer operating over 
 \(L \times L\) and a feature Transformer operating over \(K \times K\), 
 reducing complexity from \(\mathcal{O}\!\left((KL)^2\right)\) to 
-\(\mathcal{O}(L^2 + K^2)\). For \(L = 512\) and \(K = 4\) this 
-represents a reduction by a factor of roughly \((KL)^2 / (L^2 + K^2) 
-\approx 16\). Beyond computational savings, the factored design is also 
+\(\mathcal{O}(L^2 + K^2)\). Beyond computational savings, the factored design is also 
 structurally motivated: temporal attention captures \emph{when} patterns 
 occur within each channel, while feature attention captures \emph{how} 
 channels covary contemporaneously. Attending jointly over the time-feature 
@@ -181,7 +208,7 @@ potentially trickier to optimise.
 % \input{graphs/architecture}
 
 \textbf{Input projection} \quad A pointwise \(1 \times 1\) convolution projects the two-channel input ( signal and mask channels) into a \(d\)-dimensional 
-latent space, where \(d\) is a free hyperparameter, lifting the two input channels into a richer representation before any attention is applied. 
+latent space, where \(d\) is a free hyperparameter, lifting the two input channels into a richer representation.
 
 \textbf{Temporal and feature Transformer layers} \quad A new temporal 
 \((K, L, d)\) and feature \((L, K, d)\) Transformer is initialised per 
@@ -285,17 +312,17 @@ The additional arguments \(\tau\) (observed time positions
 are passed to \(D_\theta\) to construct the side information embeddings, 
 consistent with the CSDI implementation.
 
-The conditioning constraint is enforced at every step of the reverse 
-process. After each Heun update producing a candidate \(\tilde{x}_{i+1}\) 
-for the full \(K\times L\) tensor, the conditioning channels are 
-overwritten with the observed values:
-\[
-    x_{i+1} \xleftarrow[]{} (1-m^{\text{co}}) \odot \text{[update]} 
-    + m^{\text{co}} \odot x_0^{\text{co}},
-\]
-ensuring that the \(O\), \(H\), and \(L\) channels never drift from 
-their observed values during sampling, regardless of what \(D_\theta\) 
-outputs for those positions.
+% The conditioning constraint is enforced at every step of the reverse 
+% process. After each Heun update producing a candidate \(\tilde{x}_{i+1}\) 
+% for the full \(K\times L\) tensor, the conditioning channels are 
+% overwritten with the observed values:
+% \[
+%     x_{i+1} \xleftarrow[]{} (1-m^{\text{co}}) \odot \text{[update]} 
+%     + m^{\text{co}} \odot x_0^{\text{co}},
+% \]
+% ensuring that the \(O\), \(H\), and \(L\) channels never drift from 
+% their observed values during sampling, regardless of what \(D_\theta\) 
+% outputs for those positions.
 
 \section{Sampling}
 
@@ -310,7 +337,7 @@ and CSDI \cite{tashiro2021csdi}, this method is used in the replication
 phase together with the probability flow ODE Eq.\ref{eq:probability_flow} where the learned score \(s_\theta(x_t,t)\) is substituted for the 
 intractable \(\nabla_x \log p_t(x_t)\).
 
-\(\textbf{Phase 2}\quad\) In the EDM phase, we replace this with the Heun second-order
+\(\textbf{Phase 2}\quad\) In the EDM phase, it was used the Heun second-order
 predictor--corrector sampler (Eq.~\ref{eq:edm_sampler}), which 
 integrates the probability flow ODE rather than the reverse SDE. The 
 corrector step requires twice the number of network evaluations per 
