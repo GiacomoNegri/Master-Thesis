@@ -1,7 +1,6 @@
 % Required packages: booktabs, multirow, array
 % \usepackage{booktabs, multirow, array}
 \begin{table}[htbp]
-\label{tab:training_setup}
 \centering
 \footnotesize
 \renewcommand{\arraystretch}{1.35}
@@ -46,7 +45,7 @@
   & \multicolumn{2}{c}{$6$} \\[3pt]
   & Diffusion emb.
   & \multicolumn{2}{c}{$256$} \\[3pt]              % FIX 3: added [3pt]
-  & Time mb.
+  & Time emb.
   & \multicolumn{2}{c}{$128$} \\[3pt]              % FIX 3: added [3pt]
   & Feature emb.
   & \multicolumn{2}{c}{$64$} \\                    % FIX 2: added \\
@@ -71,6 +70,9 @@
   & $\eta_{\max}$ / $\eta_{\min}$
   & $5\!\times\!10^{-4}$ / $1\!\times\!10^{-6}$
   & $1\!\times\!10^{-4}$ / $1\!\times\!10^{-6}$ \\[3pt]
+  & Epoch
+  & $1000$
+  & $500$ \\
   & Batch size
   & \multicolumn{2}{c}{$64$} \\[3pt]
   & Optimizer
@@ -79,4 +81,5 @@
 \end{tabular}
 \caption{Training setup for Phase~1 (replication of Kim et al.\ \cite{kim2025diffusion})
 and Phase~2 (EDM-CSDI). Parameters shared across both phases appear in merged cells. \emph{emb.} is short for embeddings.}
+\label{tab:training_setup}
 \end{table}

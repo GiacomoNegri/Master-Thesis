@@ -1,7 +1,6 @@
 \chapter{Data and Training Setup}
 \label{ch:data_setup}
-\input{table/training_setup}
-This section specified the dataset characteristics and training choices. A summary table is made available at Tab.\ref{tab:training_setup}, where single-valued row are parameters shared across both Phase~1 and Phase~2. 
+This section specified the dataset characteristics and training choices. A summary table is made available at Tab.\ref{tab:training_setup}. 
 \section{Data}
 
 The dataset follows the source and structure reported by Kim et al.\ \cite{kim2025diffusion}.
@@ -89,9 +88,6 @@ to training by subtracting the sample mean of the window. This transformation do
 
 [INTRODUCE WINDOW'S CREATION DIFFERENCE AND include this also in the TABLE for set up; include also sampler for fair comparison]
 
-\section{GBM--style SDE}
-
-
 \section{Training Configuration}
 
 This section discusses the most relevant training configuration and design choices;
@@ -164,3 +160,5 @@ ODE a more controlled evaluation setting than the reverse SDE:
 differences in sample quality can be attributed directly to the quality 
 of the learned denoiser \(D_\theta\), rather than to variance introduced 
 by the sampler itself.
+
+\input{table/training_setup}
