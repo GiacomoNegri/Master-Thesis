@@ -1,6 +1,7 @@
 \chapter{Data and Training Setup}
 \label{ch:data_setup}
-
+\input{table/training_setup}
+This section specified the dataset characteristics and training choices. A summary table is made available at Tab.\ref{tab:training_setup}, where single-valued row are parameters shared across both Phase~1 and Phase~2. 
 \section{Data}
 
 The dataset follows the source and structure reported by Kim et al.\ \cite{kim2025diffusion}.
@@ -42,17 +43,16 @@ deviation, the ordering constraint \(L_t \leq \min(O_t, C_t) \leq \max(O_t, C_t)
 which holds in price space, is not preserved after normalisation. This is a structural
 limitation acknowledged throughout the evaluation.
 
-To assess dataset similarity with Kim et al.\ \cite{kim2025diffusion}, 
-Figure~8 of that paper was used as a baseline reference for the 
-distribution of absolute returns. In order to bring the empirical curves closer, four tickers were excluded from the dataset: BEN, 
-HUBB, NVR, and WMB. These were removed because they exhibit absolute 
-log-returns exceeding 100\%, with a maximum of \(+330\%\) and a minimum 
-of \(-157\%\). Log-returns below \(-100\%\) are theoretically impossible 
-since they would imply a non-positive price; such values are therefore artifacts of the adjustment procedure described 
-in Sec.~\ref{sec:fts_literature}. It is speculated that Kim et al.\ 
-applied a similar filter, since retaining these observations would 
-distort the return distribution without a principled justification, 
-while imputation or smoothing would introduce its own artifacts.
+Four tickers were excluded from the dataset prior to training: BEN, HUBB, NVR, 
+and WMB. Each exhibits absolute log-returns exceeding $100\%$, with values 
+ranging from $-157\%$ to $+330\%$. Returns below $-100\%$ are theoretically 
+inadmissible, because they violate price non-negativity. Such observations are therefore artifacts of the split- and dividend-adjustment procedure described in 
+Sec.~\ref{sec:fts_literature}, rather than genuine market events. Exclusion was 
+preferred over imputation or smoothing, both of which would introduce their own 
+distortions. This choice is consistent with the likely preprocessing of Kim 
+et al.~\cite{kim2025diffusion}: after removing these four tickers, the empirical 
+distribution aligns more closely with Figure~8 of that paper, 
+which is used here as a reference baseline.
 
 \section{Sliding Window Construction}
 \label{sec:sliding_window_ch4}
@@ -62,29 +62,35 @@ configurations are used across the two experimental phases:
 \begin{itemize}
     \item \textbf{Phase 1, replication:} window length \(L = 2048\) and stride \(s = 400\),
     yielding approximately 5,500 training windows over the full dataset.
-    \item \textbf{Phase 2, EDM-CSDI:} window length \(L = 512\) and stride \(s = 100\),
-    consistent with the conditional OHLC setting described in
-    Ch.~\ref{ch:theoretical_framework}.
+    \item \textbf{Phase 2, EDM-CSDI:} window length \(L = 512\) and stride \(s = 100\), yielding approximately 23,000
+    training windows cosistent with what described in Ch.~\ref{ch:theoretical_framework}.
 \end{itemize}
 
 A window of length \(L = 2048\) spans approximately ten years of daily returns and is
 therefore well-suited to capturing long-term trends. However, the temporal Transformer
 incurs an \(\mathcal{O}(L^2)\) cost in sequence length, making it computationally
 expensive. The shorter \(L = 512\) setting was adopted for Phase 2 due to hardware
-constraints imposed by MIG partitioning of the A100 GPU into 40 GB slices.
+constraints imposed by MIG partitioning of the A100 GPU by the High--Performance Computing's university policy. The full memory analysis is given in App.~\ref{app:sec:attention_memory}.
 
-\(\textbf{Phase 1} \quad\) It is assumed that Kim et al.\ \cite{kim2025diffusion} either constructed windows first and then selected validation ones, or did not employ any validation set at all. In this work, validation windows were extracted and held out randomly, consistently with the supposed implementation; however, due to the stride, partial overlap between training and validation windows is likely.
+\(\textbf{Phase 1} \quad\) Given the window length the number of non-overlapping windows per ticker is small, making a strict 
+train--validation split undesirable. Validation windows were therefore extracted 
+by random holdout, consistent with the supposed implementation of Kim 
+et al.~\cite{kim2025diffusion}, who are assumed to have either applied a similar random selection or foregone a validation set entirely. Due to the stride, partial overlap between training and validation windows exists.
 
-\(\textbf{Phase 2}\) In order to assess the discriminative power of the conditioning information, validation windows were fully held out: for any ticker whose window was selected for validation, no other window covering the same time range appeared in the training set. This reduces the number of training examples available for learning time embeddings; however, this effect was expected to be mitigated by the larger number of windows produced by the shorter sequence length.
+For the GBM-inspired SDE variant, each window was additionally mean-centred prior 
+to training by subtracting the sample mean of the window. This transformation does not conflict with the generative setting, because no forecasting is performed. In addition, any daily log-returns can be easily recovered by \(r_{\tau+k}=C_{\tau+k}-C_{\tau+k-1}\), except for the first element.
 
-The shorter \(L = 512\) setting keeps the self-attention cost within the 40 GB MIG budget; the full memory analysis is given in Appendix~\ref{app:sec:attention_memory}.
+\(\textbf{Phase 2}\ \quad \) In order to assess the discriminative power of the conditioning information, validation windows were fully held out: for any ticker whose window was selected for validation, no other window covering the same time range appeared in the training set. This reduces the number of training samples available for learning, however, this effect is mitigated by the larger number of windows available.
 
-Overlapping windows introduce correlation between adjacent training samples, violating
-the i.i.d.\ batch assumption. This is a standard and accepted approximation in
-deep learning on time series, analogous to patch sampling in image models, but it should
-be noted as a limitation when interpreting training dynamics.
+% Overlapping windows introduce correlation between adjacent training samples, violating
+% the i.i.d.\ batch assumption. This is a standard and accepted approximation in
+% deep learning on time series, analogous to patch sampling in image models, but it should
+% be noted as a limitation when interpreting training dynamics.
 
 [INTRODUCE WINDOW'S CREATION DIFFERENCE AND include this also in the TABLE for set up; include also sampler for fair comparison]
+
+\section{GBM--style SDE}
+
 
 \section{Training Configuration}
 
@@ -158,7 +164,3 @@ ODE a more controlled evaluation setting than the reverse SDE:
 differences in sample quality can be attributed directly to the quality 
 of the learned denoiser \(D_\theta\), rather than to variance introduced 
 by the sampler itself.
-
-\section{Summary}
-In this section, it is reported a summary table to provide with a general comprehensive overview of the general settings. Single-valued row are parameters shared across both Phase~1 and Phase~2.
-\input{table/training_setup}

@@ -127,8 +127,8 @@ $\mathcal{N}(0, \sigma_{\max}^2 I)$ that should be well-matched to the training 
 Raw log-prices violate both conditions significantly. Daily log-returns 
 $r_t = \log(S_t / S_{t-1})$ solve non-stationarity, however, 
 working with cumulative log-returns 
-$C_{\tau+k} = \sum_{j=1}^{\tau+k} r_j$ 
-is motivated by the GBM theoretical derivation of Sec.~\ref{sec:gbm_sde_ch2} and by the experimental results shown in Figures~4--6 of \cite{kim2025diffusion}, that otherwise wouldn't have any reason to differentiate VE with GBM.
+$\mathcal{C}_{\tau+k} = \sum_{j=1}^{\tau+k} r_j$ 
+is motivated by the GBM theoretical derivation of Sec.~\ref{sec:gbm_sde_ch2} and by the experimental results shown in Figures~4--6 of \cite{kim2025diffusion}, that otherwise wouldn't have any reason to differentiate VE with GBM. How non--stationarity of cumulative log-returns is handled is addressed in Sec.\ref{sec:sliding_window_ch4}.
 
 \begin{figure}[htbp]          % placement: here, top, bottom, page
   \centering
