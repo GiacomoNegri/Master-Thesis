@@ -92,7 +92,8 @@ to training by subtracting the sample mean of the window. This transformation do
 \label{sec:training_config}
 
 This section summarises the most relevant training configuration and design choices;
-full hyperparameter details are provided in Appendix~\ref{app:sec:training_config}.
+explicit formulations for the optimiser and learning rate schedule are given in
+App.~\ref{app:sec:optim}, and full hyperparameter details in App.~\ref{app:sec:training_config}.
 
 \textbf{Optimizer} \quad The optimiser used throughout is \texttt{AdamW}~\cite{loshchilov2019decoupled},
 following the choice of CSDI~\cite{tashiro2021csdi}. It applies weight decay directly
@@ -127,6 +128,12 @@ $P_{\text{std}} = 1.6$ were selected via grid search over
 $P_{\text{mean}} \in \{-0.8,\,-1.0,\,-1.2,\,-1.4,\,-1.6\}$ and
 $P_{\text{std}} \in \{1.0,\,1.2,\,1.4,\,1.6,\,1.8\}$ based on validation loss;
 the full ablation is reported in Sec.~\ref{sec:phase2_ablation}.
+
+\textbf{Sampling parameters} \quad For Phase~2, $\sigma_{\max}$ and $\sigma_{\min}$ were
+selected to cover the support of $\ln\sigma \sim \mathcal{N}(P_{\text{mean}}, P_{\text{std}}^2)$,
+requiring $\sigma_{\max} \geq \exp(P_{\text{mean}} + n\,P_{\text{std}})$ for a chosen
+coverage multiplier $n$. Three values were tested, $\sigma_{\max} \in \{5,\,7,\,9\}$,
+with $\sigma_{\min} = 0.002$ fixed throughout.
 
 \textbf{Training parameters.} The batch size is 64 across both phases. Phase~1 trains for the same number of epochs as Kim et al.~\cite{kim2025diffusion}, while Phase~2 uses half that budget, which reflects the hardware constraints and the larger number of available training windows, which increases the number of gradient steps per epoch.
 

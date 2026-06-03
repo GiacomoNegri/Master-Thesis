@@ -1,6 +1,31 @@
 \chapter{Training Configuration}
 \label{app:training_config}
 
+\section{Optimiser and Learning Rate Schedule}
+\label{app:sec:optim}
+
+\textbf{AdamW} \quad At each step, the bias-corrected first and second moment
+estimates $\hat{m}_t$ and $\hat{v}_t$ are computed with decay coefficients
+$\beta_1$ and $\beta_2$, and the parameter update is:
+\[
+    \theta_t = \theta_{t-1}
+        - \eta\,\frac{\hat{m}_t}{\sqrt{\hat{v}_t} + \varepsilon}
+        - \eta\lambda\,\theta_{t-1},
+\]
+where $\eta$ is the learning rate, $\lambda$ the weight-decay coefficient, and
+$\varepsilon$ a small constant for numerical stability.
+
+\textbf{Cosine annealing} \quad The learning rate at step $t$ of a schedule of
+total length $T$ is:
+\[
+    \eta_t = \eta_{\min}
+    + \tfrac{1}{2}(\eta_{\max} - \eta_{\min})
+    \!\left(1 + \cos\!\left(\frac{t}{T}\pi\right)\right).
+\]
+A known risk of this schedule is entrapment in a local minimum if the learning
+rate decays below the threshold needed to escape it before convergence is
+reached.
+
 \section{Model Dimension and Parameter Count}
 \label{app:model-parameter-count}
 
