@@ -37,9 +37,7 @@ and Low prices are each expressed as log-returns relative to the previous closin
 \]
 This formulation is consistent with the Close log-return defined in Eq.~\ref{eq:log_returns},
 expressing all channels relative to the same reference price \(C_{t-1}\).
-
-A per-channel z-score normalisation is then applied independently to each of the four
-channels in Phase~2. This is a linear transformation that preserves the shape of each channel's
+\(\textbf{Phase~2}\quad\) A per-channel z-score normalisation is then applied independently to each of the four
 distribution while standardising it to zero mean and unit variance, so that
 \(\sigma_{\text{data}} = 1\) holds by construction and network inputs remain numerically
 stable across channels. However, because each channel is scaled by its own standard
@@ -78,9 +76,9 @@ incurs an \(\mathcal{O}(L^2)\) cost in sequence length, making it computationall
 expensive. The shorter \(L = 512\) setting was adopted for Phase 2 due to hardware
 constraints imposed by MIG partitioning of the A100 GPU into 40 GB slices.
 
-For Phase 1, it is assumed that Kim et al.\ \cite{kim2025diffusion} either constructed windows first and then selected validation ones, or did not employ any validation set at all. In this work, validation windows were extracted and held out randomly, consistently with the supposed implementation; however, due to the stride, partial overlap between training and validation windows is likely, as corroborated by training performance.
+\(\textbf{Phase 1} \quad\) It is assumed that Kim et al.\ \cite{kim2025diffusion} either constructed windows first and then selected validation ones, or did not employ any validation set at all. In this work, validation windows were extracted and held out randomly, consistently with the supposed implementation; however, due to the stride, partial overlap between training and validation windows is likely.
 
-For Phase 2, in order to assess the discriminative power of the conditioning information, validation windows were fully held out: for any ticker whose window was selected for validation, no other window covering the same time range appeared in the training set. This reduces the number of training examples available for learning time embeddings; however, this effect was expected to be mitigated by the larger number of windows produced by the shorter sequence length.
+\(\textbf{Phase 2}\) In order to assess the discriminative power of the conditioning information, validation windows were fully held out: for any ticker whose window was selected for validation, no other window covering the same time range appeared in the training set. This reduces the number of training examples available for learning time embeddings; however, this effect was expected to be mitigated by the larger number of windows produced by the shorter sequence length.
 
 The shorter \(L = 512\) setting keeps the self-attention cost within the 40 GB MIG budget; the full memory analysis is given in Appendix~\ref{app:sec:attention_memory}.
 

@@ -5,10 +5,9 @@ The following chapter builds on the previous one, detailing the theoretical stru
 \section{Adapting the Framework to OHLC Financial Time Series}
 \label{sec:ohlc_theoretical}
 
-Data are formally represented as \(X \in \mathbb{R}^{K \times L}\), where \(K\) denotes the number of channels and \(L\) the number of time steps per window. In Phase~1, \(K = 1\) and the input reduces to a univariate sequence of Close log-returns.
+\(\textbf{Phase 1}\quad\) Data are formally represented as \(X \in \mathbb{R}^{K \times L}\), where \(K\) denotes the number of channels and \(L\) the number of time steps per window. In Phase~1, \(K = 1\) and the input reduces to a univariate sequence of Close log-returns.
 
-\(\text{Phase 2}\quad\) OHLC data are formally represented as \(X \in \mathbb{R}^{K \times L}\),
-where \(K = 4\) denotes the number of channels (Open, High, Low, Close), or conditioning features, and \(L\) the number of time steps per window. This partition is 
+\(\textbf{Phase 2}\quad\) OHLC have \(K = 4\) which denotes the number of channels (Open, High, Low, Close), or conditioning features. This partition is 
 financially motivated: the opening price \(O_t\) is fixed at the start of 
 the trading session, while the intraday extremes \(H_t\) and \(L_t\) are 
 continuously observed throughout it, encoding both the direction of price 
@@ -102,9 +101,9 @@ As discussed in Sec.~\ref{sec:scorediffmodels}, diffusion models were
 originally developed in distinct formulations before being unified under 
 the EDM framework. These structures are relevant for Phase~1, which aims to replicate the results of Kim et al.\cite{kim2025diffusion}. Meanwhile, for Phase~2 we will move towards the EDM framework.
 
-\(\text{Phase 1}\quad\) Phase~1 is identical in its implementation to Song et al. in \cite{song2021score}, but in a simplified version [CITE REPOSITORY].
+\(\textbf{Phase 1}\quad\) Phase~1 is identical in its implementation to Song et al. in \cite{song2021score}, but in a simplified version [CITE REPOSITORY].
 
-\(\text{Phase 2}\quad\) For Phase~2, we can look at the forward VE formulation, Eq.\ref{eq:reverse_sde}, the corresponding reverse SDE for VE case is \[dx=-\sigma\nabla_x \log p_\sigma(x)\] when defined in \(\sigma\)-space (with \(\sigma\) decreasing) instead of \(t\)-space, due to EDM conditioning modeling choices. With the deterministic counterparts, the probability flow ODE is:
+\(\textbf{Phase 2}\quad\) For Phase~2, we can look at the forward VE formulation, Eq.\ref{eq:reverse_sde}, the corresponding reverse SDE for VE case is \[dx=-\sigma\nabla_x \log p_\sigma(x)\] when defined in \(\sigma\)-space (with \(\sigma\) decreasing) instead of \(t\)-space, due to EDM conditioning modeling choices. With the deterministic counterparts, the probability flow ODE is:
 \[
 \frac{dx}{d\sigma}=-\frac{\sigma}{2}\nabla_x\log p_\sigma(x)
 \]
@@ -120,7 +119,7 @@ therefore denoiser and score function are connected by:
 implying that rather than learn the score field directly, which is hard and ill-conditioned regression target in high dimensions, we train a denoiser \(D_\theta\) to approximate \(D^*\), and we later recover the score analytically.
 
 \section{EDM}
-The components described in this section apply exclusively to Phase~2. Phase~1 follows the standard Song et al.\ \cite{song2021score} VE--SDE formulation without EDM preconditioning or loss weighting.
+The components described in this section apply exclusively to Phase~2.
 
 \textbf{Preconditioning} Training a raw network \(F_\theta (x_t;\sigma)\) directly as a denoiser is impractical because according to 
 Eq.\ref{eq:forward_ve} the inputs have variance \(\sigma_{\text{data}}+\sigma^2\), which means that the network sees input that varies by orders of magnitude across the distribution of \(\sigma\), which display different noise levels, as discussed in Sec.\ref{sec:edm_literature}. EDM addresses both problems introducing preconditioned denoiser \(D_\theta\) (Eq.\ref{eq:edm_denoiser}). 
@@ -152,7 +151,7 @@ also have empirically optimal values for this domain remains an open calibration
 
 \section{Architecture}
 \label{sec:model_architecture}
-The CSDI-based backbone described in this section is shared by both phases. The sole phase-specific difference is in the diffusion-step embedding, noted in the Embeddings paragraph below.
+The CSDI-based backbone described in this section is shared by both phases.
 
 U-Net architectures \cite{ronneberger2015unet} have been widely adopted 
 in diffusion models for image generation, where hierarchical downsampling 
@@ -181,10 +180,10 @@ potentially trickier to optimise.
 % \input{graphs/overview_flow}
 % \input{graphs/architecture}
 
-\textbf{Input projection} A pointwise \(1 \times 1\) convolution projects the two-channel input ( signal and mask channels) into a \(d\)-dimensional 
+\textbf{Input projection} \quad A pointwise \(1 \times 1\) convolution projects the two-channel input ( signal and mask channels) into a \(d\)-dimensional 
 latent space, where \(d\) is a free hyperparameter, lifting the two input channels into a richer representation before any attention is applied. 
 
-\textbf{Temporal and feature Transformer layers.} A new temporal 
+\textbf{Temporal and feature Transformer layers} \quad A new temporal 
 \((K, L, d)\) and feature \((L, K, d)\) Transformer is initialised per 
 residual layer rather than shared across them. Weight sharing would 
 constrain all layers to operate at the same level of abstraction, 
@@ -195,7 +194,7 @@ with the CSDI implementation \cite{tashiro2021csdi}. Multi-head attention
 dependency patterns simultaneously within each axis, for instance it could modeled 
 short-range trend and longer-range volatility clustering along the temporal axis, or spread relationships along the feature axis. 
 
-\textbf{Gated residual blocks.} Following the WaveNet structure 
+\textbf{Gated residual blocks} \quad Following the WaveNet structure 
 \cite{oord2016wavenet}, each block applies \(\sigma(\cdot) \odot 
 \tanh(\cdot)\), where \(\odot\) denotes elementwise multiplication. The 
 sigmoid \(\sigma(\cdot)\) acts as the selection gate, producing a value 
@@ -205,7 +204,7 @@ bounded, signed activation in \([-1,1]\) that encodes \emph{what}
 information to write. Their product suppresses uninformative information 
 while preserving significant features. This could be useful for FTS, since Signal-to-Noise Ratio (SNR) is often low and dependents on the regime, training window. 
 
-\textbf{Embeddings.} Three embedding mechanisms operate at distinct 
+\textbf{Embeddings} \quad Three embedding mechanisms operate at distinct 
 levels of the architecture, each with a well-defined scope. The 
 \emph{diffusion-step embedding} (sinusoidal basis projected through two 
 linear layers with SiLU activations) encodes \(c_{\text{noise}}(\sigma)\) 
@@ -224,16 +223,16 @@ injected immediately before each Transformer call, both along the
 temporal and feature axes. Without this the Transformer would be permutation-invariant, which would destroy the temporal order, which is essential for financial return sequences.
 
 \section{Masking strategies}
-\label{sec:masking_strategies_ch3}
+\label{sec:masking_strategies_ch3} \quad
 This work employs two masking strategies: \texttt{unconditional} and \texttt{predict\_close}.
 
-\(\text{Phase 1}\quad\) The \texttt{unconditional} setting is used for Phase~1, where \(K=1\) and the model is trained on
+\(\textbf{Phase 1}\quad\) The \texttt{unconditional} setting is used for Phase~1, where \(K=1\) and the model is trained on
 univariate log-returns with no conditioning information. The conditioning
 mask is \(m^{\text{co}}=0\) everywhere, and the target mask is
 \(m^{\text{ta}}=1\) everywhere, so the loss reduces to the
 standard denoising objective evaluated on all entries without any side information.
 
-\(\text{Phase 2}\quad\) When \(K>1\) we use \texttt{predict\_close} strategy which is a fixed deterministic mask:
+\(\textbf{Phase 2}\quad\) When \(K>1\) we use \texttt{predict\_close} strategy which is a fixed deterministic mask:
 \[
     m^{\text{co}}_{k,l} = 1 \quad \text{for } k \in \{O,H,L\}, 
     \qquad
@@ -300,7 +299,7 @@ outputs for those positions.
 
 \section{Sampling}
 
-\(\text{Phase 1}\quad\) As discussed in Sec.~\ref{sec:scorediffmodels}, the Euler--Maruyama
+\(\textbf{Phase 1}\quad\) As discussed in Sec.~\ref{sec:scorediffmodels}, the Euler--Maruyama
 method performs a first-order discretisation of the reverse SDE, at each
 step removing noise while injecting a small stochastic perturbation. 
 Because it is first-order, the local truncation error is 
@@ -308,29 +307,23 @@ Because it is first-order, the local truncation error is
 hundreds to thousands of steps, implying a high number of neural function 
 evaluations (NFEs). Consistently with Song et al.\ \cite{song2021score} 
 and CSDI \cite{tashiro2021csdi}, this method is used in the replication 
-phase together with the probability flow ODE:
-\begin{equation}
-    \label{eq:prob_flow_ode}
-    \frac{dx}{dt} = f(x_t, t) - \frac{1}{2}g(t)^2\,\nabla_x 
-    \log p_t(x_t),
-\end{equation}
-where the learned score \(s_\theta(x_t,t)\) is substituted for the 
+phase together with the probability flow ODE Eq.\ref{eq:probability_flow} where the learned score \(s_\theta(x_t,t)\) is substituted for the 
 intractable \(\nabla_x \log p_t(x_t)\).
 
-\(\text{Phase 2}\quad\) In the EDM phase, we replace this with the Heun second-order
+\(\textbf{Phase 2}\quad\) In the EDM phase, we replace this with the Heun second-order
 predictor--corrector sampler (Eq.~\ref{eq:edm_sampler}), which 
 integrates the probability flow ODE rather than the reverse SDE. The 
 corrector step requires twice the number of network evaluations per 
 denoising step, but reduces the local truncation error to 
 \(\mathcal{O}(h^3)\). Karras et al.\ \cite{karras2022elucidating} report 
-that this achieves comparable sample quality to Euler--Maruyama at 
-approximately seven times fewer NFEs. As discussed in 
-Sec.~\ref{sec:edm_literature}, the \(\rho\)-power noise schedule 
-concentrates denoising steps at low \(\sigma\), where ODE curvature is 
-highest and discretisation errors have the greatest impact on sample 
-quality.
+that this achieves comparable sample quality to Euler--Maruyama at approximately seven times fewer NFEs.
+% As discussed in 
+% Sec.~\ref{sec:edm_literature}, the \(\rho\)-power noise schedule 
+% concentrates denoising steps at low \(\sigma\), where ODE curvature is 
+% highest and discretisation errors have the greatest impact on sample 
+% quality.
 
-The choice of \(\sigma_{\text{max}}\) and \(S_{\text{churn}}\) jointly determines the character of sampling. \(\sigma_{\text{max}}\) sets the noise level at which the reverse process begins, so the prior from which samples are drawn is \(x_N \sim \mathcal{N}(0,\sigma_{\text{max}}^2 I)\); for this prior to be approximately data-free, \(\sigma_{\text{max}}\) must be large enough that the signal-to-noise ratio is negligible. For standardised OHLC log-returns with \(\sigma_{\text{data}} = 1\), values of \(\sigma_{\text{max}} \gg 1\) are required, and setting it too small results in a prior that retains residual data structure, biasing every generated sample. As discussed in Sec.~\ref{sec:edm_literature}, \(S_{\text{churn}}\) governs the amount of stochasticity reinjected per step via the noise inflation \(\hat{\sigma}_i = \sigma_i\sqrt{1+\gamma_i^2}\): a value of \(S_{\text{churn}} = 0\) recovers the deterministic Heun ODE, while positive values allow the sampler to escape discretisation errors by temporarily re-entering a higher-noise regime, at the cost of additional noise injections along each trajectory.
+% The choice of \(\sigma_{\text{max}}\) and \(S_{\text{churn}}\) jointly determines the character of sampling. \(\sigma_{\text{max}}\) sets the noise level at which the reverse process begins, so the prior from which samples are drawn is \(x_N \sim \mathcal{N}(0,\sigma_{\text{max}}^2 I)\); for this prior to be approximately data-free, \(\sigma_{\text{max}}\) must be large enough that the signal-to-noise ratio is negligible. For standardised OHLC log-returns with \(\sigma_{\text{data}} = 1\), values of \(\sigma_{\text{max}} \gg 1\) are required, and setting it too small results in a prior that retains residual data structure, biasing every generated sample. As discussed in Sec.~\ref{sec:edm_literature}, \(S_{\text{churn}}\) governs the amount of stochasticity reinjected per step via the noise inflation \(\hat{\sigma}_i = \sigma_i\sqrt{1+\gamma_i^2}\): a value of \(S_{\text{churn}} = 0\) recovers the deterministic Heun ODE, while positive values allow the sampler to escape discretisation errors by temporarily re-entering a higher-noise regime, at the cost of additional noise injections along each trajectory.
 
 A key advantage of the EDM framework is the decoupling of the sampler
 from the training objective: a model trained with the EDM loss can be
