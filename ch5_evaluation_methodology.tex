@@ -67,6 +67,8 @@ consistency, the power-law coefficient is computed using the same Python package
 volatility clustering, and the leverage effect are provided in
 Sec.~\ref{sec:fts_literature}.
 
+Following \cite{stakahashy_fingan} and Kim et al.\ \cite{kim2025diffusion}, in Phase~1 the maximum lag for the leverage effect is set to 100 and for volatility clustering to 1000. In Phase~2, the maximum lag for volatility clustering is reduced to 256 for estimation stability. The ACF at lag \(k\) is estimated over \(L - k\) observation pairs; for a window of length \(L = 512\), lags approaching \(L\) leave too few pairs to produce reliable estimates, rendering a maximum lag of 512 impractical. Setting the upper bound to \(L/2 = 256\) ensures that at least half the window contributes to each estimate.
+
 
 \section{Conditional evaluation}
 When evaluating the conditional generation we are evaluating the quality of the conditional generation, specifically we will be focusing on CRPS (Continuous Rank Probability Score) and interval coverage.
