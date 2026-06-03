@@ -159,7 +159,12 @@ Follows the role of each preconditioning parameter:
     \item \(c_{\text{skip}}(\sigma)\), skip connection: is the Wiener filter coefficient, or the optimal linear estimator of \(x_0\) given \(x_t\). This is dervied from the MMSE argument, and it controls how much of the noisy input is passed directly to the output.
     \item \(c_{\text{out}}(\sigma)\), output scaling: rescales the network output so that the effective training targets also have unit variance, similarly to \(c_{\text{in}}(\sigma)\).
 \end{itemize}
-[ADD TRADE-OFF CURVES]
+\begin{figure}[htbp]          % placement: here, top, bottom, page
+  \centering
+  \includegraphics[width=0.7\textwidth]{images/preconditioning.png}
+  \caption{Preconditioning coefficients for \(\sigma_{\text{data}}=1\), with \(\sigma_{\min}=0.002\) and \(\sigma_{\max}=7.0\).}
+  \label{fig:preconditioning}
+\end{figure}
 In summary, \(c_{\text{skip}}(\sigma)\cdot x\) is the linear prior, while \(c_{\text{out}}(\sigma)\cdot F_\theta(\cdot)\) is the non-linear correction on top of the prior. It is important to pay attention at the crossover point where \(\sigma=\sigma_{\text{data}}\) and \(c_{\text{skip}}(\sigma)=0.5\), meaning both terms contributes equally. For instance, with \(\sigma_{\text{data}}=1\) then if \(\sigma<1\), the network makes tiny corrections and if \(\sigma>5\), the network reconstruct almost entirely from noise. 
 
 % [IMAGE OF THE CURVES FOR sigma\_data=1 AND OTHER SIGMAS] 

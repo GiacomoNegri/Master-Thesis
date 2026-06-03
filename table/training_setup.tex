@@ -80,6 +80,15 @@
   & Early-stopping
   & \textemdash
   & validation-loss; 200 epochs\\
+\midrule
+
+\multirow{3}{2.0cm}{Sampling}
+  & Method
+  & \makecell[l]{Euler--Maruyama SDE\\Probability-flow ODE}
+  & \makecell[l]{Heun ODE\\Stochastic Heun SDE} \\
+  & $\sigma_{\max}$ / $\sigma_{\min}$
+  & from \emph{Noise schedule}
+  & $\sigma_{\max}=7.0$, $\sigma_{\min}=0.002$\\
 \bottomrule
 \end{tabular}
 \caption{Training setup for Phase~1 (replication of Kim et al.\ \cite{kim2025diffusion})
