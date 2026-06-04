@@ -79,6 +79,9 @@ def parse_args():
                    help="Upper sigma bound for stochastic noise injection.")
     p.add_argument("--S_noise", type=float, default=1.0,
                    help="Noise amplification factor for stochastic injection.")
+    p.add_argument("--sigma_max", type=float, default=None,
+                   help="Override sigma_max for the EDM sampler schedule. "
+                        "Defaults to the value stored in the checkpoint config.")
     p.add_argument("--chunk_size",        type=int, default=10,
                    help="Number of windows batched into a single edm_sampler call. "
                         "Larger = fewer calls and better GPU utilisation, but more VRAM.")
@@ -443,6 +446,9 @@ def main():
         print(f"Loading checkpoint: {checkpoint_path}")
     ckpt   = torch.load(checkpoint_path, map_location=device)
     config = ckpt["config"]
+
+    if args.sigma_max is not None:
+        config["process"]["sigma_max"] = args.sigma_max
 
     if is_main:
         print("Checkpoint config:")
