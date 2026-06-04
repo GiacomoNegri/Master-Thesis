@@ -6,9 +6,10 @@ Reference: full stock series (no windowing). Generated: all CSVs in GEN_DIRECTOR
 
 # ── USER INPUTS ───────────────────────────────────────────────────────────────
 REF_DIRECTORY = "data/replication_returns_other"
-GEN_DIRECTORY = "data/generated/final/replication/ODE_NO_NO_REPL_RET_OTHER_UNCO_ep-641_sde-ve_noise-cosine_20260529_163701_N2000_seq2048_stride400_seed50_old"
+GEN_DIRECTORY = "data/generated/final/gbm/ODE_NO_NO_REPL_UNCO_ep-1000_sde-gbm_noise-linear_20260529_044303_N2000_seed50_seq2048_str400"
 SEED          = 50
 MAX_SAMPLE    = 300_000   # subsample cap for fit_powerlaw_fast
+GBM_MODE      = True     # True → inputs are cumulative log-prices; convert to log-returns first
 # ─────────────────────────────────────────────────────────────────────────────
 
 import numpy as np
@@ -84,12 +85,36 @@ def load_gen(directory):
 
 if __name__ == "__main__":
     print(f"REF_DIRECTORY : {REF_DIRECTORY}")
-    print(f"GEN_DIRECTORY : {GEN_DIRECTORY}\n")
+    print(f"GEN_DIRECTORY : {GEN_DIRECTORY}")
+    print(f"GBM_MODE      : {GBM_MODE}\n")
 
     ref_paths = load_ref_full(ROOT / REF_DIRECTORY)
     gen_paths = load_gen(ROOT / GEN_DIRECTORY)
     print(f"Reference : {len(ref_paths)} full series loaded")
     print(f"Generated : {len(gen_paths)} paths loaded\n")
+
+    if GBM_MODE:
+        # Reference: full-series cumulative → log-returns (diff of log-prices)
+        ref_paths_ret = []
+        for C in ref_paths:
+            r = np.empty_like(C)
+            r[0]  = C[0]
+            r[1:] = C[1:] - C[:-1]
+            ref_paths_ret.append(r)
+        ref_paths = ref_paths_ret
+        print(f"[GBM] ref_paths converted: full-series cumulative→returns "
+              f"({len(ref_paths)} series)")
+
+        # Generated: per-path cumulative → log-returns
+        gen_paths_ret = []
+        for p in gen_paths:
+            r = np.empty_like(p)
+            r[0]  = p[0]
+            r[1:] = p[1:] - p[:-1]
+            gen_paths_ret.append(r)
+        gen_paths = gen_paths_ret
+        print(f"[GBM] gen_paths converted: per-path cumulative→returns "
+              f"({len(gen_paths)} paths)\n")
 
     for paths, label in [(gen_paths, "Generated")]: #[(ref_paths, "Reference"), (gen_paths, "Generated")]:
         incs = np.concatenate([p for p in paths])
