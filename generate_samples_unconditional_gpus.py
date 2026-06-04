@@ -476,7 +476,7 @@ def run_split_ddp(
 
 def main():
     # ── DDP init ──────────────────────────────────────────────────────────────
-    dist.init_process_group(backend="nccl", timeout=timedelta(minutes=30))
+    dist.init_process_group(backend="nccl", timeout=timedelta(hours=3))
     rank       = dist.get_rank()
     world_size = dist.get_world_size()
     is_main    = (rank == 0)
