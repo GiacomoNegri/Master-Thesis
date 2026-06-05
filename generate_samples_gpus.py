@@ -250,15 +250,26 @@ def run_split_ddp(
     n_local = len(local_dataset_idxs)
 
     # ── Load ground-truth windows + calendar time positions for this rank ─────
+    # Each file is read ONCE and cached; without this, the same CSV is re-read
+    # once per window (up to ~27× per file on BeeGFS), turning a 3-minute load
+    # into a 13+ hour one due to per-call network filesystem overhead.
+    unique_fis = sorted({flat_index[idx][0] for idx in local_dataset_idxs})
+    file_cache: dict = {}
+    for i, fi in enumerate(unique_fis):
+        file_cache[fi] = pd.read_csv(files[fi])
+        if (i + 1) % 20 == 0 or (i + 1) == len(unique_fis):
+            print(f"  [rank {rank}] loaded {i + 1}/{len(unique_fis)} files", flush=True)
+
     gt_windows_local = []
     gt_tp_local = []   # list of (L,) float32 arrays of global date indices
     for idx in local_dataset_idxs:
         fi, start = flat_index[idx]
-        df  = pd.read_csv(files[fi])
+        df  = file_cache[fi]
         win = df[feat_cols].to_numpy(dtype=np.float32)[start : start + seq_len]
         gt_windows_local.append(win.T)   # (K, L)
         dates_win = df[date_col].iloc[start : start + seq_len].tolist()
         gt_tp_local.append(np.array([date_to_idx[d] for d in dates_win], dtype=np.float32))
+    del file_cache
 
     if n_local > 0:
         gt_windows_local = np.stack(gt_windows_local)   # (n_local, K, L)
@@ -361,7 +372,7 @@ def run_split_ddp(
     df_gen_local.to_csv(tmp_gen,  index=False)
     df_ohlc_local.to_csv(tmp_ohlc, index=False)
     print(f"  [rank {rank} | {split_name}] wrote {len(df_gen_local)} gen rows and "
-          f"{len(df_ohlc_local)} ohlc rows to temp files")
+          f"{len(df_ohlc_local)} ohlc rows to temp files", flush=True)
 
     # ── Barrier: all ranks must finish writing before rank 0 merges ──────────
     dist.barrier()
@@ -387,9 +398,9 @@ def run_split_ddp(
         os.remove(os.path.join(out_dir, f"_tmp_{split_name}_ohlc_rank{r}.csv"))
 
     print(f"Saved {split_name} generated Close → {gen_path}  "
-          f"({len(df_gen)} rows = {n_windows} windows × {num_samples} samples)")
+          f"({len(df_gen)} rows = {n_windows} windows × {num_samples} samples)", flush=True)
     print(f"Saved {split_name} GT OHLC         → {ohlc_path}  "
-          f"({n_windows} windows × {K} features)")
+          f"({n_windows} windows × {K} features)", flush=True)
 
     return df_gen, df_ohlc
 
