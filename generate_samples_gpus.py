@@ -634,10 +634,10 @@ def main():
         wandb.log(log_dict)
         wandb.finish()
         if is_main:
-            print("W&B run finished.")
+            print("W&B run finished.", flush=True)
 
     if is_main:
-        print(f"\nDone. All outputs in: {out_dir}")
+        print(f"\nDone. All outputs in: {out_dir}", flush=True)
 
     dist.destroy_process_group()
 
