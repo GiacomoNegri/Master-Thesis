@@ -19,7 +19,7 @@ Two directory layouts are supported and auto-detected:
 
 # ── USER INPUTS ───────────────────────────────────────────────────────────────
 REF_DIRECTORY = "data/SNP500_individual_normalized_replication"
-GEN_DIRECTORY = "data/generated/final/edm/csv12288_samples3_steps200_seed50_20260602_182620_P18"
+GEN_DIRECTORY = "data/generated/final/edm/csv20000_samples5_steps200_seed50_Pm-1.4_Ps1.8_20260604_235823"
 SEED          = 50
 MAX_SAMPLE    = 300_000   # subsample cap for fit_powerlaw_fast
 # ─────────────────────────────────────────────────────────────────────────────
