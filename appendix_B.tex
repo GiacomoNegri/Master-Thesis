@@ -162,45 +162,45 @@ exact likelihood computation via the instantaneous change-of-variables formula.
 % truncation error from $O(h^2)$ (Euler, first order) to $O(h^3)$ (Heun,
 % second order), giving a global error of $O(h^2)$.
 
-\section{The VP SDE and the Wiener Filter}
+\section{The Wiener Filter}
 \label{app:sec:vp_wiener}
 
-\subsection{The Variance-Preserving SDE}
-\label{app:subsec:vp_sde}
+% \subsection{The Variance-Preserving SDE}
+% \label{app:subsec:vp_sde}
 
-The VP SDE from Section~\ref{sec:scorediffmodels}
-uses a linear mean-reverting drift and a state-independent diffusion:
-\[
-    dx_t = -\frac{1}{2}\beta(t)\,x_t\,dt + \sqrt{\beta(t)}\,dW_t,
-\]
-with $\beta(t) > 0$ a monotonically increasing noise schedule. Define
-$B(t) = \int_0^t \beta(s)\,ds$. Since this is a linear SDE, its solution is:
-\[
-    x_t = e^{-\frac{1}{2}B(t)}\,x_0
-    + \int_0^t e^{-\frac{1}{2}(B(t)-B(s))}\sqrt{\beta(s)}\,dW_s.
-\]
-The stochastic integral is Gaussian with variance, by It\^{o}'s isometry:
-\[
-    \int_0^t e^{-(B(t)-B(s))}\beta(s)\,ds
-    = e^{-B(t)}\int_0^t e^{B(s)}\beta(s)\,ds
-    = e^{-B(t)}\bigl[e^{B(t)}-1\bigr]
-    = 1 - e^{-B(t)},
-\]
-where the inner integral evaluates using $\frac{d}{ds}e^{B(s)}=\beta(s)e^{B(s)}$.
-The closed-form marginals are therefore:
-\begin{equation}
-    \label{eq:vp_marginal}
-    x_t \mid x_0 \;\sim\; \mathcal{N}\!\left(
-    e^{-\frac{1}{2}B(t)}\,x_0,\;\bigl(1 - e^{-B(t)}\bigr)\,I\right).
-\end{equation}
-Setting $\bar{\alpha}_t = e^{-B(t)}$ recovers the DDPM \cite{ho2020ddpm} marginal
-$x_t|x_0 \sim \mathcal{N}(\sqrt{\bar\alpha_t}\,x_0,(1-\bar\alpha_t)\,I)$,
-confirming that DDPM is a discretisation of the VP SDE. As $t\to T$ with
-$B(T)$ large, $\bar\alpha_T\to 0$ and $x_T\approx\mathcal{N}(0,I)$, the
-tractable prior. Unlike the VE process (Eq.~\ref{eq:ve}), whose marginal
-variance grows without bound, VP keeps $\operatorname{Var}(x_t)\approx 1$
-when $\operatorname{Var}(x_0)=1$, providing more numerically stable training
-at the cost of lower expressivity.
+% The VP SDE from Section~\ref{sec:scorediffmodels}
+% uses a linear mean-reverting drift and a state-independent diffusion:
+% \[
+%     dx_t = -\frac{1}{2}\beta(t)\,x_t\,dt + \sqrt{\beta(t)}\,dW_t,
+% \]
+% with $\beta(t) > 0$ a monotonically increasing noise schedule. Define
+% $B(t) = \int_0^t \beta(s)\,ds$. Since this is a linear SDE, its solution is:
+% \[
+%     x_t = e^{-\frac{1}{2}B(t)}\,x_0
+%     + \int_0^t e^{-\frac{1}{2}(B(t)-B(s))}\sqrt{\beta(s)}\,dW_s.
+% \]
+% The stochastic integral is Gaussian with variance, by It\^{o}'s isometry:
+% \[
+%     \int_0^t e^{-(B(t)-B(s))}\beta(s)\,ds
+%     = e^{-B(t)}\int_0^t e^{B(s)}\beta(s)\,ds
+%     = e^{-B(t)}\bigl[e^{B(t)}-1\bigr]
+%     = 1 - e^{-B(t)},
+% \]
+% where the inner integral evaluates using $\frac{d}{ds}e^{B(s)}=\beta(s)e^{B(s)}$.
+% The closed-form marginals are therefore:
+% \begin{equation}
+%     \label{eq:vp_marginal}
+%     x_t \mid x_0 \;\sim\; \mathcal{N}\!\left(
+%     e^{-\frac{1}{2}B(t)}\,x_0,\;\bigl(1 - e^{-B(t)}\bigr)\,I\right).
+% \end{equation}
+% Setting $\bar{\alpha}_t = e^{-B(t)}$ recovers the DDPM \cite{ho2020ddpm} marginal
+% $x_t|x_0 \sim \mathcal{N}(\sqrt{\bar\alpha_t}\,x_0,(1-\bar\alpha_t)\,I)$,
+% confirming that DDPM is a discretisation of the VP SDE. As $t\to T$ with
+% $B(T)$ large, $\bar\alpha_T\to 0$ and $x_T\approx\mathcal{N}(0,I)$, the
+% tractable prior. Unlike the VE process (Eq.~\ref{eq:ve}), whose marginal
+% variance grows without bound, VP keeps $\operatorname{Var}(x_t)\approx 1$
+% when $\operatorname{Var}(x_0)=1$, providing more numerically stable training
+% at the cost of lower expressivity.
 
 \subsection{Wiener Filter and the Skip Connection Coefficient}
 \label{app:subsec:wiener}

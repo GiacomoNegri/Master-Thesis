@@ -5,102 +5,119 @@
 \label{sec:exp_introduction}
 
 This chapter presents the experimental evaluation of the two modelling phases introduced
-in Chapters~\ref{ch:theoretical_framework} and~\ref{ch:data_setup}, assessed with the
-metrics defined in Chapter~\ref{ch:evaluation_methodology}. Two research questions guide
+in Ch.~\ref{ch:theoretical_framework} and~\ref{ch:data_setup}, assessed with the
+metrics defined in Ch.~\ref{ch:evaluation_methodology}. Two research questions guide
 the analysis:
 
 \begin{enumerate}
     \item \textbf{Phase~1 --- Replication.} Is a CSDI-based diffusion architecture capable
-    of learning and reproducing the stylized facts of financial time series when trained
+    of learning the distribution and reproducing the stylized facts of financial time series when trained
     under the SDE framework proposed by Kim et al.~\cite{kim2025diffusion}?
     \item \textbf{Phase~2 --- EDM-CSDI.} Does embedding the same architecture within the EDM framework of Karras et al.~\cite{karras2022elucidating}
     and conditioning generation on same-day Open, High, and Low log-returns improve
     generation quality over the Phase~1 baseline?
 \end{enumerate}
 
-The chapter is organised in two sequential parts that mirror the experimental structure
-introduced in Chapter~\ref{ch:theoretical_framework}. Phase~1
-(Sec.~\ref{sec:phase1}) replicates the work of Kim et al.~\cite{kim2025diffusion} on
+The chapter is organised in two sequential parts: Phase~1 (Sec.~\ref{sec:phase1}) replicates the work of Kim et al.~\cite{kim2025diffusion} on
 unconditional univariate generation of S\&P~500 close log-returns.
 Phase~2 (Sec.~\ref{sec:phase2}) extends the validated backbone to the multivariate OHLC
-setting within the EDM framework, evaluating conditional generation quality on both
-training windows and fully held-out validation windows.
+setting within the EDM framework, evaluating conditional generation quality on both training windows and fully held-out validation windows.
 
 A key design difference between the two phases concerns the validation split, as described in Sec.\ref{sec:sliding_window_ch4}. In Phase~1,
 validation windows are drawn randomly from the full sliding-window pool. In Phase~2, validation windows are strictly held out.
 
-Both phases use the same underlying CSDI-inspired backbone, whose details are available Tab.~\ref{tab:comparisons}
-and Tab.~\ref{tab:training_setup}. Metric definitions are readable at Ch. ~\ref{ch:evaluation_methodology}.
+Both phases use the same underlying CSDI-inspired backbone, whose details are available Tab.~\ref{tab:training_setup}. Metric definitions are readable at Ch. ~\ref{ch:evaluation_methodology}.
 
 \section{Phase 1 --- Replication}
-\label{sec:phase1}
+\label{sec:phase1_results}
+Phase~1 aims to replicate the generative approach of Kim et al.~\cite{kim2025diffusion} as detailed in the first column of Tab.\ \ref{tab:training_setup}. For each model a dataset of 512 windows of length \(L=2048\) were generated using probability-flow ODE, Eq.\ref{eq:probability_flow} with 2000 discretization steps. WHY 512 windows and not more
 
-\subsection{Setup and Motivation}
-\label{sec:phase1_setup}
+[RIPRENDERE DA QUI]
 
-Phase~1 aims to replicate the generative approach of Kim et al.~\cite{kim2025diffusion},
-who applied a CSDI backbone~\cite{tashiro2021csdi} to unconditional generation of
-financial time series under three SDE-inspired forward processes. As discussed in
-Sec.~\ref{sec:scorediffmodels}, the VE, VP, and GBM-inspired formulations differ in how
-variance evolves along the forward diffusion trajectory, and each admits multiple noise
-schedule parametrisations. The experimental grid therefore covers three SDE variants
-crossed with three noise schedules --- linear, exponential, and cosine --- yielding nine
-candidate configurations in principle. Two of these, VP with exponential schedule and VP
-with cosine schedule, were not pursued due to time constraints and preliminary evidence
-of unpromising training dynamics observed in early runs. The remaining seven
-configurations were each trained to convergence and evaluated in full. This grid is
-intended to reproduce the main claim of Kim et al.~\cite{kim2025diffusion} that the
-GBM-inspired SDE captures the stylized facts of financial returns more faithfully than VE
-and VP variants.
+\textbf{Aggregate Statistics and Distributional Similarity} \quad 
 
-All Phase~1 models are trained on univariate close log-returns ($K=1$) using the
-unconditional masking strategy, in which $m^{\text{co}} = \mathbf{0}$ everywhere and the
-loss is computed on all sequence entries without any side information. Sliding windows of
-length $L=2048$ (approximately ten years of daily data) are constructed with stride
-$s=400$, yielding approximately 5,500 training windows across the full S\&P~500
-constituent dataset. The sampler used for generation is the probability flow ODE, which
-produces deterministic trajectories governed entirely by the learned score field and
-corresponds to the primary evaluation sampler of Song et al.~\cite{song2021score}.
-Remaining architectural and optimiser details are given in Tab.~\ref{tab:training_setup}.
+% Required packages: booktabs, array, siunitx
+% Add to preamble if not present:
+%   \usepackage{siunitx}
+%   \sisetup{detect-weight=true, detect-inline-weight=math}
+%
+% Corrections applied vs. previous version:
+%   1. VE+Linear    W1:          0.010 → 0.007
+%   2. VP+Linear    std:         0.0446 → 0.045
+%   3. VP+Exponential mean:     -0.001 → 0.001  (sign error)
+%   4. VP+Cosine    W1:          0.013 → 0.003
+%   5. Ex.\ Kurt. column format: S[2.3] → S[3.3]  (529.825 needs 3 integer digits)
+%   6. q01 column format:        S[2.3] → S[-1.4] (4 decimal places needed)
+%   7. Bolding: alpha moved from VE+Exp (4.461) to VP+Cosine (4.368),
+%      which is closest to reference 4.378; |4.368-4.378|=0.010 vs |4.461-4.378|=0.083
 
-It is important to recall that the stride of $s=400$ is substantially shorter than the
-window length $L=2048$, so consecutive windows drawn from the same ticker share
-approximately 1,648 time steps. Validation windows drawn at random from the full
-window pool will therefore, in most cases, overlap temporally with one or more training
-windows for the same ticker. Any measured performance gap between the training and
-validation splits should be interpreted with this limitation in mind. This is a known
-characteristic of the Phase~1 setup, acknowledged in Sec.~\ref{sec:sliding_window_ch4},
-and it provides one motivation for the stricter separation strategy adopted in Phase~2.
+\begin{table}[htbp]
+\centering
+\footnotesize
+\renewcommand{\arraystretch}{1.3}
+\setlength{\tabcolsep}{4.5pt}
+\begin{tabular}{
+  l
+  S[table-format= 1.4]   % Mean:     ±0.xxxx
+  S[table-format= 1.5]   % Std:      0.xxxx
+  S[table-format= 1.4]   % Skew.:    x.xxxx  (handles 6.3270)
+  S[table-format= 3.3]   % Ex.Kurt.: xxx.xxx (handles 529.825)
+  S[table-format=-1.4]   % q01:     -x.xxxx
+  S[table-format= 1.4]   % q99:      x.xxxx
+  S[table-format= 1.3]   % KS:       x.xxx
+  S[table-format= 1.3]   % W1:       x.xxx
+  S[table-format= 1.3]   % alpha:    x.xxx
+}
+\toprule
+\textbf{Configuration}
+  & {\textbf{Mean}}
+  & {\textbf{Std}}
+  & {\textbf{Skew.}}
+  & {\textbf{Ex.\ Kurt.}}
+  & {$\boldsymbol{q_{0.01}}$}
+  & {$\boldsymbol{q_{0.99}}$}
+  & {$D_{\mathrm{KS}}$}
+  & {$W_1$}
+  & {$\hat{\alpha}$} \\
+\midrule
+% Training reference (no KS/W1 — computed against itself; alpha from empirical data)
+Reference        & 0.0005 & 0.0208 & -0.5387 &  36.063 & -0.0562 & 0.0572 & {---} & {---} & 4.378 \\
+\midrule
+% VE family
+VE + Linear      &  0.0004 & 0.0270 & -0.1712 &   7.052 & -0.0649 & 0.0659 & 0.121 & 0.007 & 5.429 \\
+VE + Exponential &  0.0005 & 0.0190 & -0.0860 &  14.343 & -0.0479 & 0.0492 & \bfseries 0.037 & \bfseries 0.002 & 4.461 \\
+VE + Cosine      &  0.0008 & 0.0221 & -0.5979 &  21.459 & -0.0558 & 0.0575 & 0.062 & 0.003 & 4.448 \\
+\midrule
+% VP family
+VP + Linear      &  0.0023 & 0.0446 &  6.3270 & 529.825 & -0.0739 & 0.0891 & 0.142 & 0.011 & 4.883 \\
+VP + Exponential &  0.0011 & 0.0546 &  0.1530 &   5.626 & -0.1365 & 0.1539 & 0.206 & 0.025 & 5.535 \\
+VP + Cosine      &  0.0003 & 0.0235 & -0.2985 &  15.799 & -0.0607 & 0.0627 & 0.060 & 0.003 & \bfseries 4.368 \\
+\midrule
+% GBM family (no alpha — distributions too far from training for power-law fitting)
+GBM + Linear     &  0.0001 & 0.2797 & -0.0023 &   0.018 & -0.6519 & 0.6516 & 0.419 & 0.210 & 13.055 \\
+GBM + Exponential&  0.0001 & 0.1453 & -0.0122 &   0.073 & -0.3385 & 0.3379 & 0.370 & 0.101 & {10.935} \\
+GBM + Cosine     &  0.0000 & 0.1437 & -0.0130 &   0.068 & -0.3350 & 0.3342 & 0.371 & 0.102 & {11.134} \\
+\bottomrule
+\end{tabular}
+\caption{Aggregate distributional statistics for Phase~1 generated close
+log-returns and the training reference. Values are computed over pooled
+window-level returns. Excess kurtosis is
+reported relative to the Gaussian. $D_{\mathrm{KS}}$ and $W_1$
+measure discrepancy against the training marginal (lower is better).
+$\hat{\alpha}$ is the estimated power-law tail exponent (reference
+$\hat{\alpha}=4.378$; closer is better).}
+\label{tab:phase1_aggregate}
+\end{table}
 
-\subsection{Aggregate Statistics and Distributional Similarity}
-\label{sec:phase1_aggregate}
+%%%%%%%%%%%%%%%%%%%%%%%
+[WRITE INTERPRETATION]
+The statistics above are computed on \(n=1,048,576\) for each configuration.
 
-The first layer of evaluation targets the unconditional marginal distribution of generated
-close log-returns. For each of the seven trained configurations, an ensemble of windows
-of length $L=2048$ is generated, and the pooled generated returns are compared against
-the pooled training returns using the KS statistic $D_{\text{KS}}$ and the Wasserstein
-distance $W_1$, as defined in Chapter~\ref{ch:evaluation_methodology}. Pathwise
-higher-order moments --- mean, variance, skewness, and excess kurtosis --- are computed
-window-by-window and then aggregated, providing direct evidence of whether the model
-reproduces the non-Gaussian shape of the return distribution beyond the first two
-moments. Skewness and excess kurtosis are of particular interest: the former captures
-the asymmetry between positive and negative returns, and the latter indicates whether
-the model reproduces the heavy-tailed character of the data, which is the defining
-feature of financial log-return distributions.
 
 % [PLACEHOLDER: TABLE — aggregate distributional statistics (mean, std, skewness, excess
 % kurtosis, min, max) for generated vs. training close log-returns across all 7 Phase 1
 % configurations. Rows: training reference, VE-linear, VE-exponential, VE-cosine,
 % VP-linear, GBM-linear, GBM-exponential, GBM-cosine. Bold best per column.]
-\begin{table}[htbp]
-    \centering
-    \caption{Aggregate distributional statistics for Phase~1 generated and training close
-    log-returns. Values are computed over pooled window-level returns. Excess kurtosis is
-    reported relative to the Gaussian reference of zero. KS and $W_1$ measure global
-    discrepancy between the generated and training marginals.}
-    \label{tab:phase1_aggregate}
-    % [PLACEHOLDER: table content]
-\end{table}
 
 % [PLACEHOLDER: FIGURE — QQ plots (top row) and ECDF comparisons (bottom row) for
 % a representative subset of Phase 1 configurations, e.g., one per SDE family (VE-best,
@@ -116,14 +133,7 @@ feature of financial log-return distributions.
     \label{fig:phase1_qq_ecdf}
 \end{figure}
 
-The QQ plots and ECDF comparisons in Fig.~\ref{fig:phase1_qq_ecdf} serve complementary
-diagnostic purposes. Deviations from the diagonal in the QQ plot at extreme quantiles
-indicate that the model underestimates or overestimates the frequency of large absolute
-returns relative to the training data; this is the most direct visual test of tail
-fidelity. The ECDF comparison, by contrast, is most sensitive to the bulk of the
-distribution, where the mass is concentrated and where the KS gap is typically largest.
-Together, the two panels allow bulk and tail performance to be assessed simultaneously
-for each configuration.
+Clearly the Exponental and cosine seem to be superior, as well as the ve sde.
 
 Based on the results in Tab.~\ref{tab:phase1_aggregate} and
 Fig.~\ref{fig:phase1_qq_ecdf},
@@ -133,115 +143,148 @@ Fig.~\ref{fig:phase1_qq_ecdf},
 % advantage in distributional matching? Note whether the bulk or the tails are the
 % main source of discrepancy across configurations.]
 
-\subsection{Stylized Facts}
-\label{sec:phase1_stylized}
+\textbf{Stylized Facts}
+Heavy tails \(\alpha\) coefficient was estimated on a subsample of \(300,000\) observations using \texttt{powerlaw} package from Alstott et al.\ \cite{alstott2014powerlaw}
 
-Beyond the marginal distribution, a model trained on financial time series should
-reproduce the dynamic properties of the data --- specifically the three stylized facts
-introduced in Sec.~\ref{sec:fts_literature}: heavy-tailed return distributions,
-volatility clustering, and the leverage effect. These properties are evaluated following
-the implementation of Takahashi et al.~\cite{stakahashy_fingan}, as described in
-Chapter~\ref{ch:evaluation_methodology}, consistent with the evaluation protocol of
-Kim et al.~\cite{kim2025diffusion} and enabling direct comparison with the figures
-reported in that work.
+Our estimation of the \(\alpha\) component is in line with Kim el al., which reported a \(\alpha\approx4.35\), while our estimation is \(4.37\), therefore in line. An estimation below this benchmark indicates that the data has a heavier tails.
 
-\textbf{Heavy-Tailed Distributions.}
-The tail behaviour of the generated return distribution is assessed through log-log tail
-distribution plots and the power-law tail exponent $\alpha$, estimated using the
-\texttt{powerlaw} package of Alstott et al.~\cite{alstott2014powerlaw}. Recall from
-Sec.~\ref{sec:fts_literature} that empirical tail exponents for equity returns typically
-fall in the range $\alpha \in [3,5]$, with the S\&P~500 constituents used in this study
-yielding an empirical benchmark of approximately $\alpha \approx 4.35$.
-% [PLACEHOLDER: confirm empirical alpha value against computed data]
-An estimated $\alpha$ below this benchmark indicates that the generated distribution has
-heavier tails than the training data, producing too many extreme events; an $\alpha$
-above it indicates lighter tails, corresponding to an underestimation of the frequency
-of large return shocks. Both deviations carry practical consequences for downstream
-applications such as risk management and stress testing.
+The reference stylized facts are display here and have been recomputed from Sec.\ \ref{sec:fts_literature} on the windows, in order to guranteed a fair comparison with generated stylized facts.
 
-% [PLACEHOLDER: FIGURE — log-log tail distribution plots for all 7 Phase 1
-% configurations (VE-linear, VE-exponential, VE-cosine, VP-linear, GBM-linear,
-% GBM-exponential, GBM-cosine) and the empirical S&P500 training reference.
-% Estimated alpha values annotated on each panel. Arrange as a 3x3 grid
-% (with two panels empty for the missing VP configurations) or as overlaid curves
-% within each SDE family.]
+% Required packages (add to preamble if not already present):
+%   \usepackage{graphicx}
+%   \usepackage{subcaption}
+%   \usepackage{rotating}    % for \rotatebox
+%
+% HOW IT WORKS
+% ------------
+% Column headers: a row of three \minipage blocks, offset by \hspace{1.8em}
+%   to align with the subfigure columns beneath (the offset matches the
+%   width consumed by the \rotatebox row label).
+% Row labels: \rotatebox[origin=c]{90}{...} placed immediately before
+%   the first subfigure of each row, with a small \hspace{0.4em} gap.
+% Panel widths: each subfigure is 0.30\textwidth, with \hfill between them.
+%   Adjust to 0.29\textwidth if images have wide whitespace margins.
+% Subcaption labels are suppressed (no \caption inside subfigure) so only
+%   the single figure-level \caption appears.
+% Cross-reference individual panels via their \label if needed.
+
 \begin{figure}[htbp]
-    \centering
-    % [PLACEHOLDER: figure content]
-    \caption{Log-log tail distribution plots for Phase~1 configurations and the
-    empirical S\&P~500 training reference (solid black line). The power-law tail
-    exponent $\alpha$ is annotated for each configuration; the empirical benchmark
-    is $\alpha \approx 4.35$.}
-    \label{fig:phase1_tails}
-\end{figure}
+\centering
 
-Based on Fig.~\ref{fig:phase1_tails},
-% [PLACEHOLDER: narrative — which SDE variant and noise schedule combination produces
-% an alpha closest to the empirical benchmark? Is there evidence that the GBM-inspired
-% SDE tends to produce heavier tails than VE or VP, as claimed by Kim et al.? Does the
-% noise schedule choice (linear, exponential, cosine) have a consistent effect within
-% each SDE family? Comment on whether any configuration underestimates or overestimates
-% tail heaviness systematically.]
+% ----------------------------------------------------------------
+% COLUMN HEADERS
+% ----------------------------------------------------------------
+\hspace{1.8em}%
+\begin{minipage}[c]{0.30\textwidth}
+  \centering\small\textbf{Heavy-tail distribution}
+\end{minipage}%
+\hfill
+\begin{minipage}[c]{0.30\textwidth}
+  \centering\small\textbf{Volatility clustering}
+\end{minipage}%
+\hfill
+\begin{minipage}[c]{0.30\textwidth}
+  \centering\small\textbf{Leverage effect}
+\end{minipage}
 
-\textbf{Volatility Clustering.}
-Volatility clustering is assessed via the autocorrelation function (ACF) of absolute
-returns $|r_t|$, plotted on a log-log scale. As established in
-Sec.~\ref{sec:fts_literature}, the ACF of absolute returns in real equity data decays
-hyperbolically as $\text{Corr}(|r_t|, |r_{t+k}|) \sim k^{-\beta}$, with $\beta \in
-[0.1, 0.5]$, corresponding to a straight line on a log-log plot. A model that fails to
-capture this property will exhibit ACF decay that is either exponentially fast,
-producing a curve that drops below the empirical reference at short lags, or
-effectively flat at zero beyond a small lag horizon. Capturing volatility clustering is
-non-trivial for a diffusion model trained on return sequences: it requires the temporal
-Transformer to learn and encode persistent amplitude dependencies across hundreds of
-time steps within each window of length $L=2048$.
+\vspace{0.4em}
+{\color{black!25}\hrule}
+\vspace{0.2em}
 
-% [PLACEHOLDER: FIGURE — ACF of absolute returns on log-log scale for all 7 Phase 1
-% configurations and the empirical S&P500 reference. Arrange consistently with
-% Fig.~\ref{fig:phase1_tails}.]
-\begin{figure}[htbp]
-    \centering
-    % [PLACEHOLDER: figure content]
-    \caption{Autocorrelation function of absolute returns on a log-log scale for
-    Phase~1 configurations and the empirical S\&P~500 reference (solid black line).
-    A curve that closely tracks the reference line indicates faithful reproduction of
-    volatility clustering.}
-    \label{fig:phase1_acf}
-\end{figure}
+% ----------------------------------------------------------------
+% ROW 0: Empirical reference      [BUG 1 FIXED: single \rotatebox]
+% ----------------------------------------------------------------
+\rotatebox[origin=c]{90}{\small\textbf{Reference}}\hspace{0.4em}%
+\begin{subfigure}[c]{0.30\textwidth}
+  \centering
+  \includegraphics[width=\linewidth]{images/Phase1/pos_distribution_reference_2048.png}
+  \label{fig:ref_tail}
+\end{subfigure}\hfill
+\begin{subfigure}[c]{0.30\textwidth}
+  \centering
+  \includegraphics[width=\linewidth]{images/Phase1/volatility_clustering_refernce_2048.png}
+  \label{fig:ref_vol}
+\end{subfigure}\hfill
+\begin{subfigure}[c]{0.30\textwidth}
+  \centering
+  \includegraphics[width=\linewidth]{images/Phase1/leverage_effects_reference_2048.png}
+  \label{fig:ref_lev}
+\end{subfigure}%                   no trailing \hfill, % suppresses whitespace
 
-Based on Fig.~\ref{fig:phase1_acf},
-% [PLACEHOLDER: narrative — which configurations reproduce slow hyperbolic ACF decay
-% versus fast collapse? Does the GBM-inspired SDE outperform VE and VP at this metric?
-% Is there a noise schedule that consistently improves clustering reproduction?
-% Note if the decay exponent beta implied by the generated ACF falls within the
-% empirical range [0.1, 0.5].]
+\vspace{0.15em}
 
-\textbf{Leverage Effect.}
-The leverage effect captures the empirical observation that negative return shocks are
-followed by disproportionately higher future volatility, and is measured through the
-lead-lag correlation $L(k) = \mathbb{E}[r_t r_{t+k}^2] / \mathbb{E}[r_t^2]^2$, which
-is persistently negative for small positive lags $k$ in real financial data, as defined
-in Sec.~\ref{sec:fts_literature}. Reproducing this property requires the model to
-generate sequences in which periods of elevated volatility are systematically associated
-with preceding negative returns --- an asymmetric temporal dependency that is absent
-from symmetric noise processes unless it is explicitly encoded by the data-driven
-component of the model. As discussed in Sec.~\ref{sec:scorediffmodels}, the
-GBM-inspired forward process introduces a form of heteroskedastic noise structure in
-log-price space that may predispose it to capture this asymmetry more readily than the
-symmetric VE and VP formulations.
+% ----------------------------------------------------------------
+% ROW 1: VE SDE
+% ----------------------------------------------------------------
+\rotatebox[origin=c]{90}{\small\textbf{VE + Exp.}}\hspace{0.4em}%
+\begin{subfigure}[c]{0.30\textwidth}
+  \centering
+  \includegraphics[width=\linewidth]{images/Phase1/pos_distribution_ve-exp_2048.png}
+  \label{fig:ve_tail}
+\end{subfigure}\hfill
+\begin{subfigure}[c]{0.30\textwidth}
+  \centering
+  \includegraphics[width=\linewidth]{images/Phase1/volatility_clustering_ve-exp_2048.png}
+  \label{fig:ve_vol}
+\end{subfigure}\hfill
+\begin{subfigure}[c]{0.30\textwidth}
+  \centering
+  \includegraphics[width=\linewidth]{images/Phase1/leverage_effects_ve-exp_2048.png}
+  \label{fig:ve_lev}
+\end{subfigure}%                   [BUG 2 FIXED: % instead of blank line]
 
-% [PLACEHOLDER: FIGURE — lead-lag correlation L(k) plots for all 7 Phase 1
-% configurations and the empirical S&P500 reference, for k in an appropriate range
-% (e.g., k = -20, ..., 20). Arrange consistently with Figs.~\ref{fig:phase1_tails}
-% and~\ref{fig:phase1_acf}.]
-\begin{figure}[htbp]
-    \centering
-    % [PLACEHOLDER: figure content]
-    \caption{Lead-lag correlation $L(k)$ for Phase~1 configurations and the empirical
-    S\&P~500 reference. Persistent negative values for $k > 0$ are the signature of the
-    leverage effect; values near zero for all lags indicate failure to reproduce this
-    asymmetry.}
-    \label{fig:phase1_leverage}
+\vspace{0.2em}
+
+% ----------------------------------------------------------------
+% ROW 2: VP SDE
+% ----------------------------------------------------------------
+\rotatebox[origin=c]{90}{\small\textbf{VP + Cos.}}\hspace{0.4em}%
+\begin{subfigure}[c]{0.30\textwidth}
+  \centering
+  \includegraphics[width=\linewidth]{images/Phase1/pos_distribution_vp-cos_2048.png}
+  \label{fig:vp_tail}
+\end{subfigure}\hfill
+\begin{subfigure}[c]{0.30\textwidth}
+  \centering
+  \includegraphics[width=\linewidth]{images/Phase1/volatility_clustering_vp-cos_2048.png}
+  \label{fig:vp_vol}
+\end{subfigure}\hfill
+\begin{subfigure}[c]{0.30\textwidth}
+  \centering
+  \includegraphics[width=\linewidth]{images/Phase1/leverage_effects_vp-cos_2048.png}
+  \label{fig:vp_lev}
+\end{subfigure}%
+
+\vspace{0.2em}
+
+% ----------------------------------------------------------------
+% ROW 3: GBM SDE
+% ----------------------------------------------------------------
+\rotatebox[origin=c]{90}{\small\textbf{GBM + Exp.}}\hspace{0.4em}%
+\begin{subfigure}[c]{0.30\textwidth}
+  \centering
+  \includegraphics[width=\linewidth]{images/Phase1/pos_distribution_gbm-exp_2048.png}
+  \label{fig:gbm_tail}
+\end{subfigure}\hfill
+\begin{subfigure}[c]{0.30\textwidth}
+  \centering
+  \includegraphics[width=\linewidth]{images/Phase1/volatility_clustering_gbm-exp_2048.png}
+  \label{fig:gbm_vol}
+\end{subfigure}\hfill
+\begin{subfigure}[c]{0.30\textwidth}
+  \centering
+  \includegraphics[width=\linewidth]{images/Phase1/leverage_effects_gbm-exp_2048.png}
+  \label{fig:gbm_lev}
+\end{subfigure}%
+
+\vspace{0.2em}
+
+\caption{Stylized facts across Phase~1 SDE families and the empirical training
+reference. \textit{Columns} (left to right): heavy-tail distribution on a log--log
+scale with estimated power-law exponent~$\hat{\alpha}$, Tab.\ref{tab:phase1_aggregate}; autocorrelation of absolute
+returns on a log--log scale (volatility clustering); lead--lag correlation $L(k)$
+(leverage effect).}
+\label{fig:phase1_stylized_grid}
 \end{figure}
 
 Based on Fig.~\ref{fig:phase1_leverage},
@@ -251,26 +294,9 @@ Based on Fig.~\ref{fig:phase1_leverage},
 % limitation: a Gaussian diffusion kernel, even with heteroskedastic inspiration,
 % may lack the directional asymmetry required to generate this property.]
 
-\subsection{Sample Paths}
-\label{sec:phase1_paths}
+\textbf{Sample Paths}
 
-As a qualitative complement to the quantitative metrics, unnormalised sample paths are
-examined to assess whether the model generates sequences that resemble plausible equity
-price trajectories. The unnormalisation procedure inverts the global z-score applied
-during preprocessing, recovering approximate price-level paths that can be visually
-compared against historical S\&P~500 price trajectories over a comparable time horizon.
-This assessment does not constitute a formal metric; rather, it serves as a plausibility
-check. A model may achieve competitive KS and tail exponent values while still generating
-paths with structurally unrealistic features, such as monotonically trending returns,
-implausibly persistent volatility regimes, or abrupt discontinuities at window boundaries.
-Conversely, a model that produces visually convincing paths but fails on quantitative
-metrics suggests that the evaluation metrics may not be capturing the full range of
-relevant properties.
 
-% [PLACEHOLDER: FIGURE — unnormalised generated price paths (multiple samples) from
-% the representative best Phase 1 configuration (e.g., best by alpha or KS),
-% alongside real S&P500 price trajectories for a comparable time window.
-% Both panels should be initialised at a common starting price for visual comparability.]
 \begin{figure}[htbp]
     \centering
     % [PLACEHOLDER: figure content]
@@ -288,18 +314,9 @@ relevant properties.
 % as excessive mean-reversion, lack of regime changes, or path crossings that would
 % violate non-negativity of prices at realistic price levels.]
 
-\subsection{Summary and Selection of Best Phase~1 Configuration}
-\label{sec:phase1_summary}
+\textbf{Summary and Selection of Best Phase~1 Configuration}
 
-The seven Phase~1 configurations are evaluated jointly across all metrics to identify
-which SDE variant and noise schedule combination best reproduces the statistical
-properties of the training data. Tab.~\ref{tab:phase1_ranking} provides a consolidated
-view of each configuration's performance across the primary metrics: KS statistic,
-$W_1$ distance, power-law tail exponent $\alpha$, and qualitative assessments of
-volatility clustering and leverage effect reproduction. The table is intended to surface
-trade-offs between metrics --- a configuration that achieves a superior tail exponent
-may not simultaneously minimise the KS statistic --- and to support a principled
-selection of the best overall model for comparison with Phase~2.
+In conclusion, it seem that under certain condition, it could work. but we discard GBM approach
 
 % [PLACEHOLDER: TABLE — summary ranking of all 7 Phase 1 configurations. Rows:
 % VE-linear, VE-exponential, VE-cosine, VP-linear, GBM-linear, GBM-exponential,
@@ -317,103 +334,28 @@ selection of the best overall model for comparison with Phase~2.
     % [PLACEHOLDER: table content]
 \end{table}
 
-Based on Tab.~\ref{tab:phase1_ranking},
-% [PLACEHOLDER: narrative — identify the selected best Phase 1 configuration and
-% justify the selection. Discuss any tension between metrics that complicated the
-% choice (e.g., a configuration with the best alpha but an inferior KS, or vice versa).
-% State explicitly whether the GBM-inspired SDE advantage claimed by Kim et al. is
-% confirmed or only partially supported by the results.]
-The selected configuration is carried forward as the Phase~1 baseline in the
-Phase~2 comparison of Sec.~\ref{sec:phase2_comparison}. To ensure a fair comparison
-on windows identical in length and temporal structure to those used in Phase~2,
-this configuration is retrained from scratch at $L=512$ and stride $s=100$, and is
-referred to as Phase~1$^*$ throughout Sec.~\ref{sec:phase2}.
-
 \section{Phase 2 --- EDM-CSDI Conditional Generation}
 \label{sec:phase2}
 
-\subsection{Setup and Motivation}
-\label{sec:phase2_setup}
+\begin{itemize}
+    \item Introduction
+    \item Baseline model
+    \item comparison with equivalent Phase1
+    \item comparison with GARCH and Merton (industry)
+    \item Unconditional comparison
+    \item Stochastic sampler
+    \item variations
+    \item (optional) Post-2002
+\end{itemize}
 
-Phase~2 extends the validated CSDI-backbone architecture to the multivariate conditional
+Phase~2 extends the explored CSDI-backbone architecture to the multivariate conditional
 setting within the EDM framework. Relative to Phase~1, three structural changes are
-introduced, each with a distinct theoretical motivation.
+introduced, each with a distinct theoretical motivation.First, the EDM training framework with preconditioning and structured presented in previous chapters. Second, Multivariete OHLC conditioning. Thirdly, the validation windows are now fully held out and sampling windows' length is reduced to \(L=512\) and \(s=100\).
 
-\textbf{EDM training framework.} The shift from the Song et al.~\cite{song2021score}
-SDE formulation to EDM~\cite{karras2022elucidating} replaces the heuristic loss
-weighting $\lambda(\sigma_i) = \sigma_i^2$ with the principled scheme
-$\lambda(\sigma) = c_{\text{out}}(\sigma)^{-2}$, which equalises the loss contribution
-across all noise levels rather than allowing high-noise training steps to dominate the
-gradient signal (Sec.~\ref{sec:edm_literature}). EDM also introduces the preconditioning
-scheme $D_\theta(x;\sigma) = c_{\text{skip}}(\sigma)x + c_{\text{out}}(\sigma)
-F_\theta(c_{\text{in}}(\sigma)x;\,c_{\text{noise}}(\sigma))$ with
-$\sigma_{\text{data}} = 1.0$ set by the per-channel z-score normalisation, and replaces
-the discrete step index embedding with the continuous noise-level encoding
-$c_{\text{noise}}(\sigma) = \frac{1}{4}\ln\sigma$. The noise level at training time is
-sampled from a log-normal distribution, $\ln\sigma \sim \mathcal{N}(P_{\text{mean}},
-P_{\text{std}}^2)$, concentrating training effort on the noise range that is most
-informative for the data at hand. The values $P_{\text{mean}} = -1.4$ and $P_{\text{std}}$
-are determined by the ablation described in Sec.~\ref{sec:phase2_ablation}.
+Unless otherwise stated, in this section we use "EDM sampler" for Heun's ODE second order approximation with 200 discretization steps (400 NFE) and \(\sigma_{\max}=P_{\text{mean}}+5P_{\text{std}}\).
 
-\textbf{Multivariate OHLC conditioning.} The model now operates on $K=4$ channels
-(Open, High, Low, Close), all expressed as log-returns relative to the previous closing
-price as detailed in Sec.~\ref{sec:sliding_window_ch4}. The \texttt{predict\_close}
-masking strategy assigns $m^{\text{co}}_{k,l} = 1$ for $k \in \{O, H, L\}$ and
-$m^{\text{ta}}_{k,l} = 1$ for $k = C$, so that the Open, High, and Low channels
-are fully observed at all time steps and the Close channel is the sole generation target.
-This configuration is financially motivated: the intraday range $\hat{H}_t - \hat{L}_t$
-is a well-established realised volatility proxy~\cite{parkinson1980extreme}, and the
-overnight log-return $\hat{O}_t = \log(O_t / C_{t-1})$ encodes the opening gap with
-respect to the previous session. Both signals carry substantive intraday information about
-the Close log-return that is unavailable to an unconditional model, as discussed in
-Sec.~\ref{sec:ohlc_theoretical}. The central question of Phase~2 is whether the model
-learns to exploit these signals to produce conditional forecasts that are both more
-accurate and better calibrated than the unconditional Phase~1 baseline.
-
-\textbf{Validation and sampling.} The window length is reduced to $L=512$ (approximately
-two years of daily data) and the stride to $s=100$, as necessitated by hardware
-constraints (Sec.~\ref{sec:sliding_window_ch4}). Validation windows are strictly held
-out: for any ticker contributing a validation window, no training window covers an
-overlapping time range for that ticker. At inference, the Heun second-order
-predictor--corrector sampler replaces the probability flow ODE used in Phase~1. The Heun
-sampler requires two network evaluations per denoising step but reduces the local
-truncation error to $\mathcal{O}(h^3)$ and is fully decoupled from the training
-objective, meaning the same trained checkpoint can be evaluated with alternative samplers
-without retraining (Sec.~\ref{sec:model_architecture}).
-
-The model achieving the best performance in the ablation of Sec.~\ref{sec:phase2_ablation}
-is referred to as the Best Model (BM) throughout the remainder of this chapter. All
-Phase~2 evaluations reported in subsequent sections use BM unless otherwise stated.
-
-\subsection{Noise Schedule Ablation --- Selecting \texorpdfstring{\(P_{\text{std}}\)}{P\_std}}
-\label{sec:phase2_ablation}
-
-The parameter $P_{\text{std}}$ controls the width of the log-normal distribution from
-which noise levels $\sigma$ are drawn during training (Eq.~\ref{eq:edm_sigma_sampling}).
-A narrow $P_{\text{std}}$ concentrates gradient signal on a limited noise range, which
-can improve performance at the dominant noise levels at the cost of reduced coverage of
-the extremes. A wide $P_{\text{std}}$ spreads gradient signal across a broader range of
-noise levels, potentially improving the model's ability to handle both fine-grained
-reconstruction at low $\sigma$ and coarse-scale generation at high $\sigma$, but risks
-diluting the gradient at the most informative noise levels. The optimal value is a
-calibration question that depends on the distributional properties of the training data
-and cannot be derived from first principles.
-
-The ablation is conducted by training the full Phase~2 architecture to convergence
-independently for each value of $P_{\text{std}}$ in the grid
-$\{1.0, 1.2, 1.4, 1.6, 1.8\}$, with $P_{\text{mean}} = -1.4$ fixed. This value of
-$P_{\text{mean}}$ was identified as the best-performing choice across the prior
-ablation grid $P_{\text{mean}} \in \{-0.8, -1.0, -1.2, -1.4, -1.6\}$; the full results
-of that grid are available in Appendix~\ref{app:sec:training_config}. Models are compared
-on validation loss and on the primary generation metrics at a fixed evaluation checkpoint.
-The validation loss is the primary selection criterion; KS, $W_1$, and CRPS computed on
-training windows serve as supporting evidence that improvements in loss translate to
-improvements in generation quality.
-
-% [PLACEHOLDER: TABLE — validation loss, training loss, KS statistic, W1 distance,
-% and CRPS for each P_std in {1.0, 1.2, 1.4, 1.6, 1.8} and, if available, P_std=2.0.
-% Bold the selected BM configuration. Include training CRPS and validation CRPS in
-% separate columns if available.]
+\textbf{EDM Baseline Model} \quad After a series of ablations and experimentations the baseline models has the characteristics reported in Tab.\ \ref{tab:training_setup}, of which the most important are \(P_{\text{mean}}=-1.4\) and \(P_{\text{std}}=1.8\).
+%%%%%%%%%%%%%%%%%%%%%%%
 \begin{table}[htbp]
     \centering
     \caption{Noise schedule ablation for Phase~2: validation loss, KS statistic,

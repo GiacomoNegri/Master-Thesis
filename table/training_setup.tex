@@ -65,6 +65,9 @@
 \midrule
 %--- Training ------------------------------------------------------------
 \multirow{4}{2.0cm}{Training}                          % FIX 4: 3 -> 4
+  & Validation wind.
+  & Partly overlapping
+  & Fully held-out \\
   & LR schedule
   & \multicolumn{2}{c}{cosine annealing} \\[3pt]
   & $\eta_{\max}$ / $\eta_{\min}$
@@ -92,6 +95,6 @@
 \bottomrule
 \end{tabular}
 \caption{Training setup for Phase~1 (replication of Kim et al.\ \cite{kim2025diffusion})
-and Phase~2 (EDM-CSDI). Parameters shared across both phases appear in merged cells. \emph{emb.} is short for embeddings.}
+and Phase~2 (EDM-CSDI). Parameters shared across both phases appear in merged cells. \emph{emb.} is short for embeddings and \emph{wind.} for windows.}
 \label{tab:training_setup}
 \end{table}
