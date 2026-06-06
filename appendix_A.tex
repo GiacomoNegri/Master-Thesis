@@ -230,63 +230,27 @@ Section \ref{sec:classical_models_literature} identifies the core limitation sha
 
 \subsection{Further Limitations of GARCH}
 
-\textbf{Symmetric shock response and the leverage effect} The GARCH(1,1)
-variance equation $\sigma_t^2 = \omega + \alpha\epsilon_{t-1}^2 +
-\beta\sigma_{t-1}^2$ depends on $\epsilon_{t-1}^2$, which is symmetric in the
-sign of the innovation: a negative shock $\epsilon_{t-1} = -c$ and a positive
-shock $\epsilon_{t-1} = +c$ of the same magnitude produce identical increases in
-$\sigma_t^2$. This contradicts the leverage effect. By construction, GARCH(1,1) is unable to produce this asymmetry.
+\textbf{Symmetric shock response and the leverage effect} The GARCH(1,1) variance equation $\sigma_t^2 = \omega + \alpha\epsilon_{t-1}^2 + \beta\sigma_{t-1}^2$ depends on $\epsilon_{t-1}^2$, which is symmetric in the sign of the innovation: a negative shock $\epsilon_{t-1} = -c$ and a positive shock $\epsilon_{t-1} = +c$ of the same magnitude produce identical increases in $\sigma_t^2$, contradicting the leverage effect.
 
-\textbf{Tail inadequacy} Even when innovations are drawn from a Student-$t$ rather than a Gaussian, the tail behaviour of the
-GARCH conditional distribution remains insufficiently heavy for many financial
-series. Section \ref{sec:fts_literature} reported power-law tails with exponents $\alpha \in [3,5]$,
-implying that returns have finite variance but potentially infinite or unstable
-fourth moments. Standard GARCH with Gaussian innovations has finite moments of all orders, and while heavier-tailed innovations extend the tail decay, it does not match the dataset ones.
+\textbf{Tail inadequacy} Even with Student-$t$ innovations, the GARCH conditional tail remains insufficiently heavy. Section \ref{sec:fts_literature} reported power-law tails with exponents $\alpha \in [3,5]$; standard GARCH with Gaussian innovations has finite moments of all orders, and heavier-tailed innovations do not reproduce the empirical tail decay.
 
-\textbf{Short-memory volatility autocorrelation} In GARCH(1,1), the
-autocorrelation of squared returns decays exponentially at rate
-$(\alpha + \beta)^k$ for lag $k$. Empirically, as noted in Section \ref{sec:fts_literature},
-volatility autocorrelation decays hyperbolically,
-$\operatorname{Corr}(|r_t|, |r_{t+k}|) \sim k^{-\beta}$ with
-$\beta \in [0.1, 0.5]$ \cite{cont2001empirical}, characteristic of a
-long-memory process. This mismatch cause underestimation of volatility persistence at long horizons, even when $\alpha + \beta$ is close to one.
-\textbf{Absence of jumps} GARCH generates smooth conditional variance paths in
-discrete time. It cannot produce discontinuous price gaps or isolated large moves.
+\textbf{Short-memory volatility autocorrelation} In GARCH(1,1), squared-return autocorrelation decays exponentially at rate $(\alpha + \beta)^k$. Empirically, volatility autocorrelation decays hyperbolically, $\operatorname{Corr}(|r_t|, |r_{t+k}|) \sim k^{-\beta}$ with $\beta \in [0.1, 0.5]$ \cite{cont2001empirical}, causing underestimation of volatility persistence at long horizons even when $\alpha + \beta$ is close to one.
 
-\textbf{Re-estimation requirement} The model must be
-re-fitted from scratch whenever a new regime of data arise. This also requires identifying a regime transition, for instance from low to high volatility. This is not natively supported by the model.
+\textbf{Absence of jumps} GARCH generates smooth conditional variance paths and cannot produce discontinuous price gaps or isolated large moves.
+
+\textbf{Re-estimation requirement} The model must be re-fitted from scratch whenever a new regime arises, with no native mechanism to detect regime transitions.
 
 \subsection{Further Limitations of Merton's Model}
 
-\textbf{Constant jump intensity} The Poisson intensity $\lambda$ in
-Eq.~(\ref{eq:merton_sde_app}) is a fixed constant, but in reality, jump activity varies with time and is often clustered: large price moves tend to arrive in bursts during periods of market stress and are rare during calm periods. A constant $\lambda$
-cannot reproduce this self-reinforcing jump clustering.
+\textbf{Constant jump intensity} The Poisson intensity $\lambda$ in Eq.~(\ref{eq:merton_sde_app}) is fixed, whereas in reality jump activity is time-varying and clustered: large moves arrive in bursts during market stress and are rare during calm periods. A constant $\lambda$ cannot reproduce this self-reinforcing behaviour.
 
-\textbf{Tail inadequacy despite fat tails} Although the Poisson mixture
-(Eq.~\ref{eq:merton_return_dist}) has heavier tails than a single Gaussian, all moments remain finite. Moreover, the $n$-th mixture component has variance $\nu^2 t + n\sigma_J^2$, which
-grows linearly in $n$, but the Poisson weights $e^{-\lambda t}(\lambda t)^n/n!$
-decay super--exponentially in $n$. Consequently, the tail of
-Eq.~(\ref{eq:merton_return_dist}) decays faster than any power law.
+\textbf{Tail inadequacy despite fat tails} Although the Poisson mixture (Eq.~\ref{eq:merton_return_dist}) has heavier tails than a single Gaussian, all moments remain finite. The $n$-th component has variance $\nu^2 t + n\sigma_J^2$ growing linearly in $n$, but the Poisson weights $e^{-\lambda t}(\lambda t)^n/n!$ decay super-exponentially, so the tail of Eq.~(\ref{eq:merton_return_dist}) decays faster than any power law.
 
-\textbf{No volatility clustering} The diffusion component $\nu\, S_t\, dW_t$
-has constant volatility $\nu$. Jumps introduce excess kurtosis and fat tails,
-but they do not produce persistent time-varying conditional variance: between
-jump events the model reverts to a constant-volatility GBM, and the occurrence
-of a jump does not alter the volatility of subsequent diffusion increments.
-Volatility clustering, extended periods of elevated or depressed volatility,
-is therefore structurally absent in Merton's model.
+\textbf{No volatility clustering} The diffusion component $\nu\, S_t\, dW_t$ has constant volatility $\nu$. Jumps introduce excess kurtosis, but not persistent time-varying conditional variance: between jump events the model reverts to a constant-volatility GBM, and a jump does not alter the volatility of subsequent diffusion increments.
 
-\textbf{No leverage effect} Both the diffusion noise $\nu\, dW_t$ and the jump
-multiplier $J$ are specified symmetrically with respect to the sign of the
-return. Merton's model therefore cannot reproduce the negative lead-lag correlation $L(k) < 0$ defined in Section~\ref{sec:fts_literature}.
+\textbf{No leverage effect} Both the diffusion noise $\nu\, dW_t$ and the jump multiplier $J$ are specified symmetrically with respect to the sign of the return, so Merton's model cannot reproduce the negative lead-lag correlation $L(k) < 0$ defined in Section~\ref{sec:fts_literature}.
 
-\textbf{Calibration difficulty} The likelihood of Merton's model is the infinite
-sum in Eq.~(\ref{eq:merton_return_dist}), truncated in practice at a finite
-number of values. This likelihood surface has multiple local optima, and the jump
-parameters $(\lambda, \mu_j, \sigma_J^2)$ are poorly identified unless the sample
-is long and contains clearly distinguishable jump events. With limited data, a
-small number of outliers can dominate the estimation of $\lambda$ and $\sigma_J^2$,
-leading to unstable parameter estimates, which is why we had to constraint the generation process.
+\textbf{Calibration difficulty} The likelihood surface of Eq.~(\ref{eq:merton_return_dist}) has multiple local optima, and the jump parameters $(\lambda, \mu_j, \sigma_J^2)$ are poorly identified unless the sample is long and contains clearly distinguishable events. With limited data, a small number of outliers can dominate the estimation of $\lambda$ and $\sigma_J^2$, leading to unstable parameter estimates, which is why we had to constrain the generation process.
 
 \section{Classical Baseline Models: Likelihood and Estimation}
 \label{app:baselines}
