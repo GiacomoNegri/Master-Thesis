@@ -69,6 +69,10 @@ models and the training reference. Values are computed over pooled log-returns. 
 \label{tab:baseline_aggregate}
 \end{table}
 
+From the statistics it is possible to observe that this model, which has been refined within a working windows can match many of the distributional properties, see Tab.\ \ref{tab:baseline_full}, but they still struggle with higher moments, mostly because even if bound, the generation still tends to drift afar. Moreover, if we have a look at Fig.\ [STYLIZED FACTS COMBINED], we can see that the key properties of fat tails distribution and volatility clustering could are or could possibly be learned, while leverage effects are clearly missed. Moreover these models were fitted at a stock level, therefore their parameters are meaningless for different models.
+
+
+
 
 \section{Phase 1 --- Replication}
 \label{sec:phase1_results}
@@ -322,7 +326,7 @@ The reference stylized facts are display here and have been recomputed from Sec.
 \vspace{0.2em}
 
 \caption{Stylized facts across Phase~1 SDE families and the empirical training
-reference. \textit{Columns} (left to right): heavy-tail distribution on a log--log
+reference on windows with \(L=2048\). \textit{Columns} (left to right): heavy-tail distribution on a log--log
 scale with estimated power-law exponent~$\hat{\alpha}$, Tab.\ref{tab:phase1_aggregate}; autocorrelation of absolute
 returns on a log--log scale (volatility clustering); lead--lag correlation $L(k)$
 (leverage effect).}
