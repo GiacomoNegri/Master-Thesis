@@ -23,6 +23,8 @@ Subsequently, others smaller experimentations were executed to compare the model
 
 A key design difference that is worth to keep in mind between Phase~1 and Phase~2 concerns the validation split, as described in Sec.\ref{sec:sliding_window_ch4}. In Phase~1, validation windows are drawn randomly from the full sliding-window pool. In Phase~2, validation windows are strictly held out.
 
+Moreover, because the way data are processed to build windows, the Reference values varies slightly according to the specific configuration that it is being analysed: raw reference, \(L=2048\) windows with \texttt{stride}\(=100\), \(L=512\) windows and \texttt{stride}\(=100\).
+
 \section{Baseline Models --- GARCH-X and Merton-X}
 GARCH-X and Merton-X models, defined in Sec.\ \ref{sec:classical_baselines_theoretical}, were trained on log transformed Sec.\ \ref{sec:ch4_data} data, according to Eq.\ \ref{eq:preprocessed_data}. Details about the design choices and constraints applied are available at App.\ \ref{app:baselines_constraints}.
 
@@ -41,6 +43,9 @@ The generated data display the following distributional statistics in Tab.\ \ref
   S[table-format= 5.4]   % Ex.Kurt.  (up to 11021.7000)
   S[table-format=-1.4]   % q01
   S[table-format= 1.4]   % q99
+  S[table-format= 1.4]   % D_KS
+  S[table-format= 1.4]   % W_1
+  S[table-format= 1.4]   % alpha
 }
 \toprule
 \textbf{Model}
@@ -49,18 +54,21 @@ The generated data display the following distributional statistics in Tab.\ \ref
   & {\textbf{Skew.}}
   & {\textbf{Ex.\ Kurt.}}
   & {$\boldsymbol{q_{0.01}}$}
-  & {$\boldsymbol{q_{0.99}}$} \\
+  & {$\boldsymbol{q_{0.99}}$}
+  & {$D_{\mathrm{KS}}$}
+  & {$W_1$}
+  & {$\hat{\alpha}$} \\
 \midrule
-Reference & 0.0005 & 0.0232 & -0.5773 &    38.5028 & -0.0626 & 0.0649 \\
-GARCH-X   & 0.0009 & 0.0230 & -7.5635 & 11021.7000 & -0.0577 & 0.0597 \\
-Merton-X  & 0.0005 & 0.0364 &  1.2102 &  3736.4870 & -0.0584 & 0.0598 \\
+Reference & 0.0005 & 0.0232 & -0.5773 &    38.5028 & -0.0626 & 0.0649 & {---} & {---} & \\
+GARCH-X   & 0.0009 & 0.0230 & -7.5635 & 11021.7000 & -0.0577 & 0.0597 & 0.0540 & 0.0012 & \\
+Merton-X  & 0.0005 & 0.0364 &  1.2102 &  3736.4870 & -0.0584 & 0.0598 & 0.0423 & 0.0018     & \\
 \bottomrule
 \end{tabular}
 \caption{Aggregate distributional statistics for the GARCH-X and Merton-X baseline
-models and the training reference. Values are computed over pooled log-returns and
-reported to four decimal places. Excess kurtosis is reported relative to the Gaussian.}
+models and the training reference. Values are computed over pooled log-returns. For Reference the entire dataset was used, while for GARCH-X, Merton-X a subsample of 10M observations was considered, while for \(D_{KS}\) and \(W_1\) a subsample of 1M was taken. Excess kurtosis is reported relative to the Gaussian.}
 \label{tab:baseline_aggregate}
 \end{table}
+
 
 \section{Phase 1 --- Replication}
 \label{sec:phase1_results}
@@ -135,7 +143,7 @@ GBM + Cosine     &  0.0000 & 0.1437 & -0.0130 &   0.068 & -0.3350 & 0.3342 & 0.3
 \end{tabular}
 \caption{Aggregate distributional statistics for Phase~1 generated close
 log-returns and the training reference. Values are computed over pooled
-window-level \((L=2048)\) returns. Excess kurtosis is
+window-level \((L=2048, \texttt{ stride}=100)\) returns. Excess kurtosis is
 reported relative to the Gaussian. $D_{\mathrm{KS}}$ and $W_1$
 measure discrepancy against the training marginal (lower is better).
 $\hat{\alpha}$ is the estimated power-law tail exponent (reference
