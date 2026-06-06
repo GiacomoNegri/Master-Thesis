@@ -331,3 +331,50 @@ points are tried and the one with the lower NLL is retained. For
 GARCH-X, $(\alpha_0, \beta_0) \in \{(0.05, 0.90),\, (0.03, 0.90)\}$;
 for Merton-X, $(\lambda_0, \sigma_{J,0}) \in \{(0.10, 0.01),\,
 (0.50, 0.05)\}$.
+
+\subsection{Implementation Constraints and Design Choices}
+\label{app:baselines_constraints}
+
+The following model-specific choices were made to ensure numerical
+stability and physical plausibility during fitting and simulation.
+
+\textbf{GARCH-X.} \quad
+The model is formulated in log-variance space: the recursion propagates
+$\log\sigma_t^2$ rather than $\sigma_t^2$ directly, keeping variance
+strictly positive by construction.
+Two exogenous regressors enter the variance equation at each time step $t$,
+both observable before the day's close: (i)~the squared overnight
+log-return $\texttt{open}_t^2$, and (ii)~the Parkinson intra-day variance
+estimator $(\log H_t/L_t)^2/(4\log 2)$.
+The mean equation includes an AR(1) term whose coefficient $\phi$ is
+hard-bounded to $(-0.5,\,0.5)$ to prevent simulated paths from diverging.
+Degrees of freedom are constrained to $\nu > 2.01$ via
+$\nu = 2.01 + e^{\vartheta}$, guaranteeing finite variance of the
+innovation distribution.
+Covariance stationarity is enforced by a persistence cap
+$\alpha + \beta < 0.98$; any parameter vector violating this bound is
+penalised with NLL $= 10^{12}$.
+The log-squared lagged residual is regularised as
+$\log(\varepsilon_{t-1}^2 + 10^{-8})$ to prevent $\log 0$, and the
+log-variance is clipped to $[-30,\, 30]$ to prevent overflow.
+The recursion is initialised at $\log\operatorname{Var}(r)$.
+
+\textbf{Merton-X.} \quad
+The diffusion variance is time-varying with log-linear dependence on
+two intra-day regressors: $\log\nu_t^2 = a_0 + \mathbf{q}_t^\top\mathbf{a}$,
+where $\mathbf{q}_t = [\texttt{open}_t^2,\;(\texttt{high}_t -
+\texttt{low}_t)^2]^\top$.
+Unlike GARCH-X, both regressors are winsorised at their 99th-percentile
+training value before entering the likelihood, limiting the influence of
+extreme intra-day moves on the fitted variance surface.
+Hard bounds are imposed on the jump parameters:
+$\log\lambda \in [-6,\,3]$ (i.e.\ $\lambda \in (0.002,\,20)$),
+$\mu_J \in [-0.5,\,0.5]$, and $\log\sigma_J \in [-8,\,0]$
+(i.e.\ $\sigma_J \leq 1$), preventing degenerate jump configurations
+during optimisation.
+\textit{Correction to Eq.~\ref{eq:mertonx_loglik_app}}: the Poisson
+series is truncated at $K_{\max} = 20$, not $K_{\max} = 30$ as stated
+in that equation. For S\&P~500 daily returns, fitted $\lambda$ values
+are consistently below $5$, for which $P(N > 20\,|\,\lambda) < 8\times
+10^{-8}$; the remaining tail mass is numerically negligible and the
+tighter truncation has no effect on results.

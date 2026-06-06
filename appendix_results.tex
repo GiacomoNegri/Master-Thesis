@@ -2,6 +2,53 @@
 % Required packages: booktabs, array
 % No rotating package needed — portrait orientation.
 % Metadata rows removed (all identical across configurations) and moved to caption.
+
+\section{Baseline Models --- GARCH-X and Merton-X}
+\label{sec:app_baselines}
+Full distributional statistics for the GARCH-X and Merton-X baseline models alongside
+the training reference are reported in Tab.\ \ref{tab:baseline_full}. GARCH-X was
+evaluated on $n = 50{,}000{,}000$ generated samples; Merton-X likewise. The reference
+comprises $n = 2{,}623{,}569$ observations from the training dataset (see
+Sec.\ \ref{sec:ch4_data}).
+
+\begin{table}[htbp]
+\centering
+\footnotesize
+\renewcommand{\arraystretch}{1.28}
+\setlength{\tabcolsep}{6pt}
+\begin{tabular}{l r r r}
+\toprule
+\textbf{Statistic} & \textbf{Reference} & \textbf{GARCH-X} & \textbf{Merton-X} \\
+\midrule
+$n$              &   2\,623\,569 &  50\,000\,000 &  50\,000\,000 \\
+Mean             &        0.0005 &        0.0009 &        0.0005 \\
+Std              &        0.0232 &        0.0230 &        0.0364 \\
+Variance         &        0.0005 &        0.0005 &        0.0013 \\
+Skewness         &  $-$0.5773   &  $-$7.5635   &        1.2102 \\
+Ex.\ Kurtosis    &       38.5028 &  11021.7000   &    3736.4870  \\
+IQR              &        0.0201 &        0.0189 &        0.0187 \\
+Min              &  $-$1.0393   &  $-$17.5946  &   $-$8.2768  \\
+$q_{0.001}$      &  $-$0.1372   &  $-$0.1207   &   $-$0.1522  \\
+$q_{0.01}$       &  $-$0.0626   &  $-$0.0577   &   $-$0.0584  \\
+$q_{0.05}$       &  $-$0.0324   &  $-$0.0296   &   $-$0.0292  \\
+$q_{0.25}$       &  $-$0.0096   &  $-$0.0085   &   $-$0.0089  \\
+Median           &        0.0000 &        0.0009 &        0.0003 \\
+$q_{0.75}$       &        0.0105 &        0.0104 &        0.0098 \\
+$q_{0.95}$       &        0.0338 &        0.0316 &        0.0303 \\
+$q_{0.99}$       &        0.0649 &        0.0597 &        0.0598 \\
+$q_{0.999}$      &        0.1321 &        0.1222 &        0.1539 \\
+Max              &        0.7694 &       10.4692 &        8.9261 \\
+\bottomrule
+\end{tabular}
+\caption{Full distributional statistics for the training reference, GARCH-X, and
+Merton-X. All values are reported to four decimal places. The reference sample is the
+raw training dataset ($n = 2{,}623{,}569$); each model was evaluated on
+$n = 50{,}000{,}000$ generated samples. Excess kurtosis is reported relative to the
+Gaussian ($\text{kurt} - 3$). The Reference median ($-0.000019$) rounds to $0.0000$
+at this precision.}
+\label{tab:baseline_full}
+\end{table}
+
 \section{Phase--1}
 \subsection{Aggregate Statistics}
 In this section the aggregate statistics for Sec.\ \ref{sec:phase1_results} are displayed in full in Tab.\ \ref{tab:phase1_raw_with_reference}. The configurations shared by all runs are: ODE sampler, $n$-windows $= 512$,
