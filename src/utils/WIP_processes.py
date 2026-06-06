@@ -428,6 +428,8 @@ class Diffusion_Processes:
         step_start = time.time()
 
         # ── 3. Heun loop ──────────────────────────────────────────────────────────
+        print(f"[EDM sampler] starting Heun loop: B={B}, num_steps={num_steps}, "
+              f"σ_max={sigma_max:.3f}, σ_min={sigma_min:.4f}", flush=True)
         for i in range(num_steps):
             sigma_cur  = sigmas[i]                             # scalar tensor
             sigma_next = sigmas[i + 1]                         # scalar tensor (0 at last step)
@@ -481,7 +483,8 @@ class Diffusion_Processes:
                     f"mean={x_cpu.mean():.4f}  std={x_cpu.std():.4f}  "
                     f"min={x_cpu.min():.4f}  max={x_cpu.max():.4f}  "
                     f"skew={skew:.3f}  kurt={kurt:.3f}  "
-                    f"elapsed={elapsed:.1f}s"
+                    f"elapsed={elapsed:.1f}s",
+                    flush=True,
                 )
 
         # ── 4. Enforce conditioning: replace OHL with ground truth ────────────────

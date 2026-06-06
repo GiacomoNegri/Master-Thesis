@@ -330,7 +330,7 @@ def run_split_ddp(
                 gen_close_local.append(close_preds[i])   # (num_samples, L)
 
             print(f"  [rank {rank} | {split_name}] chunk {chunk_idx + 1}/{n_chunks} done "
-                  f"(windows {chunk_start + 1}–{chunk_end} / {n_local})")
+                  f"(windows {chunk_start + 1}–{chunk_end} / {n_local})", flush=True)
 
     # ── Build local row lists (carry the original global window position) ─────
     local_gen_rows  = []
