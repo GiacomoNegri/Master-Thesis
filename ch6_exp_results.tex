@@ -69,10 +69,16 @@ models and the training reference. Values are computed over pooled log-returns. 
 \label{tab:baseline_aggregate}
 \end{table}
 
-From the statistics it is possible to observe that this model, which has been refined within a working windows can match many of the distributional properties, see Tab.\ \ref{tab:baseline_full}, but they still struggle with higher moments, mostly because even if bound, the generation still tends to drift afar. Moreover, if we have a look at Fig.\ [STYLIZED FACTS COMBINED], we can see that the key properties of fat tails distribution and volatility clustering could are or could possibly be learned, while leverage effects are clearly missed. Moreover these models were fitted at a stock level, therefore their parameters are meaningless for different models.
+From the statistics it is possible to observe that this model, which has been refined within a working windows can match many of the distributional properties, as possible to see by Fig. [FIGURE IN THE APPENDIX], see Tab.\ \ref{tab:baseline_full}, but they still struggle with higher moments, mostly because even if bound, the generation still tends to drift afar. Moreover, if we have a look at Fig.\ [STYLIZED FACTS COMBINED], we can see that the key properties of fat tails distribution and volatility clustering could are or could possibly be learned, while leverage effects are clearly missed. Moreover these models were fitted at a stock level, therefore their parameters are meaningless for different models.
 
+\begin{figure}[h]
+    \centering
+    \includegraphics[width=0.8\textwidth]{figures/your_image_name}
+    \caption{Stylized facts for Reference, GARCH-X, and Merton-X}
+    \label{fig:your_label}
+\end{figure}
 
-
+One key distribution due to decimalization, atypical in distributions is the core (2\%-98\%) distribution that is hard to match, because of this peculiar shape. This gets smoothened out by the GARCH-X and Merton-X model.
 
 \section{Phase 1 --- Replication}
 \label{sec:phase1_results}
