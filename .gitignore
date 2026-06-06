@@ -45,3 +45,4 @@ jobs_launcher_martusia.py
 csv_to_parquet.py
 inspect_checkpoint.py
 *.onnx
+compute_distribution_metrics.py
