@@ -2,9 +2,9 @@
 \label{ch:data_setup}
 This section specified the dataset characteristics and training choices. A summary table is made available at Tab.\ref{tab:training_setup}. 
 \section{Data}
-
+\label{sec:ch4_data}
 The dataset follows the source and structure reported by Kim et al.\ \cite{kim2025diffusion}.
-Specifically, the list of current S\&P 500 members was taken as the starting universe (as of April 2026), and
+Specifically, the list of current S\&P 500 members was taken as the starting universe (as of 10th of April 2026), and
 tickers with non-standard symbols (e.g., BRK.B, BF.B) were excluded. For each remaining
 ticker, the maximum available daily price history was downloaded. The dataset was then
 filtered to retain only those stocks whose available history extends at leas 40 years back.
@@ -23,14 +23,16 @@ and corporate failures. The second aspect regards the decimalization process, wh
 
 \section{Preprocessing}
 
-In Phase 1, only univariate log-returns are used, as defined in Eq.~\ref{eq:log_returns}.
-In Phase 2, where conditioning on all four OHLC channels is required, the Open, High,
+\textbf{Phase~1} \quad Only univariate log-returns are used, as defined in Eq.~\ref{eq:log_returns}, and no preprocessing is applied to them since no mention of it is made by Kim et al. \cite{kim2025diffusion}, and the average log-return \(\mu=0.0005\) is not conflictual with prior sampling assumptions.
+
+\textbf{Phase~2} \quad \All four OHLC channels are required, the Open, High,
 and Low prices are each expressed as log-returns relative to the previous closing price:
-\[
+\begin{equation}
+\label{eq:preprocessed_data}
     \hat{O}_t = \log\!\left(\frac{O_t}{C_{t-1}}\right), \qquad
     \hat{H}_t = \log\!\left(\frac{H_t}{C_{t-1}}\right), \qquad
     \hat{L}_t = \log\!\left(\frac{L_t}{C_{t-1}}\right)
-\]
+\end{equation}
 This formulation is consistent with the Close log-return defined in Eq.~\ref{eq:log_returns},
 expressing all channels relative to the same reference price \(C_{t-1}\).
 
@@ -116,6 +118,27 @@ This configuration was selected empirically: a 64-channel variant was less expre
 while a 256-channel variant offered no measurable improvement in generation quality at
 substantially higher compute cost.
 
+\begin{figure}[htbp]
+    \centering
+
+    \begin{subfigure}{0.48\textwidth}
+        \centering
+        \includegraphics[width=\textwidth]{images/ch4/noise_schedules.png}
+        \caption{Sigma Schedule (\(\sigma_{\min}=0.01\), \(\sigma_{\max}=1.0\))}
+        \label{fig:image1}
+    \end{subfigure}
+    \hfill
+    \begin{subfigure}{0.48\textwidth}
+        \centering
+        \includegraphics[width=\textwidth]{images/ch4/edm_noise_distribution.png}
+        \caption{\(\ln(\sigma)\sim\mathcal{N}\left(P_{\text{mean}}, P_{\text{std}}^2\right)\)}
+        \label{fig:image2}
+    \end{subfigure}
+
+    \caption{Noise schedules: Phase~1 (left), Phase~2 (right).}
+    \label{fig:two_images}
+\end{figure}
+
 \textbf{Noise Schedule} \quad The noise hyperparameters differ between phases.
 In Phase~1, they define the range of the forward-process noise: VE-style diffusion
 uses $\sigma_{\max} = 1$ and $\sigma_{\min} = 0.01$; GBM-style diffusion, operating
@@ -124,11 +147,11 @@ the VP formulation is parameterised by $\beta_{\max} = 8$ and $\beta_{\min} = 0.
 In Phase~2, the EDM log-normal sampling distribution
 $\ln\sigma \sim \mathcal{N}(P_{\text{mean}}, P_{\text{std}}^2)$ replaces the
 forward-process schedule entirely. The values $P_{\text{mean}} = -1.4$ and
-$P_{\text{std}} = 1.6$ were selected via grid search over
+$P_{\text{std}} = 1.8$ were selected via grid search over
 $P_{\text{mean}} \in \{-0.8,\,-1.0,\,-1.2,\,-1.4,\,-1.6\}$ and
-$P_{\text{std}} \in \{1.0,\,1.2,\,1.4,\,1.6,\,1.8\}$ based on validation loss;
-the full ablation is reported in Sec.~\ref{sec:phase2_ablation}.
-\textbf{Training parameters.} The batch size is 64 across both phases. Phase~1 trains for the same number of epochs as Kim et al.~\cite{kim2025diffusion}, while Phase~2 uses half that budget, which reflects the hardware constraints and the larger number of available training windows, which increases the number of gradient steps per epoch.
+$P_{\text{std}} \in \{1.0,\,1.2,\,1.4,\,1.6,\,1.8,\,2.0\}$ based on validation loss at first and generative samples later. This was influenced by Phase~1, where small \(t-\)regimes were identified as the hardest to predict. Lower \(P_{\text{mean}}\) concentrate more training samples on low-sigmas and higher \(P_{\text{std}}\) helps cover the tails. Above \(P_{\text{std}}=1.8\) no significant generation gains were observed.
+
+\textbf{Training parameters.} The batch size is 64 across both phases. Phase~1 trains for \(1000\) epochs, as Kim et al.~\cite{kim2025diffusion}, while Phase~2 uses half that budget, which reflects the hardware constraints and the larger number of available training windows, which increases the number of gradient steps per epoch.
 
 \textbf{Sampling parameters} \quad For Phase~2, $\sigma_{\max}$ and $\sigma_{\min}$ were
 selected to cover the support of $\ln\sigma \sim \mathcal{N}(P_{\text{mean}}, P_{\text{std}}^2)$,

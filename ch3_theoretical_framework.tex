@@ -48,10 +48,7 @@ per-day information as the diffusion model's conditioning set
 $\mathcal{C}=\{O,H,L\}$. Each model is fitted per ticker by maximum likelihood
 via L-BFGS-B.
 
-\subsection{Log-GARCH-X with Student-$t$ Innovations}
-\label{sec:garchx_theoretical}
-
-The close log-return follows an AR(1) mean with log-GARCH variance: \(r_t = \mu + \phi\, r_{t-1} + \varepsilon_t\) with \(\varepsilon_t = \sigma_t z_t\) and \(z_t \sim t_\nu\), therefore we are modeling:
+\textbf{Log-GARCH-X with Student-$t$ Innovations} \quad The close log-return follows an AR(1) mean with log-GARCH variance: \(r_t = \mu + \phi\, r_{t-1} + \varepsilon_t\) with \(\varepsilon_t = \sigma_t z_t\) and \(z_t \sim t_\nu\), therefore we are modeling:
 \[
 \log \sigma_t^2 = \omega + \alpha \log(\varepsilon_{t-1}^2 + c)
         + \beta \log \sigma_{t-1}^2 + \boldsymbol{\delta}^\top \mathbf{q}_t
@@ -67,10 +64,7 @@ where $o_t^2$ is the squared overnight log-return and the second term is
 the Parkinson~\cite{parkinson1980extreme} realised variance estimator
 (App.~\ref{app:baselines} for more details).
 
-\subsection{Merton-X: Jump-Diffusion with OHLC-Driven Volatility}
-\label{sec:mertonx_theoretical}
-
-The close log-return is decomposed into a diffusive and a compound Poisson
+\textbf{Merton-X} \quad The close log-return is decomposed into a diffusive and a compound Poisson
 component:
 \[
     \label{eq:mertonx_return}
