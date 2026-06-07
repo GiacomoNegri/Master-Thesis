@@ -25,7 +25,7 @@ A key design difference that is worth to keep in mind between Phase~1 and Phase~
 
 Moreover, because the way data are processed to build windows, the Reference values varies slightly according to the specific configuration that it is being analysed: raw reference, \(L=2048\) windows with \texttt{stride}\(=100\), \(L=512\) windows and \texttt{stride}\(=100\).
 
-\section{Baseline Models --- GARCH-X and Merton-X}
+\section{Baseline Models: GARCH-X and Merton-X}
 GARCH-X and Merton-X models, defined in Sec.\ \ref{sec:classical_baselines_theoretical}, were trained on log transformed Sec.\ \ref{sec:ch4_data} data, according to Eq.\ \ref{eq:preprocessed_data}. Details about the design choices and constraints applied are available at App.\ \ref{app:baselines_constraints}.
 
 The generated data display the following distributional statistics in Tab.\ \ref{tab:baseline_aggregate}; full statistics including all quantiles are reported in Tab.\ \ref{tab:baseline_full} of the appendix.
@@ -65,7 +65,7 @@ Merton-X  & 0.0005 & 0.0364 &  1.2102 &  3736.4870 & -0.0584 & 0.0598 & 0.0423 &
 \bottomrule
 \end{tabular}
 \caption{Aggregate distributional statistics for the GARCH-X and Merton-X baseline
-models and the training reference. Values are computed over pooled log-returns. For Reference the entire dataset was used, while for GARCH-X, Merton-X a subsample of 10M observations was considered, while for \(D_{KS}\) and \(W_1\) a subsample of 1M was taken. Excess kurtosis is reported relative to the Gaussian.}
+models and the training reference. Values are computed over pooled log-returns. For Reference the entire dataset was used, while for GARCH-X, Merton-X a subsample of 10M observations was considered, while for \(D_{KS}\) and \(W_1\) a subsample of 1M log-returns was taken. Excess kurtosis is reported relative to the Gaussian.}
 \label{tab:baseline_aggregate}
 \end{table}
 
@@ -102,7 +102,7 @@ One key distribution due to decimalization, atypical in distributions is the cor
     \label{fig:garch_merton_thinner}
 \end{figure}
 
-\section{Phase 1 --- Replication}
+\section{Phase 1: Replication}
 \label{sec:phase1_results}
 Phase~1 aims to replicate the generative approach of Kim et al.~\cite{kim2025diffusion} as detailed in the first column of Tab.\ \ref{tab:training_setup}. For each model a dataset of 512 windows of length \(L=2048\) (\(1,048,576\) observation each) were generated using probability-flow ODE, Eq.\ref{eq:probability_flow} with 2000 discretization steps. The number of sampled was choosen for computational feasibility.
 
@@ -196,7 +196,7 @@ Importantly, the interpretation of the log-returns as cumulative didn't yield an
     \label{fig:level_marginal_ve_exponantial_2048}
 \end{figure}
 
-Clearly the VE seem to be superior with linear that while more promising in training it has more difficulties in reconstructing the series and it is either unstable or smooth excessively the distribution. There are still two limitations distributionally of the VE approach: first it undershoot tail reconstruction, as it is possible to see from Fig.\ \ref{fig:level_marginal_ve_exponantial_2048} QQ-plot and it misses the 0\% returns peak as for GARCH-X and Merton-X, as shown by the generated ECDF cutting through.
+Clearly the VE seem to be superior with linear that while more promising in training it has more difficulties in reconstructing the series and it is either unstable or smooth excessively the distribution. There are still two limitations distributionally of the VE approach: first it undershoot tail reconstruction, as it is possible to see from Fig.\ \ref{fig:level_marginal_ve_exponantial_2048} QQ-plot and it misses the 0\% returns peak as for GARCH-X and Merton-X, as shown by the generated ECDF cutting through the central vertical jump.
 
 Based on the results in Tab.~\ref{tab:phase1_aggregate} and
 Fig.~\ref{fig:phase1_qq_ecdf},
@@ -370,8 +370,10 @@ In conclusion, it seem that under certain condition, it could work. but we disca
     % [PLACEHOLDER: table content]
 \end{table}
 
-\section{Phase 2 -- EDM-CSDI}
+\section{Phase 2: EDM-CSDI}
 In this section we will explore the results concerning the unconditional generation of our EDM model. The training parameters are the same defined in Tab.\ \ref{tab:training_setup} Phase 2 but with the \texttt{unconditional} mask instead of the \texttt{predict\_close} one and with the number of features \(K=1\). In order to have a fair comparison with Phase 1, the two most promising models were retrained. Both use VE SDE formulation and one rely on exponental noise schedule, while the other on cosine. Their settings are the same as Phase 1 in Tab.\ \ref{tab:training_setup} with the exception of \(L=512\) and \(s=100\).
+
+\textbf{Phase~1 Champion Models} \quad The generalization of these two models to a total of \(20,000\) windows of which 10\% hold-out for validation generalized correctly.
 
 \section{Phase 2 --- EDM-CSDI Conditional Generation}
 \label{sec:phase2}

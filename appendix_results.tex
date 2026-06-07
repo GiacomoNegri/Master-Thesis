@@ -11,6 +11,8 @@ evaluated on $n = 50{,}000{,}000$ generated samples; Merton-X likewise. The refe
 comprises $n = 2{,}623{,}569$ observations from the training dataset (see
 Sec.\ \ref{sec:ch4_data}).
 
+\textbf{Aggregate Statitstics} \quad 
+Due to the generation constraints that have been applied to GARCH-X and Merton-X it was possible to bound the number of unlikely returns, or returns that have an absolute value above one, \(|r_t|>1\), to approximately (up to 4 decimal places) to 0\% for GARCH-X and to 0.02\% for Merton-X, but those extreme generated values contributes to most of the kurtosis and skewness shifts.
 \begin{table}[htbp]
 \centering
 \footnotesize
@@ -43,6 +45,26 @@ $n = 50{,}000{,}000$ generated samples. Excess kurtosis is reported relative to 
 Gaussian ($\text{kurt} - 3$). The Reference median ($-0.000019$) rounds to $0.0000$
 at this precision.}
 \label{tab:baseline_full}
+\end{table}
+
+\textbf{Stylized Facts} \quad 
+
+\begin{table}[htbp]
+\centering
+\footnotesize
+\renewcommand{\arraystretch}{1.28}
+\setlength{\tabcolsep}{6pt}
+\begin{tabular}{l r r r r}
+\toprule
+\textbf{Configuration} & \textbf{$\hat{\alpha}$} & \textbf{$x_{\min}$} & \textbf{$D_{KS}$} & \textbf{$n$-tail} \\
+\midrule
+Reference & 4.532 & 0.1170 & 0.0138 & 901 \\
+GARCH-X & 4.188 & 0.0725 & 0.0103 & 3266 \\
+Merton-X & 3.344 & 0.0337 & 0.0284 & 23508\\
+\bottomrule
+\end{tabular}
+\caption{Heavy-tail distribution statistics. All the results were computed using Alstott et al.\ \cite{alstott2014powerlaw} \texttt{powerlaw} package on a subsample of \(300,000\) observations. \(D_{KS}\) here is the distance between the power-law and the measured tail behavior.}
+\label{tab:baseline_full_stylized_facts}
 \end{table}
 
 \section{Phase--1}
@@ -99,11 +121,294 @@ nine Phase~1 configurations. Reference data has a total of \(5012\) windows, whi
 
 
 \subsection{Stylized Facts}
-Here is a comprehensive table of the tail exponent estimation which make use of Alstott et al.\ \cite{alstott2014powerlaw} \texttt{powerlaw} python module on a subset estimation of \(300,000\) values.
+Here is a comprehensive table of the tail exponent estimation which make use of Alstott et al.\ \cite{alstott2014powerlaw} \texttt{powerlaw} python module on a subset estimation of \(300,000\) values. The results are available in Tab.\ \ref{tab:baseline_full_stylized_facts}.
+% ================================================================
+% APPENDIX: STYLIZED FACTS — THREE SEPARATE GRIDS
+% Required packages: graphicx, subcaption, rotating
+% ================================================================
 
-[REPORT ALSO REFERNCE STYLIZED FACTS FOR CLARITY and ease of read]
+% ----------------------------------------------------------------
+% GRID 1: HEAVY-TAIL DISTRIBUTION
+% ----------------------------------------------------------------
+\begin{figure}[htbp]
+\centering
 
-[INSERT THE SHORT TABLE with xmin, number of elements in the tails, etc.]
+% COLUMN HEADERS
+\hspace{1.8em}%
+\begin{minipage}[c]{0.30\textwidth}
+  \centering\small\textbf{Linear}
+\end{minipage}%
+\hfill
+\begin{minipage}[c]{0.30\textwidth}
+  \centering\small\textbf{Cosine}
+\end{minipage}%
+\hfill
+\begin{minipage}[c]{0.30\textwidth}
+  \centering\small\textbf{Exponential}
+\end{minipage}
+
+\vspace{0.4em}
+{\color{black!25}\hrule}
+\vspace{0.2em}
+
+% ROW 1: VP SDE
+\rotatebox[origin=c]{90}{\small\textbf{VP}}\hspace{0.4em}%
+\begin{subfigure}[c]{0.30\textwidth}
+  \centering
+  \includegraphics[width=\linewidth]{images/Phase1/appendix/stylized_facts/pos_distribution_vp-lin_2048.png}
+  \label{fig:app_tail_vp_lin}
+\end{subfigure}\hfill
+\begin{subfigure}[c]{0.30\textwidth}
+  \centering
+  \includegraphics[width=\linewidth]{images/Phase1/pos_distribution_vp-cos_2048.png}
+  \label{fig:app_tail_vp_cos}
+\end{subfigure}\hfill
+\begin{subfigure}[c]{0.30\textwidth}
+  \centering
+  \includegraphics[width=\linewidth]{images/Phase1/appendix/stylized_facts/pos_distribution_vp-exp_2048.png}
+  \label{fig:app_tail_vp_exp}
+\end{subfigure}%
+
+\vspace{0.2em}
+
+% ROW 2: VE SDE
+\rotatebox[origin=c]{90}{\small\textbf{VE}}\hspace{0.4em}%
+\begin{subfigure}[c]{0.30\textwidth}
+  \centering
+  \includegraphics[width=\linewidth]{images/Phase1/appendix/stylized_facts/pos_distribution_ve-lin_2048.png}
+  \label{fig:app_tail_ve_lin}
+\end{subfigure}\hfill
+\begin{subfigure}[c]{0.30\textwidth}
+  \centering
+  \includegraphics[width=\linewidth]{images/Phase1/appendix/stylized_facts/pos_distribution_ve-cos_2048.png}
+  \label{fig:app_tail_ve_cos}
+\end{subfigure}\hfill
+\begin{subfigure}[c]{0.30\textwidth}
+  \centering
+  \includegraphics[width=\linewidth]{images/Phase1/pos_distribution_ve-exp_2048.png}
+  \label{fig:app_tail_ve_exp}
+\end{subfigure}%
+
+\vspace{0.2em}
+
+% ROW 3: GBM SDE
+\rotatebox[origin=c]{90}{\small\textbf{GBM}}\hspace{0.4em}%
+\begin{subfigure}[c]{0.30\textwidth}
+  \centering
+  \includegraphics[width=\linewidth]{images/Phase1/appendix/stylized_facts/pos_distribution_gbm-lin_2048.png}
+  \label{fig:app_tail_gbm_lin}
+\end{subfigure}\hfill
+\begin{subfigure}[c]{0.30\textwidth}
+  \centering
+  \includegraphics[width=\linewidth]{images/Phase1/appendix/stylized_facts/pos_distribution_gbm-cos_2048.png}
+  \label{fig:app_tail_gbm_cos}
+\end{subfigure}\hfill
+\begin{subfigure}[c]{0.30\textwidth}
+  \centering
+  \includegraphics[width=\linewidth]{images/Phase1/pos_distribution_gbm-exp_2048.png}
+  \label{fig:app_tail_gbm_exp}
+\end{subfigure}%
+
+\caption{Heavy-tail distribution (log--log scale, positive tail) for all nine Phase~1
+configurations. \textit{Rows} (top to bottom): VP, VE, and GBM SDE families.
+\textit{Columns} (left to right): linear, cosine, and exponential noise schedules.
+The estimated power-law tail exponent~$\hat{\alpha}$ is reported in
+Tab.~\ref{tab:phase1_aggregate}; the empirical reference is $\hat{\alpha}=4.378$.}
+\label{fig:app_phase1_tail_grid}
+\end{figure}
+
+% ----------------------------------------------------------------
+% GRID 2: VOLATILITY CLUSTERING
+% ----------------------------------------------------------------
+\begin{figure}[htbp]
+\centering
+
+% COLUMN HEADERS
+\hspace{1.8em}%
+\begin{minipage}[c]{0.30\textwidth}
+  \centering\small\textbf{Linear}
+\end{minipage}%
+\hfill
+\begin{minipage}[c]{0.30\textwidth}
+  \centering\small\textbf{Cosine}
+\end{minipage}%
+\hfill
+\begin{minipage}[c]{0.30\textwidth}
+  \centering\small\textbf{Exponential}
+\end{minipage}
+
+\vspace{0.4em}
+{\color{black!25}\hrule}
+\vspace{0.2em}
+
+% ROW 1: VP SDE
+\rotatebox[origin=c]{90}{\small\textbf{VP}}\hspace{0.4em}%
+\begin{subfigure}[c]{0.30\textwidth}
+  \centering
+  \includegraphics[width=\linewidth]{images/Phase1/appendix/stylized_facts/volatility_clustering_vp-lin_2048.png}
+  \label{fig:app_vol_vp_lin}
+\end{subfigure}\hfill
+\begin{subfigure}[c]{0.30\textwidth}
+  \centering
+  \includegraphics[width=\linewidth]{images/Phase1/volatility_clustering_vp-cos_2048.png}
+  \label{fig:app_vol_vp_cos}
+\end{subfigure}\hfill
+\begin{subfigure}[c]{0.30\textwidth}
+  \centering
+  \includegraphics[width=\linewidth]{images/Phase1/appendix/stylized_facts/volatility_clustering_vp-exp_2048.png}
+  \label{fig:app_vol_vp_exp}
+\end{subfigure}%
+
+\vspace{0.2em}
+
+% ROW 2: VE SDE
+\rotatebox[origin=c]{90}{\small\textbf{VE}}\hspace{0.4em}%
+\begin{subfigure}[c]{0.30\textwidth}
+  \centering
+  \includegraphics[width=\linewidth]{images/Phase1/appendix/stylized_facts/volatility_clustering_ve-lin_2048.png}
+  \label{fig:app_vol_ve_lin}
+\end{subfigure}\hfill
+\begin{subfigure}[c]{0.30\textwidth}
+  \centering
+  \includegraphics[width=\linewidth]{images/Phase1/appendix/stylized_facts/volatility_clustering_ve-cos_2048.png}
+  \label{fig:app_vol_ve_cos}
+\end{subfigure}\hfill
+\begin{subfigure}[c]{0.30\textwidth}
+  \centering
+  \includegraphics[width=\linewidth]{images/Phase1/volatility_clustering_ve-exp_2048.png}
+  \label{fig:app_vol_ve_exp}
+\end{subfigure}%
+
+\vspace{0.2em}
+
+% ROW 3: GBM SDE
+\rotatebox[origin=c]{90}{\small\textbf{GBM}}\hspace{0.4em}%
+\begin{subfigure}[c]{0.30\textwidth}
+  \centering
+  \includegraphics[width=\linewidth]{images/Phase1/appendix/stylized_facts/volatility_clustering_gbm-lin_2048.png}
+  \label{fig:app_vol_gbm_lin}
+\end{subfigure}\hfill
+\begin{subfigure}[c]{0.30\textwidth}
+  \centering
+  \includegraphics[width=\linewidth]{images/Phase1/appendix/stylized_facts/volatility_clustering_gbm-cos_2048.png}
+  \label{fig:app_vol_gbm_cos}
+\end{subfigure}\hfill
+\begin{subfigure}[c]{0.30\textwidth}
+  \centering
+  \includegraphics[width=\linewidth]{images/Phase1/volatility_clustering_gbm-exp_2048.png}
+  \label{fig:app_vol_gbm_exp}
+\end{subfigure}%
+
+\caption{Volatility clustering (autocorrelation of absolute returns on a log--log
+scale) for all nine Phase~1 configurations.
+Rows (top to bottom): VP, VE, and GBM SDE families.
+Columns (left to right): linear, cosine, and exponential noise schedules.
+Slow power-law decay indicates successful reproduction of long-range volatility
+dependence; rapid collapse or flattening indicates failure.}
+\label{fig:app_phase1_vol_grid}
+\end{figure}
+
+% ----------------------------------------------------------------
+% GRID 3: LEVERAGE EFFECT
+% ----------------------------------------------------------------
+\begin{figure}[htbp]
+\centering
+
+% COLUMN HEADERS
+\hspace{1.8em}%
+\begin{minipage}[c]{0.30\textwidth}
+  \centering\small\textbf{Linear}
+\end{minipage}%
+\hfill
+\begin{minipage}[c]{0.30\textwidth}
+  \centering\small\textbf{Cosine}
+\end{minipage}%
+\hfill
+\begin{minipage}[c]{0.30\textwidth}
+  \centering\small\textbf{Exponential}
+\end{minipage}
+
+\vspace{0.4em}
+{\color{black!25}\hrule}
+\vspace{0.2em}
+
+% ROW 1: VP SDE
+\rotatebox[origin=c]{90}{\small\textbf{VP}}\hspace{0.4em}%
+\begin{subfigure}[c]{0.30\textwidth}
+  \centering
+  \includegraphics[width=\linewidth]{images/Phase1/appendix/stylized_facts/leverage_effects_vp-lin_2048.png}
+  \label{fig:app_lev_vp_lin}
+\end{subfigure}\hfill
+\begin{subfigure}[c]{0.30\textwidth}
+  \centering
+  \includegraphics[width=\linewidth]{images/Phase1/leverage_effects_vp-cos_2048.png}
+  \label{fig:app_lev_vp_cos}
+\end{subfigure}\hfill
+\begin{subfigure}[c]{0.30\textwidth}
+  \centering
+  \includegraphics[width=\linewidth]{images/Phase1/appendix/stylized_facts/leverage_effects_vp-exp_2048.png}
+  \label{fig:app_lev_vp_exp}
+\end{subfigure}%
+
+\vspace{0.2em}
+
+% ROW 2: VE SDE
+\rotatebox[origin=c]{90}{\small\textbf{VE}}\hspace{0.4em}%
+\begin{subfigure}[c]{0.30\textwidth}
+  \centering
+  \includegraphics[width=\linewidth]{images/Phase1/appendix/stylized_facts/leverage_effects_ve-lin_2048.png}
+  \label{fig:app_lev_ve_lin}
+\end{subfigure}\hfill
+\begin{subfigure}[c]{0.30\textwidth}
+  \centering
+  \includegraphics[width=\linewidth]{images/Phase1/appendix/stylized_facts/leverage_effects_ve-cos_2048.png}
+  \label{fig:app_lev_ve_cos}
+\end{subfigure}\hfill
+\begin{subfigure}[c]{0.30\textwidth}
+  \centering
+  \includegraphics[width=\linewidth]{images/Phase1/leverage_effects_ve-exp_2048.png}
+  \label{fig:app_lev_ve_exp}
+\end{subfigure}%
+
+\vspace{0.2em}
+
+% ROW 3: GBM SDE
+\rotatebox[origin=c]{90}{\small\textbf{GBM}}\hspace{0.4em}%
+\begin{subfigure}[c]{0.30\textwidth}
+  \centering
+  \includegraphics[width=\linewidth]{images/Phase1/appendix/stylized_facts/leverage_effects_gbm-lin_2048.png}
+  \label{fig:app_lev_gbm_lin}
+\end{subfigure}\hfill
+\begin{subfigure}[c]{0.30\textwidth}
+  \centering
+  \includegraphics[width=\linewidth]{images/Phase1/appendix/stylized_facts/leverage_effects_gbm-cos_2048.png}
+  \label{fig:app_lev_gbm_cos}
+\end{subfigure}\hfill
+\begin{subfigure}[c]{0.30\textwidth}
+  \centering
+  \includegraphics[width=\linewidth]{images/Phase1/leverage_effects_gbm-exp_2048.png}
+  \label{fig:app_lev_gbm_exp}
+\end{subfigure}%
+
+\caption{Leverage effect (lead--lag correlation $L(k)$ between returns and future
+squared returns) for all nine Phase~1 configurations.
+Rows (top to bottom): VP, VE, and GBM SDE families.
+Columns (left to right): linear, cosine, and exponential noise schedules.
+Persistent negative values at small positive lags indicate successful reproduction
+of the leverage effect; oscillation around zero indicates failure.}
+\label{fig:app_phase1_lev_grid}
+\end{figure}
+
+\newpage
+\section{Phase~2}
+
+\subsection{Phase~1 Champions and Unconditional EDM-CSDI}
+In this section we present the extended versions of the results concerning the Phase~1 generalization of VE SDE with exponential and cosine schedules and the unconditional version of the EDM-CSDI model, whose results are presented in Sec.\ [REFERENCE TO CHAPTER 6].
+
+\textbf{Aggregate Statistics} \quad 
+
+\textbf{Stylized Facts} \quad
+
 % ================================================================
 % APPENDIX: STYLIZED FACTS — THREE SEPARATE GRIDS
 % Required packages: graphicx, subcaption, rotating
