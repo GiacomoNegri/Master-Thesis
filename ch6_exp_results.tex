@@ -59,9 +59,9 @@ The generated data display the following distributional statistics in Tab.\ \ref
   & {$W_1$}
   & {$\hat{\alpha}$} \\
 \midrule
-Reference & 0.0005 & 0.0232 & -0.5773 &    38.5028 & -0.0626 & 0.0649 & {---} & {---} & \\
-GARCH-X   & 0.0009 & 0.0230 & -7.5635 & 11021.7000 & -0.0577 & 0.0597 & 0.0540 & 0.0012 & \\
-Merton-X  & 0.0005 & 0.0364 &  1.2102 &  3736.4870 & -0.0584 & 0.0598 & 0.0423 & 0.0018     & \\
+Reference & 0.0005 & 0.0232 & -0.5773 &    38.5028 & -0.0626 & 0.0649 & {---} & {---} & 4.532\\
+GARCH-X   & 0.0009 & 0.0230 & -7.5635 & 11021.7000 & -0.0577 & 0.0597 & 0.0540 & 0.0012 & 4.188\\
+Merton-X  & 0.0005 & 0.0364 &  1.2102 &  3736.4870 & -0.0584 & 0.0598 & 0.0423 & 0.0018 & 3.344 \\
 \bottomrule
 \end{tabular}
 \caption{Aggregate distributional statistics for the GARCH-X and Merton-X baseline
@@ -69,21 +69,42 @@ models and the training reference. Values are computed over pooled log-returns. 
 \label{tab:baseline_aggregate}
 \end{table}
 
-From the statistics it is possible to observe that this model, which has been refined within a working windows can match many of the distributional properties, as possible to see by Fig. [FIGURE IN THE APPENDIX], see Tab.\ \ref{tab:baseline_full}, but they still struggle with higher moments, mostly because even if bound, the generation still tends to drift afar. Moreover, if we have a look at Fig.\ [STYLIZED FACTS COMBINED], we can see that the key properties of fat tails distribution and volatility clustering could are or could possibly be learned, while leverage effects are clearly missed. Moreover these models were fitted at a stock level, therefore their parameters are meaningless for different models.
+[COMMENT ABOUT THE UNBOUNDED KURTOSIS]
+From the statistics it is possible to observe that this model, which has been refined within a working windows can match many of the distributional properties, as possible to see by Fig. [FIGURE IN THE APPENDIX], see Tab.\ \ref{tab:baseline_full}, but they still struggle with higher moments, mostly because even if bound, the generation still tends to drift afar. Moreover, if we have a look at Fig.\ \ref{fig:baseline_models_stylized_facts}, we can see that the key properties of fat tails distribution and volatility clustering could are or could possibly be learned, while leverage effects are clearly missed. Moreover these models were fitted at a stock level, therefore their parameters are meaningless for different models.
 
 \begin{figure}[h]
     \centering
-    \includegraphics[width=0.8\textwidth]{figures/your_image_name}
-    \caption{Stylized facts for Reference, GARCH-X, and Merton-X}
-    \label{fig:your_label}
+    \includegraphics[width=1\textwidth]{images/garch_merton/stylized_facts_overlap_garch_merton_replication_copy.png}
+    \caption{Stylized facts for Reference, GARCH-X, and Merton-X. From left to right, heavy-tail distribution (positive tail); volatility clustering (ACF); and leverage effect (Sec.\ \ref{sec:fts_literature}).}
+    \label{fig:baseline_models_stylized_facts}
 \end{figure}
 
 One key distribution due to decimalization, atypical in distributions is the core (2\%-98\%) distribution that is hard to match, because of this peculiar shape. This gets smoothened out by the GARCH-X and Merton-X model.
 
+\begin{figure}[htbp]
+    \centering
+
+    \begin{subfigure}{0.4\textwidth}
+        \centering
+        \includegraphics[width=\textwidth]{images/garch_merton/THINNER_marginal_distribution_garch_garch_merton_replication_cropped.png}
+        \caption{GARCH-X distribution \(q_{0.02}-q_{0.98}\)}
+        \label{fig:image1}
+    \end{subfigure}
+    \hspace{0.04\textwidth}
+    \begin{subfigure}{0.4\textwidth}
+        \centering
+        \includegraphics[width=\textwidth]{images/garch_merton/THINNER_marginal_distribution_merton_garch_merton_replication_cropped.png}
+        \caption{Merton-X distribution \(q_{0.02}-q_{0.98}\)}
+        \label{fig:image2}
+    \end{subfigure}
+
+    \caption{Marginal distribution against Reference (in gray).}
+    \label{fig:garch_merton_thinner}
+\end{figure}
 
 \section{Phase 1 --- Replication}
 \label{sec:phase1_results}
-Phase~1 aims to replicate the generative approach of Kim et al.~\cite{kim2025diffusion} as detailed in the first column of Tab.\ \ref{tab:training_setup}. For each model a dataset of 512 windows of length \(L=2048\) were generated using probability-flow ODE, Eq.\ref{eq:probability_flow} with 2000 discretization steps. WHY 512 windows and not more
+Phase~1 aims to replicate the generative approach of Kim et al.~\cite{kim2025diffusion} as detailed in the first column of Tab.\ \ref{tab:training_setup}. For each model a dataset of 512 windows of length \(L=2048\) (\(1,048,576\) observation each) were generated using probability-flow ODE, Eq.\ref{eq:probability_flow} with 2000 discretization steps. The number of sampled was choosen for computational feasibility.
 
 [RIPRENDERE DA QUI]
 
@@ -157,44 +178,29 @@ log-returns and the training reference. Values are computed over pooled
 window-level \((L=2048, \texttt{ stride}=100)\) returns. Excess kurtosis is
 reported relative to the Gaussian. $D_{\mathrm{KS}}$ and $W_1$
 measure discrepancy against the training marginal (lower is better).
-$\hat{\alpha}$ is the estimated power-law tail exponent (reference
+$\hat{\alpha}$ is the estimated power-law tail exponent extimated on a subsample of \(300,000\) observation (reference
 $\hat{\alpha}=4.378$; closer is better).}
 \label{tab:phase1_aggregate}
 \end{table}
 
 %%%%%%%%%%%%%%%%%%%%%%%
 [WRITE INTERPRETATION]
-The statistics above are computed on \(n=1,048,576\) for each trained configuration.
+The statistics above show consistency in performance and have the advantage that they are bound in kurtosis and skewness. The other statistics, as it is possible to appreciate also by Tab.\ [REFERENCE APPENDIX TABLE], match fairly well the distributions in aggregate statistics, nevertheless they still fails in learning the specific patter observable between \(q_{0.02}-q_{0.98}\).
 
+Importantly, the interpretation of the log-returns as cumulative didn't yield any useful advantage, instead the learning seemed basic and the produced values are very close to the original gaussian.
 
-% [PLACEHOLDER: TABLE — aggregate distributional statistics (mean, std, skewness, excess
-% kurtosis, min, max) for generated vs. training close log-returns across all 7 Phase 1
-% configurations. Rows: training reference, VE-linear, VE-exponential, VE-cosine,
-% VP-linear, GBM-linear, GBM-exponential, GBM-cosine. Bold best per column.]
-
-% [PLACEHOLDER: FIGURE — QQ plots (top row) and ECDF comparisons (bottom row) for
-% a representative subset of Phase 1 configurations, e.g., one per SDE family (VE-best,
-% VP-linear, GBM-best) and the training reference. KS gap marked on each ECDF panel.]
-\begin{figure}[htbp]
+\begin{figure}[h]
     \centering
-    % [PLACEHOLDER: figure content]
-    \caption{Quantile--quantile plots (top row) and empirical cumulative distribution
-    function comparisons (bottom row) for selected Phase~1 configurations. Generated
-    distributions are shown as dashed lines; the training reference as a solid line.
-    The maximum vertical gap in each ECDF panel corresponds to the KS statistic
-    $D_{\text{KS}}$.}
-    \label{fig:phase1_qq_ecdf}
+    \includegraphics[width=1\textwidth]{images/Phase1/level_marginal_ve_exponential_2048_cropped.png}
+    \caption{From left to right, marginal distribution, QQ-plot, ECDF plot. All three graphs are of VE SDE with Exponential noise schedule and the displayed quantiles are \(q_{0.001}-q_{0.999}\).}
+    \label{fig:level_marginal_ve_exponantial_2048}
 \end{figure}
 
-Clearly the Exponental and cosine seem to be superior, as well as the ve sde.
+Clearly the VE seem to be superior with linear that while more promising in training it has more difficulties in reconstructing the series and it is either unstable or smooth excessively the distribution. There are still two limitations distributionally of the VE approach: first it undershoot tail reconstruction, as it is possible to see from Fig.\ \ref{fig:level_marginal_ve_exponantial_2048} QQ-plot and it misses the 0\% returns peak as for GARCH-X and Merton-X, as shown by the generated ECDF cutting through.
 
 Based on the results in Tab.~\ref{tab:phase1_aggregate} and
 Fig.~\ref{fig:phase1_qq_ecdf},
-% [PLACEHOLDER: narrative interpretation — which configurations achieve the lowest KS
-% and W1 values? Are skewness and excess kurtosis reproduced by any SDE variant?
-% Does the GBM-inspired SDE or any particular noise schedule show a consistent
-% advantage in distributional matching? Note whether the bulk or the tails are the
-% main source of discrepancy across configurations.]
+
 
 \textbf{Stylized Facts}
 Heavy tails \(\alpha\) coefficient was estimated on a subsample of \(300,000\) observations using \texttt{powerlaw} package from Alstott et al.\ \cite{alstott2014powerlaw}
@@ -202,24 +208,6 @@ Heavy tails \(\alpha\) coefficient was estimated on a subsample of \(300,000\) o
 Our estimation of the \(\alpha\) component is in line with Kim el al., which reported a \(\alpha\approx4.35\), while our estimation is \(4.37\), therefore in line. An estimation below this benchmark indicates that the data has a heavier tails.
 
 The reference stylized facts are display here and have been recomputed from Sec.\ \ref{sec:fts_literature} on the windows, in order to guranteed a fair comparison with generated stylized facts.
-
-% Required packages (add to preamble if not already present):
-%   \usepackage{graphicx}
-%   \usepackage{subcaption}
-%   \usepackage{rotating}    % for \rotatebox
-%
-% HOW IT WORKS
-% ------------
-% Column headers: a row of three \minipage blocks, offset by \hspace{1.8em}
-%   to align with the subfigure columns beneath (the offset matches the
-%   width consumed by the \rotatebox row label).
-% Row labels: \rotatebox[origin=c]{90}{...} placed immediately before
-%   the first subfigure of each row, with a small \hspace{0.4em} gap.
-% Panel widths: each subfigure is 0.30\textwidth, with \hfill between them.
-%   Adjust to 0.29\textwidth if images have wide whitespace margins.
-% Subcaption labels are suppressed (no \caption inside subfigure) so only
-%   the single figure-level \caption appears.
-% Cross-reference individual panels via their \label if needed.
 
 \begin{figure}[htbp]
 \centering
@@ -242,7 +230,7 @@ The reference stylized facts are display here and have been recomputed from Sec.
 
 \vspace{0.4em}
 {\color{black!25}\hrule}
-\vspace{0.2em}
+\vspace{0.1em}
 
 % ----------------------------------------------------------------
 % ROW 0: Empirical reference      [BUG 1 FIXED: single \rotatebox]
@@ -264,7 +252,7 @@ The reference stylized facts are display here and have been recomputed from Sec.
   \label{fig:ref_lev}
 \end{subfigure}%                   no trailing \hfill, % suppresses whitespace
 
-\vspace{0.15em}
+\vspace{0.1em}
 
 % ----------------------------------------------------------------
 % ROW 1: VE SDE
@@ -286,7 +274,7 @@ The reference stylized facts are display here and have been recomputed from Sec.
   \label{fig:ve_lev}
 \end{subfigure}%                   [BUG 2 FIXED: % instead of blank line]
 
-\vspace{0.2em}
+\vspace{0.1em}
 
 % ----------------------------------------------------------------
 % ROW 2: VP SDE
@@ -308,7 +296,7 @@ The reference stylized facts are display here and have been recomputed from Sec.
   \label{fig:vp_lev}
 \end{subfigure}%
 
-\vspace{0.2em}
+\vspace{0.1em}
 
 % ----------------------------------------------------------------
 % ROW 3: GBM SDE
@@ -330,7 +318,7 @@ The reference stylized facts are display here and have been recomputed from Sec.
   \label{fig:gbm_lev}
 \end{subfigure}%
 
-\vspace{0.2em}
+\vspace{0.1em}
 
 \caption{Stylized facts across Phase~1 SDE families and the empirical training
 reference on windows with \(L=2048\). \textit{Columns} (left to right): heavy-tail distribution on a log--log
@@ -340,12 +328,7 @@ returns on a log--log scale (volatility clustering); lead--lag correlation $L(k)
 \label{fig:phase1_stylized_grid}
 \end{figure}
 
-Based on Fig.~\ref{fig:phase1_leverage},
-% [PLACEHOLDER: narrative — do any configurations reproduce persistent negative L(k)
-% for small positive lags? Is the GBM-inspired SDE notably better than VE or VP?
-% If no configuration captures the leverage effect, note this as a structural
-% limitation: a Gaussian diffusion kernel, even with heteroskedastic inspiration,
-% may lack the directional asymmetry required to generate this property.]
+Based on Fig.~\ref{fig:phase1_leverage}, then we can notice that the heavy tailed it is matched even if it is slightly lighter for all of the SDE analysed. Similarly, with leverage effects the first lag interaction is lighter and lower in magnitude.
 
 \textbf{Sample Paths}
 
@@ -386,6 +369,9 @@ In conclusion, it seem that under certain condition, it could work. but we disca
     \label{tab:phase1_ranking}
     % [PLACEHOLDER: table content]
 \end{table}
+
+\section{Phase 2 -- EDM-CSDI}
+In this section we will explore the results concerning the unconditional generation of our EDM model. The training parameters are the same defined in Tab.\ \ref{tab:training_setup} Phase 2 but with the \texttt{unconditional} mask instead of the \texttt{predict\_close} one and with the number of features \(K=1\). In order to have a fair comparison with Phase 1, the two most promising models were retrained. Both use VE SDE formulation and one rely on exponental noise schedule, while the other on cosine. Their settings are the same as Phase 1 in Tab.\ \ref{tab:training_setup} with the exception of \(L=512\) and \(s=100\).
 
 \section{Phase 2 --- EDM-CSDI Conditional Generation}
 \label{sec:phase2}
