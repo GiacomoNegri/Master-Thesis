@@ -47,6 +47,150 @@ at this precision.}
 \label{tab:baseline_full}
 \end{table}
 
+%%%%% Phase 1 — Marginal Distribution: all 9 configurations (9×1)
+%%%%% Phase 1 — Marginal Distribution: VE (3×1)
+\begin{figure}[htbp]
+    \centering
+
+    % ── ROW 1: VE + Cosine ──────────────────────────────────────────
+    \begin{subfigure}[c]{0.04\textwidth}
+        \centering
+        \rotatebox{90}{\small\textbf{VE + Cos.}}
+    \end{subfigure}%
+    \begin{subfigure}[c]{0.96\textwidth}
+        \centering
+        \includegraphics[width=\linewidth]{images/Phase1/appendix/marginal/level_marginal_ve_cosine_2048.png}
+        \label{fig:app_marg_ve_cos}
+    \end{subfigure}
+
+    \vspace{0.2em}
+
+    % ── ROW 2: VE + Exponential ─────────────────────────────────────
+    \begin{subfigure}[c]{0.04\textwidth}
+        \centering
+        \rotatebox{90}{\small\textbf{VE + Exp.}}
+    \end{subfigure}%
+    \begin{subfigure}[c]{0.96\textwidth}
+        \centering
+        \includegraphics[width=\linewidth]{images/Phase1/appendix/marginal/level_marginal_ve_exponential_2048.png}
+        \label{fig:app_marg_ve_exp}
+    \end{subfigure}
+
+    \vspace{0.2em}
+
+    % ── ROW 3: VE + Linear ──────────────────────────────────────────
+    \begin{subfigure}[c]{0.04\textwidth}
+        \centering
+        \rotatebox{90}{\small\textbf{VE + Lin.}}
+    \end{subfigure}%
+    \begin{subfigure}[c]{0.96\textwidth}
+        \centering
+        \includegraphics[width=\linewidth]{images/Phase1/appendix/marginal/level_marginal_ve_linear_2048.png}
+        \label{fig:app_marg_ve_lin}
+    \end{subfigure}
+
+    \caption{Marginal distribution for the VE SDE family across all three noise
+    schedules (cosine, exponential, linear). From left to right: full marginal
+    distribution \((q_{0.001}\text{--}q_{0.999})\), QQ-plot, ECDF.}
+    \label{fig:app_phase1_marginal_ve}
+\end{figure}
+
+
+%%%%% Phase 1 — Marginal Distribution: GBM (3×1)
+\begin{figure}[htbp]
+    \centering
+
+    % ── ROW 1: GBM + Cosine ─────────────────────────────────────────
+    \begin{subfigure}[c]{0.04\textwidth}
+        \centering
+        \rotatebox{90}{\small\textbf{GBM + Cos.}}
+    \end{subfigure}%
+    \begin{subfigure}[c]{0.96\textwidth}
+        \centering
+        \includegraphics[width=\linewidth]{images/Phase1/appendix/marginal/level_marginal_gbm_cosine_2048.png}
+        \label{fig:app_marg_gbm_cos}
+    \end{subfigure}
+
+    \vspace{0.2em}
+
+    % ── ROW 2: GBM + Exponential ────────────────────────────────────
+    \begin{subfigure}[c]{0.04\textwidth}
+        \centering
+        \rotatebox{90}{\small\textbf{GBM + Exp.}}
+    \end{subfigure}%
+    \begin{subfigure}[c]{0.96\textwidth}
+        \centering
+        \includegraphics[width=\linewidth]{images/Phase1/appendix/marginal/level_marginal_gbm_exponential_2048.png}
+        \label{fig:app_marg_gbm_exp}
+    \end{subfigure}
+
+    \vspace{0.2em}
+
+    % ── ROW 3: GBM + Linear ─────────────────────────────────────────
+    \begin{subfigure}[c]{0.04\textwidth}
+        \centering
+        \rotatebox{90}{\small\textbf{GBM + Lin.}}
+    \end{subfigure}%
+    \begin{subfigure}[c]{0.96\textwidth}
+        \centering
+        \includegraphics[width=\linewidth]{images/Phase1/appendix/marginal/level_marginal_gbm_linear_2048.png}
+        \label{fig:app_marg_gbm_lin}
+    \end{subfigure}
+
+    \caption{Marginal distribution for the GBM SDE family across all three noise
+    schedules (cosine, exponential, linear). From left to right: full marginal
+    distribution \((q_{0.001}\text{--}q_{0.999})\), QQ-plot, ECDF.}
+    \label{fig:app_phase1_marginal_gbm}
+\end{figure}
+
+
+%%%%% Phase 1 — Marginal Distribution: VP (3×1)
+\begin{figure}[htbp]
+    \centering
+
+    % ── ROW 1: VP + Cosine ──────────────────────────────────────────
+    \begin{subfigure}[c]{0.04\textwidth}
+        \centering
+        \rotatebox{90}{\small\textbf{VP + Cos.}}
+    \end{subfigure}%
+    \begin{subfigure}[c]{0.96\textwidth}
+        \centering
+        \includegraphics[width=\linewidth]{images/Phase1/appendix/marginal/level_marginal_vp_cosine_2048.png}
+        \label{fig:app_marg_vp_cos}
+    \end{subfigure}
+
+    \vspace{0.2em}
+
+    % ── ROW 2: VP + Exponential ─────────────────────────────────────
+    \begin{subfigure}[c]{0.04\textwidth}
+        \centering
+        \rotatebox{90}{\small\textbf{VP + Exp.}}
+    \end{subfigure}%
+    \begin{subfigure}[c]{0.96\textwidth}
+        \centering
+        \includegraphics[width=\linewidth]{images/Phase1/appendix/marginal/level_marginal_vp_exponential_2048.png}
+        \label{fig:app_marg_vp_exp}
+    \end{subfigure}
+
+    \vspace{0.2em}
+
+    % ── ROW 3: VP + Linear ──────────────────────────────────────────
+    \begin{subfigure}[c]{0.04\textwidth}
+        \centering
+        \rotatebox{90}{\small\textbf{VP + Lin.}}
+    \end{subfigure}%
+    \begin{subfigure}[c]{0.96\textwidth}
+        \centering
+        \includegraphics[width=\linewidth]{images/Phase1/appendix/marginal/level_marginal_vp_linear_2048.png}
+        \label{fig:app_marg_vp_lin}
+    \end{subfigure}
+
+    \caption{Marginal distribution for the VP SDE family across all three noise
+    schedules (cosine, exponential, linear). From left to right: full marginal
+    distribution \((q_{0.001}\text{--}q_{0.999})\), QQ-plot, ECDF.}
+    \label{fig:app_phase1_marginal_vp}
+\end{figure}
+
 \textbf{Stylized Facts} \quad 
 
 \begin{table}[htbp]
@@ -97,21 +241,21 @@ W-count $= 1,048,576$. In this case reference statistics are computed on the win
   &
   & \textbf{Cos.} & \textbf{Exp.} & \textbf{Lin.}
   & \textbf{Cos.} & \textbf{Exp.} & \textbf{Lin.}
-  & \textbf{Lin.} & \textbf{Exp.} & \textbf{Cos.} \\
+  & \textbf{Cos.} & \textbf{Exp.} & \textbf{Lin.} \\
 \midrule
-Mean        &  0.0005 &  0.0008 &  0.0005 &  0.0004 &  0.0001 &  0.0001 &  0.0001 &  0.0023 &  0.0011 &  0.0003 \\
-Std         &  0.0208 &  0.0221 &  0.0190 &  0.0270 &  0.1437 &  0.1453 &  0.2797 &  0.0446 &  0.0546 &  0.0235 \\
-Min         & $-$1.0393 & $-$0.8637 & $-$0.7375 & $-$1.0027 & $-$1.1243 & $-$1.2076 & $-$1.4188 & $-$3.7898 & $-$1.4700 & $-$0.9684 \\
-$q_{0.01}$  & $-$0.0562 & $-$0.0558 & $-$0.0479 & $-$0.0649 & $-$0.3350 & $-$0.3385 & $-$0.6519 & $-$0.0739 & $-$0.1365 & $-$0.0607 \\
-$q_{0.05}$  & $-$0.0291 & $-$0.0322 & $-$0.0282 & $-$0.0422 & $-$0.2361 & $-$0.2387 & $-$0.4601 & $-$0.0438 & $-$0.0826 & $-$0.0345 \\
-$q_{0.25}$  & $-$0.0086 & $-$0.0112 & $-$0.0101 & $-$0.0164 & $-$0.0963 & $-$0.0974 & $-$0.1880 & $-$0.0161 & $-$0.0270 & $-$0.0121 \\
-Median      &  0.0000 &  0.0008 &  0.0005 &  0.0004 &  0.0001 &  0.0001 &  0.0002 &  0.0014 & $-$0.0010 &  0.0003 \\
-$q_{0.75}$  &  0.0095 &  0.0128 &  0.0112 &  0.0173 &  0.0969 &  0.0979 &  0.1886 &  0.0190 &  0.0269 &  0.0126 \\
-$q_{0.95}$  &  0.0304 &  0.0340 &  0.0293 &  0.0432 &  0.2361 &  0.2388 &  0.4600 &  0.0474 &  0.0935 &  0.0353 \\
-$q_{0.99}$  &  0.0583 &  0.0575 &  0.0492 &  0.0659 &  0.3342 &  0.3379 &  0.6516 &  0.0891 &  0.1539 &  0.0627 \\
-Max         &  0.7694 &  0.4840 &  0.6426 &  0.6988 &  0.7719 &  0.8477 &  1.3203 &  5.2992 &  0.8569 &  0.5055 \\
-Skewness    & $-$0.5387 & $-$0.5979 & $-$0.0862 & $-$0.1712 & $-$0.0125 & $-$0.0122 & $-$0.0023 &  6.3270 &  0.1525 & $-$0.2985 \\
-Ex.\ Kurt.  & 36.0632 & 21.4585 & 14.3427 &  7.0516 &  0.0675 &  0.0727 &  0.0184 & 529.8246 &  5.6258 & 15.7986 \\
+Mean        &  0.0005 &  0.0008 &  0.0005 &  0.0004 &  0.0001 &  0.0001 &  0.0001 &  0.0003 &  0.0011 &  0.0023 \\
+Std         &  0.0208 &  0.0221 &  0.0190 &  0.0270 &  0.1437 &  0.1453 &  0.2797 &  0.0235 &  0.0546 & 0.0446 \\
+Min         & $-$1.0393 & $-$0.8637 & $-$0.7375 & $-$1.0027 & $-$1.1243 & $-$1.2076 & $-$1.4188 & $-$0.9684 & $-$1.4700 & $-$3.7898 \\
+$q_{0.01}$  & $-$0.0562 & $-$0.0558 & $-$0.0479 & $-$0.0649 & $-$0.3350 & $-$0.3385 & $-$0.6519 & $-$0.0607 & $-$0.1365 & $-$0.0739 \\
+$q_{0.05}$  & $-$0.0291 & $-$0.0322 & $-$0.0282 & $-$0.0422 & $-$0.2361 & $-$0.2387 & $-$0.4601 & $-$0.0345 & $-$0.0826 & $-$0.0438 \\
+$q_{0.25}$  & $-$0.0086 & $-$0.0112 & $-$0.0101 & $-$0.0164 & $-$0.0963 & $-$0.0974 & $-$0.1880 & $-$0.0121  & $-$0.0270 & $-$0.0161\\
+Median      &  0.0000 &  0.0008 &  0.0005 &  0.0004 &  0.0001 &  0.0001 &  0.0002 &  0.0003 & $-$0.0010 & 0.0014 \\
+$q_{0.75}$  &  0.0095 &  0.0128 &  0.0112 &  0.0173 &  0.0969 &  0.0979 &  0.1886 &  0.0126 &  0.0269 & 0.0190 \\
+$q_{0.95}$  &  0.0304 &  0.0340 &  0.0293 &  0.0432 &  0.2361 &  0.2388 &  0.4600 & 0.0353 &  0.0935 &  0.0474 \\
+$q_{0.99}$  &  0.0583 &  0.0575 &  0.0492 &  0.0659 &  0.3342 &  0.3379 &  0.6516 &  0.0627 &  0.1539 &  0.0891 \\
+Max         &  0.7694 &  0.4840 &  0.6426 &  0.6988 &  0.7719 &  0.8477 &  1.3203 &  0.5055 &  0.8569 &  5.2992 \\
+Skewness    & $-$0.5387 & $-$0.5979 & $-$0.0862 & $-$0.1712 & $-$0.0125 & $-$0.0122 & $-$0.0023 & $-$0.2985 &  0.1525 &  6.3270 \\
+Ex.\ Kurt.  & 36.0632 & 21.4585 & 14.3427 &  7.0516 &  0.0675 &  0.0727 &  0.0184 & 15.7986 &  5.6258 & 529.8246 \\
 \bottomrule
 \end{tabular}
 \caption{Window-level distributional statistics for the training reference and all
@@ -119,6 +263,32 @@ nine Phase~1 configurations. Reference data has a total of \(5012\) windows, whi
 \label{tab:phase1_raw_with_reference}
 \end{table}
 
+[INSERTING MARIGNAL IMAGES]
+\begin{figure}[htbp]
+    \centering
+
+    \begin{subfigure}{\textwidth}
+        \centering
+        \includegraphics[width=\linewidth]{images/phase1/appendix/}
+    \end{subfigure}
+
+    \vspace{0.2em}
+
+    \begin{subfigure}{\textwidth}
+        \centering
+        \includegraphics[width=\linewidth]{images/garch_merton/appendix/marginal_distribution_merton.png}
+    \end{subfigure}
+
+    % \vspace{0.2em}
+
+    % \begin{subfigure}{\textwidth}
+    %     \centering
+    %     \includegraphics[width=\linewidth]{images/your_image_3.png}
+    % \end{subfigure}
+
+    \caption{From left to right, marginal distribution \((q_{0.001}-q_{0.999})\), QQ-lot, ECDF plot. \textit{Top row}: GARCH-X. \textit{Bottom row}: Merton-X.}
+    \label{fig:garch_merton_marginals}
+\end{figure}
 
 \subsection{Stylized Facts}
 Here is a comprehensive table of the tail exponent estimation which make use of Alstott et al.\ \cite{alstott2014powerlaw} \texttt{powerlaw} python module on a subset estimation of \(300,000\) values. The results are available in Tab.\ \ref{tab:baseline_full_stylized_facts}.
@@ -492,7 +662,7 @@ $W_1$
 \bottomrule
 \end{tabular}
 \caption{Aggregate statistics for the dataset splits. Data is reported for the Validation hold-out windows, Training windows, and their combination, Both. Excess kurtosis is reported relative to the Gaussian. $D_{\mathrm{KS}}$ and $W_1$ measure discrepancy against the training marginal (lower is better). $\hat{\alpha}$ is the estimated power-law tail exponent extimated on a subsample of \(300,000\) observation (reference $\hat{\alpha}=4.378$; closer is better).}
-\label{tab:ve_phase1_512_100_full}
+\label{tab:phase1_512_100_full}
 \end{table}
 
 \textbf{Stylized Facts} \quad

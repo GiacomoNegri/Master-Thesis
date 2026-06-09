@@ -81,7 +81,7 @@ et al.~\cite{kim2025diffusion}, who are assumed to have either applied a similar
 For the GBM-inspired SDE variant, each window was additionally mean-centred prior 
 to training by subtracting the sample mean of the window. This transformation does not conflict with the generative setting, because no forecasting is performed. In addition, any daily log-returns can be easily recovered by \(r_{\tau+k}=C_{\tau+k}-C_{\tau+k-1}\), except for the first element.
 
-\(\textbf{Phase 2}\ \quad \) In order to assess the discriminative power of the conditioning information, validation windows were fully held out: for any ticker whose window was selected for validation, no other window covering the same time range appeared in the training set. This reduces the number of training samples available for learning, however, this effect is mitigated by the larger number of windows available.
+\(\textbf{Phase 2}\ \quad \) In order to assess the discriminative power of the conditioning information, validation windows were fully held out: for any ticker whose window was selected for validation, no other window covering the same time range appeared in the training set. This reduces the number of training samples available for learning, since for every additional validation window used 6 training windows must be suppressed, however this effect is mitigated by the larger number of windows available.
 
 % Overlapping windows introduce correlation between adjacent training samples, violating
 % the i.i.d.\ batch assumption. This is a standard and accepted approximation in
@@ -124,7 +124,7 @@ substantially higher compute cost.
     \begin{subfigure}{0.48\textwidth}
         \centering
         \includegraphics[width=\textwidth]{images/ch4/noise_schedules.png}
-        \caption{Sigma Schedule (\(\sigma_{\min}=0.01\), \(\sigma_{\max}=1.0\))}
+        \caption{Sigma Schedule (\(\sigma_{\min}=0.01\), \(\sigma_{\max}=1.0\)) for \(t\sim \mathcal{U}(0,1]\) and noise \(\sigma(t)\)}
         \label{fig:image1}
     \end{subfigure}
     \hfill
@@ -143,7 +143,7 @@ substantially higher compute cost.
 In Phase~1, they define the range of the forward-process noise: VE-style diffusion
 uses $\sigma_{\max} = 1$ and $\sigma_{\min} = 0.01$; GBM-style diffusion, operating
 on cumulative log-returns, uses $\sigma_{\max} = 10$ and $\sigma_{\min} = 0.1$; and
-the VP formulation is parameterised by $\beta_{\max} = 8$ and $\beta_{\min} = 0.01$.
+the VP formulation is parameterised by $\beta_{\max} = 8$ and $\beta_{\min} = 0.01$. The choice was reached after testing the forward process and reaching prior matching while retaining as much as possible signal, with focus on the first.
 In Phase~2, the EDM log-normal sampling distribution
 $\ln\sigma \sim \mathcal{N}(P_{\text{mean}}, P_{\text{std}}^2)$ replaces the
 forward-process schedule entirely. The values $P_{\text{mean}} = -1.4$ and
