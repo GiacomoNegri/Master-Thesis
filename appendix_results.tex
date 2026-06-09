@@ -402,286 +402,517 @@ of the leverage effect; oscillation around zero indicates failure.}
 \newpage
 \section{Phase~2}
 
-\subsection{Phase~1 Champions and Unconditional EDM-CSDI}
+\subsection{Phase~1 Champions}
 In this section we present the extended versions of the results concerning the Phase~1 generalization of VE SDE with exponential and cosine schedules and the unconditional version of the EDM-CSDI model, whose results are presented in Sec.\ [REFERENCE TO CHAPTER 6].
 
 \textbf{Aggregate Statistics} \quad 
 
-\textbf{Stylized Facts} \quad
+\begin{table}[htbp]
+\centering
+\footnotesize
+\renewcommand{\arraystretch}{1.28}
+\setlength{\tabcolsep}{3pt}
+\begin{tabular}{
+  l
+  r r r          % Validation: Ref.  VE+Exp.  VE+Cos.
+  r r r          % Training:   Ref.  VE+Exp.  VE+Cos.
+  r r r          % Both:       Ref.  VE+Exp.  VE+Cos.
+}
+\toprule
+& \multicolumn{3}{c}{\textbf{Validation}}
+& \multicolumn{3}{c}{\textbf{Training}}
+& \multicolumn{3}{c}{\textbf{Both}} \\
+\cmidrule(lr){2-4}\cmidrule(lr){5-7}\cmidrule(lr){8-10}
+\textbf{Statistic}
+  & \textbf{Ref.} & \textbf{VE+Exp.} & \textbf{VE+Cos.}
+  & \textbf{Ref.} & \textbf{VE+Exp.} & \textbf{VE+Cos.}
+  & \textbf{Ref.} & \textbf{VE+Exp.} & \textbf{VE+Cos.} \\
+\midrule
+Mean
+  &  0.0005 &  0.0003 &  0.0004
+  &  0.0005 &  0.0003 &  0.0004
+  &  0.0005 &  0.0003 &  0.0004 \\
+Std
+  &  0.0206 &  0.0203 &  0.0211
+  &  0.0208 &  0.0199 &  0.0209
+  &  0.0209 &  0.0199 &  0.0209 \\
+Min
+  & $-$0.7259 & $-$1.0095 & $-$0.7135
+  & $-$0.9363 & $-$0.9300 & $-$1.0032
+  & $-$0.9363 & $-$1.0095 & $-$1.0032 \\
+$q_{0.01}$
+  & $-$0.0560 & $-$0.0522 & $-$0.0545
+  & $-$0.0561 & $-$0.0506 & $-$0.0534
+  & $-$0.0563 & $-$0.0508 & $-$0.0535 \\
+$q_{0.05}$
+  & $-$0.0292 & $-$0.0304 & $-$0.0312
+  & $-$0.0291 & $-$0.0299 & $-$0.0310
+  & $-$0.0292 & $-$0.0300 & $-$0.0311 \\
+$q_{0.25}$
+  & $-$0.0087 & $-$0.0109 & $-$0.0111
+  & $-$0.0086 & $-$0.0108 & $-$0.0110
+  & $-$0.0086 & $-$0.0108 & $-$0.0110 \\
+Median
+  &  0.0000 &  0.0004 &  0.0004
+  &  0.0000 &  0.0004 &  0.0004
+  &  0.0000 &  0.0004 &  0.0004 \\
+$q_{0.75}$
+  &  0.0096 &  0.0115 &  0.0118
+  &  0.0095 &  0.0115 &  0.0118
+  &  0.0095 &  0.0115 &  0.0118 \\
+$q_{0.95}$
+  &  0.0304 &  0.0309 &  0.0321
+  &  0.0305 &  0.0307 &  0.0321
+  &  0.0305 &  0.0307 &  0.0321 \\
+$q_{0.99}$
+  &  0.0572 &  0.0525 &  0.0558
+  &  0.0582 &  0.0513 &  0.0552
+  &  0.0583 &  0.0514 &  0.0553 \\
+Max
+  &  0.4723 &  0.7244 &  0.3350
+  &  0.6931 &  0.9388 &  1.2113
+  &  0.6931 &  0.9388 &  1.2113 \\
+Skewness
+  & $-$0.4962 & $-$0.3531 & $-$0.2933
+  & $-$0.5871 & $-$0.2246 & $-$0.2304
+  & $-$0.5864 & $-$0.2382 & $-$0.2368 \\
+Ex.\ Kurt.
+  & 26.8995 & 18.3077 & 11.6873
+  & 40.2560 & 13.9255 & 17.2459
+  & 39.5127 & 14.3986 & 16.6755 \\
+\midrule
+$D_{\mathrm{KS}}$
+  & {---} & 0.0454 & 0.0469
+  & {---} & 0.0418 & 0.0462
+  & {---} & 0.0436 & 0.0458 \\
+$W_1$
+  & {---} & 0.0018 & 0.0020
+  & {---} & 0.0019 & 0.0021
+  & {---} & 0.0019 & 0.0020 \\
+\bottomrule
+\end{tabular}
+\caption{Aggregate statistics for the dataset splits. Data is reported for the Validation hold-out windows, Training windows, and their combination, Both. Excess kurtosis is reported relative to the Gaussian. $D_{\mathrm{KS}}$ and $W_1$ measure discrepancy against the training marginal (lower is better). $\hat{\alpha}$ is the estimated power-law tail exponent extimated on a subsample of \(300,000\) observation (reference $\hat{\alpha}=4.378$; closer is better).}
+\label{tab:ve_phase1_512_100_full}
+\end{table}
 
+\textbf{Stylized Facts} \quad
+Below it is possible to observe the stylized facts: heavy-tails distribution, volatility clustering, and leverage effects. Here are displayed the results for the three partition: validation, training, and all windows. 
+\begin{figure}[h]
+    \centering
+    \includegraphics[width=1\textwidth]{images/Phase2/overlap_stylized_facts_phase2.png}
+    \caption{Validation. From left to right, heavy-tail distribution, volatility clustering, and leverage effect for windows of lenght \(L=512\) and stride \(s=100\) in the validation dataset split. In blue the reference, in purple VE SDE with exponential noise scheduler and in orange VE SDE with exponential noise scheduler.}
+    \label{fig:level_marginal_ve_exponantial_2048_val}
+\end{figure}
+
+\begin{figure}[h]
+    \centering
+    \includegraphics[width=1\textwidth]{images/Phase2/appendix/stylized_facts/overlap_stylized_facts_train.png}
+    \caption{Training. From left to right, heavy-tail distribution, volatility clustering, and leverage effect for windows of lenght \(L=512\) and stride \(s=100\) in the training dataset split. In blue the reference, in purple VE SDE with exponential noise scheduler and in orange VE SDE with exponential noise scheduler.}
+    \label{fig:level_marginal_ve_exponantial_2048_train}
+\end{figure}
+
+\begin{figure}[h]
+    \centering
+    \includegraphics[width=1\textwidth]{images/Phase2/appendix/stylized_facts/overlap_stylized_facts_both.png}
+    \caption{Both. From left to right, heavy-tail distribution, volatility clustering, and leverage effect for windows of lenght \(L=512\) and stride \(s=100\) in the entire dataset. In blue the reference, in purple VE SDE with exponential noise scheduler and in orange VE SDE with exponential noise scheduler.}
+    \label{fig:level_marginal_ve_exponantial_2048_both}
+\end{figure}
+
+\begin{table}[htbp]
+\centering
+\footnotesize
+\renewcommand{\arraystretch}{1.28}
+\setlength{\tabcolsep}{3pt}
+\begin{tabular}{
+  l
+  r r r          % Validation: Ref.  VE+Exp.  VE+Cos.
+  r r r          % Training:   Ref.  VE+Exp.  VE+Cos.
+  r r r          % Both:       Ref.  VE+Exp.  VE+Cos.
+}
+\toprule
+& \multicolumn{3}{c}{\textbf{Validation}}
+& \multicolumn{3}{c}{\textbf{Training}}
+& \multicolumn{3}{c}{\textbf{Both}} \\
+\cmidrule(lr){2-4}\cmidrule(lr){5-7}\cmidrule(lr){8-10}
+\textbf{Statistic}
+  & \textbf{Ref.} & \textbf{VE+Exp.} & \textbf{VE+Cos.}
+  & \textbf{Ref.} & \textbf{VE+Exp.} & \textbf{VE+Cos.}
+  & \textbf{Ref.} & \textbf{VE+Exp.} & \textbf{VE+Cos.} \\
+\midrule
+\(\hat{\alpha}\)
+  &  4.346 &  4.633 &  4.383
+  &  4.555 &  4.714 &  4.410
+  &  4.177 &  4.634 &  4.577 \\
+\(x_{\min}\)
+  &  0.0765 &  0.0616 &  0.0538
+  &  0.1018 &  0.0612 &  0.0488
+  &  0.0680 &  0.0529 &  0.0579 \\
+\(D_{KS}\)
+  & 0.0187 & 0.0098 & 0.0148
+  & 0.0177 & 0.0105 & 0.0111
+  & 0.0134 & 0.0090 & 0.0145 \\
+\(n\)-\textbf{tail}
+  & 2766 & 3494 & 6474
+  & 1150 & 3192 & 8549
+  & 3994 & 5423 & 4929 \\
+\bottomrule
+\end{tabular}
+\caption{Heavy-tail distribution statistics for Validation, Training, and Both dataset split for VE SDE with exponential and cosine noise scheduler. All the results were computed using Alstott et al.\ \cite{alstott2014powerlaw} \texttt{powerlaw} package on a subsample of \(300,000\) observations. \(D_{KS}\) here is the distance between the power-law and the measured tail behavior.}
+\label{tab:appendix_stylized_facts_ve_512_100}
+\end{table}
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+\newpage
+\subsection{Unconditional and Conditional EDM}
+In this sub-sectionthe detailed data regarding the model EDM+Unconditional and EDM+Conditional are reported.
+
+\textbf{Aggregate Statistics} \quad 
+
+\begin{table}[htbp]
+\centering
+\footnotesize
+\renewcommand{\arraystretch}{1.28}
+\setlength{\tabcolsep}{3pt}
+\begin{tabular}{
+  l
+  r r r          % Validation: Ref.  VE+Exp.  VE+Cos.
+  r r r          % Training:   Ref.  VE+Exp.  VE+Cos.
+  r r r          % Both:       Ref.  VE+Exp.  VE+Cos.
+}
+\toprule
+& \multicolumn{3}{c}{\textbf{Validation}}
+& \multicolumn{3}{c}{\textbf{Both}} \\
+\cmidrule(lr){2-4}\cmidrule(lr){5-7}\cmidrule(lr){8-10}
+\textbf{Statistic}
+  & \textbf{GT} & \textbf{EDM+Unc.} & \textbf{EDM+Con.}
+  & \textbf{Ref.} & \textbf{EDM+Unc.} & \textbf{EDM+Con.} \\
+\midrule
+Mean
+  &  -0.0024 &  0.0031 &  0.0033
+  &  0.0000 &  0.0008 &  0.0029 \\
+Std
+  &  0.8656 &  0.7314 &  0.8299
+  &  1.0000 &  0.07523 &  0.09487 \\
+Min
+  & $-$13.8337 & $-$32.0912 & $-$14.6549
+  & $-$44.8905 & $-$45.0383 & $-$60.237 \\
+$q_{0.01}$
+  & $-$2.3305 & $-$1.9595 & $-$2.2396
+  & $-$2.7180 & $-$2.0292 & $-$2.5789 \\
+$q_{0.05}$
+  & $-$1.2871 & $-$1.0868 & $-$1.2335
+  & $-$1.4207 & $-$1.117 & $-$1.3620 \\
+% $q_{0.25}$
+%   & $-$0.0087 & $-$0.0109 & $-$0.0111
+%   & $-$0.0086 & $-$0.0108 & $-$0.0110
+%   & $-$0.0086 & $-$0.0108 & $-$0.0110 \\
+Median
+  & $-$0.0216 & $-$0.0214 & $-$0.0172
+  & $-$0.0216 & $-$0.0210 & $-$0.0189 \\
+% $q_{0.75}$
+%   &  0.0096 &  0.0115 &  0.0118
+%   &  0.0095 &  0.0115 &  0.0118
+%   &  0.0095 &  0.0115 &  0.0118 \\
+$q_{0.95}$
+  & 1.3035 & 1.11312 & 1.2566
+  & 1.4381 & 1.132 & 1.3797 \\
+$q_{0.99}$
+  & 2.3723 & 2.0232 & 2.2635
+  & 2.7746 & 2.0860 & 2.6306 \\
+Max
+  & 10.4889 & 14.2408 & 11.9020
+  & 33.1964 & 82.230 & 34.4689 \\
+Skewness
+  & $-$0.4069 & $-$0.3558 & $-$0.4432
+  & $-$0.5864 & $-$0.2292 & $-$0.5390 \\
+Ex.\ Kurt.
+  & 13.9640 & 19.9018 & 13.9598
+  & 39.5137 & 20.0563 & 39.0522 \\
+\midrule
+$D_{\mathrm{KS}}$
+  & {---} & 0.0454 & 0.0469
+  & {---} & 0.0436 & 0.0458 \\
+$W_1$
+  & {---} & 0.0018 & 0.0020
+  & {---} & 0.0019 & 0.0020 \\
+\bottomrule
+\end{tabular}
+\caption{Aggregate statistics for the dataset splits. Data is reported for the Validation hold-out windows, Training windows, and their combination, Both. Excess kurtosis is reported relative to the Gaussian. $D_{\mathrm{KS}}$ and $W_1$ measure discrepancy against the training marginal (lower is better). $\hat{\alpha}$ is the estimated power-law tail exponent extimated on a subsample of \(300,000\) observation (reference $\hat{\alpha}=4.378$; closer is better).}
+\label{tab:ve_phase1_512_100_full}
+\end{table}
 % ================================================================
 % APPENDIX: STYLIZED FACTS — THREE SEPARATE GRIDS
 % Required packages: graphicx, subcaption, rotating
 % ================================================================
 
-% ----------------------------------------------------------------
-% GRID 1: HEAVY-TAIL DISTRIBUTION
-% ----------------------------------------------------------------
-\begin{figure}[htbp]
-\centering
+% % ----------------------------------------------------------------
+% % GRID 1: HEAVY-TAIL DISTRIBUTION
+% % ----------------------------------------------------------------
+% \begin{figure}[htbp]
+% \centering
 
-% COLUMN HEADERS
-\hspace{1.8em}%
-\begin{minipage}[c]{0.30\textwidth}
-  \centering\small\textbf{Linear}
-\end{minipage}%
-\hfill
-\begin{minipage}[c]{0.30\textwidth}
-  \centering\small\textbf{Cosine}
-\end{minipage}%
-\hfill
-\begin{minipage}[c]{0.30\textwidth}
-  \centering\small\textbf{Exponential}
-\end{minipage}
+% % COLUMN HEADERS
+% \hspace{1.8em}%
+% \begin{minipage}[c]{0.30\textwidth}
+%   \centering\small\textbf{Linear}
+% \end{minipage}%
+% \hfill
+% \begin{minipage}[c]{0.30\textwidth}
+%   \centering\small\textbf{Cosine}
+% \end{minipage}%
+% \hfill
+% \begin{minipage}[c]{0.30\textwidth}
+%   \centering\small\textbf{Exponential}
+% \end{minipage}
 
-\vspace{0.4em}
-{\color{black!25}\hrule}
-\vspace{0.2em}
+% \vspace{0.4em}
+% {\color{black!25}\hrule}
+% \vspace{0.2em}
 
-% ROW 1: VP SDE
-\rotatebox[origin=c]{90}{\small\textbf{VP}}\hspace{0.4em}%
-\begin{subfigure}[c]{0.30\textwidth}
-  \centering
-  \includegraphics[width=\linewidth]{images/Phase1/appendix/stylized_facts/pos_distribution_vp-lin_2048.png}
-  \label{fig:app_tail_vp_lin}
-\end{subfigure}\hfill
-\begin{subfigure}[c]{0.30\textwidth}
-  \centering
-  \includegraphics[width=\linewidth]{images/Phase1/pos_distribution_vp-cos_2048.png}
-  \label{fig:app_tail_vp_cos}
-\end{subfigure}\hfill
-\begin{subfigure}[c]{0.30\textwidth}
-  \centering
-  \includegraphics[width=\linewidth]{images/Phase1/appendix/stylized_facts/pos_distribution_vp-exp_2048.png}
-  \label{fig:app_tail_vp_exp}
-\end{subfigure}%
+% % ROW 1: VP SDE
+% \rotatebox[origin=c]{90}{\small\textbf{VP}}\hspace{0.4em}%
+% \begin{subfigure}[c]{0.30\textwidth}
+%   \centering
+%   \includegraphics[width=\linewidth]{images/Phase1/appendix/stylized_facts/pos_distribution_vp-lin_2048.png}
+%   \label{fig:app_tail_vp_lin}
+% \end{subfigure}\hfill
+% \begin{subfigure}[c]{0.30\textwidth}
+%   \centering
+%   \includegraphics[width=\linewidth]{images/Phase1/pos_distribution_vp-cos_2048.png}
+%   \label{fig:app_tail_vp_cos}
+% \end{subfigure}\hfill
+% \begin{subfigure}[c]{0.30\textwidth}
+%   \centering
+%   \includegraphics[width=\linewidth]{images/Phase1/appendix/stylized_facts/pos_distribution_vp-exp_2048.png}
+%   \label{fig:app_tail_vp_exp}
+% \end{subfigure}%
 
-\vspace{0.2em}
+% \vspace{0.2em}
 
-% ROW 2: VE SDE
-\rotatebox[origin=c]{90}{\small\textbf{VE}}\hspace{0.4em}%
-\begin{subfigure}[c]{0.30\textwidth}
-  \centering
-  \includegraphics[width=\linewidth]{images/Phase1/appendix/stylized_facts/pos_distribution_ve-lin_2048.png}
-  \label{fig:app_tail_ve_lin}
-\end{subfigure}\hfill
-\begin{subfigure}[c]{0.30\textwidth}
-  \centering
-  \includegraphics[width=\linewidth]{images/Phase1/appendix/stylized_facts/pos_distribution_ve-cos_2048.png}
-  \label{fig:app_tail_ve_cos}
-\end{subfigure}\hfill
-\begin{subfigure}[c]{0.30\textwidth}
-  \centering
-  \includegraphics[width=\linewidth]{images/Phase1/pos_distribution_ve-exp_2048.png}
-  \label{fig:app_tail_ve_exp}
-\end{subfigure}%
+% % ROW 2: VE SDE
+% \rotatebox[origin=c]{90}{\small\textbf{VE}}\hspace{0.4em}%
+% \begin{subfigure}[c]{0.30\textwidth}
+%   \centering
+%   \includegraphics[width=\linewidth]{images/Phase1/appendix/stylized_facts/pos_distribution_ve-lin_2048.png}
+%   \label{fig:app_tail_ve_lin}
+% \end{subfigure}\hfill
+% \begin{subfigure}[c]{0.30\textwidth}
+%   \centering
+%   \includegraphics[width=\linewidth]{images/Phase1/appendix/stylized_facts/pos_distribution_ve-cos_2048.png}
+%   \label{fig:app_tail_ve_cos}
+% \end{subfigure}\hfill
+% \begin{subfigure}[c]{0.30\textwidth}
+%   \centering
+%   \includegraphics[width=\linewidth]{images/Phase1/pos_distribution_ve-exp_2048.png}
+%   \label{fig:app_tail_ve_exp}
+% \end{subfigure}%
 
-\vspace{0.2em}
+% \vspace{0.2em}
 
-% ROW 3: GBM SDE
-\rotatebox[origin=c]{90}{\small\textbf{GBM}}\hspace{0.4em}%
-\begin{subfigure}[c]{0.30\textwidth}
-  \centering
-  \includegraphics[width=\linewidth]{images/Phase1/appendix/stylized_facts/pos_distribution_gbm-lin_2048.png}
-  \label{fig:app_tail_gbm_lin}
-\end{subfigure}\hfill
-\begin{subfigure}[c]{0.30\textwidth}
-  \centering
-  \includegraphics[width=\linewidth]{images/Phase1/appendix/stylized_facts/pos_distribution_gbm-cos_2048.png}
-  \label{fig:app_tail_gbm_cos}
-\end{subfigure}\hfill
-\begin{subfigure}[c]{0.30\textwidth}
-  \centering
-  \includegraphics[width=\linewidth]{images/Phase1/pos_distribution_gbm-exp_2048.png}
-  \label{fig:app_tail_gbm_exp}
-\end{subfigure}%
+% % ROW 3: GBM SDE
+% \rotatebox[origin=c]{90}{\small\textbf{GBM}}\hspace{0.4em}%
+% \begin{subfigure}[c]{0.30\textwidth}
+%   \centering
+%   \includegraphics[width=\linewidth]{images/Phase1/appendix/stylized_facts/pos_distribution_gbm-lin_2048.png}
+%   \label{fig:app_tail_gbm_lin}
+% \end{subfigure}\hfill
+% \begin{subfigure}[c]{0.30\textwidth}
+%   \centering
+%   \includegraphics[width=\linewidth]{images/Phase1/appendix/stylized_facts/pos_distribution_gbm-cos_2048.png}
+%   \label{fig:app_tail_gbm_cos}
+% \end{subfigure}\hfill
+% \begin{subfigure}[c]{0.30\textwidth}
+%   \centering
+%   \includegraphics[width=\linewidth]{images/Phase1/pos_distribution_gbm-exp_2048.png}
+%   \label{fig:app_tail_gbm_exp}
+% \end{subfigure}%
 
-\caption{Heavy-tail distribution (log--log scale, positive tail) for all nine Phase~1
-configurations. \textit{Rows} (top to bottom): VP, VE, and GBM SDE families.
-\textit{Columns} (left to right): linear, cosine, and exponential noise schedules.
-The estimated power-law tail exponent~$\hat{\alpha}$ is reported in
-Tab.~\ref{tab:phase1_aggregate}; the empirical reference is $\hat{\alpha}=4.378$.}
-\label{fig:app_phase1_tail_grid}
-\end{figure}
+% \caption{Heavy-tail distribution (log--log scale, positive tail) for all nine Phase~1
+% configurations. \textit{Rows} (top to bottom): VP, VE, and GBM SDE families.
+% \textit{Columns} (left to right): linear, cosine, and exponential noise schedules.
+% The estimated power-law tail exponent~$\hat{\alpha}$ is reported in
+% Tab.~\ref{tab:phase1_aggregate}; the empirical reference is $\hat{\alpha}=4.378$.}
+% \label{fig:app_phase1_tail_grid}
+% \end{figure}
 
-% ----------------------------------------------------------------
-% GRID 2: VOLATILITY CLUSTERING
-% ----------------------------------------------------------------
-\begin{figure}[htbp]
-\centering
+% % ----------------------------------------------------------------
+% % GRID 2: VOLATILITY CLUSTERING
+% % ----------------------------------------------------------------
+% \begin{figure}[htbp]
+% \centering
 
-% COLUMN HEADERS
-\hspace{1.8em}%
-\begin{minipage}[c]{0.30\textwidth}
-  \centering\small\textbf{Linear}
-\end{minipage}%
-\hfill
-\begin{minipage}[c]{0.30\textwidth}
-  \centering\small\textbf{Cosine}
-\end{minipage}%
-\hfill
-\begin{minipage}[c]{0.30\textwidth}
-  \centering\small\textbf{Exponential}
-\end{minipage}
+% % COLUMN HEADERS
+% \hspace{1.8em}%
+% \begin{minipage}[c]{0.30\textwidth}
+%   \centering\small\textbf{Linear}
+% \end{minipage}%
+% \hfill
+% \begin{minipage}[c]{0.30\textwidth}
+%   \centering\small\textbf{Cosine}
+% \end{minipage}%
+% \hfill
+% \begin{minipage}[c]{0.30\textwidth}
+%   \centering\small\textbf{Exponential}
+% \end{minipage}
 
-\vspace{0.4em}
-{\color{black!25}\hrule}
-\vspace{0.2em}
+% \vspace{0.4em}
+% {\color{black!25}\hrule}
+% \vspace{0.2em}
 
-% ROW 1: VP SDE
-\rotatebox[origin=c]{90}{\small\textbf{VP}}\hspace{0.4em}%
-\begin{subfigure}[c]{0.30\textwidth}
-  \centering
-  \includegraphics[width=\linewidth]{images/Phase1/appendix/stylized_facts/volatility_clustering_vp-lin_2048.png}
-  \label{fig:app_vol_vp_lin}
-\end{subfigure}\hfill
-\begin{subfigure}[c]{0.30\textwidth}
-  \centering
-  \includegraphics[width=\linewidth]{images/Phase1/volatility_clustering_vp-cos_2048.png}
-  \label{fig:app_vol_vp_cos}
-\end{subfigure}\hfill
-\begin{subfigure}[c]{0.30\textwidth}
-  \centering
-  \includegraphics[width=\linewidth]{images/Phase1/appendix/stylized_facts/volatility_clustering_vp-exp_2048.png}
-  \label{fig:app_vol_vp_exp}
-\end{subfigure}%
+% % ROW 1: VP SDE
+% \rotatebox[origin=c]{90}{\small\textbf{VP}}\hspace{0.4em}%
+% \begin{subfigure}[c]{0.30\textwidth}
+%   \centering
+%   \includegraphics[width=\linewidth]{images/Phase1/appendix/stylized_facts/volatility_clustering_vp-lin_2048.png}
+%   \label{fig:app_vol_vp_lin}
+% \end{subfigure}\hfill
+% \begin{subfigure}[c]{0.30\textwidth}
+%   \centering
+%   \includegraphics[width=\linewidth]{images/Phase1/volatility_clustering_vp-cos_2048.png}
+%   \label{fig:app_vol_vp_cos}
+% \end{subfigure}\hfill
+% \begin{subfigure}[c]{0.30\textwidth}
+%   \centering
+%   \includegraphics[width=\linewidth]{images/Phase1/appendix/stylized_facts/volatility_clustering_vp-exp_2048.png}
+%   \label{fig:app_vol_vp_exp}
+% \end{subfigure}%
 
-\vspace{0.2em}
+% \vspace{0.2em}
 
-% ROW 2: VE SDE
-\rotatebox[origin=c]{90}{\small\textbf{VE}}\hspace{0.4em}%
-\begin{subfigure}[c]{0.30\textwidth}
-  \centering
-  \includegraphics[width=\linewidth]{images/Phase1/appendix/stylized_facts/volatility_clustering_ve-lin_2048.png}
-  \label{fig:app_vol_ve_lin}
-\end{subfigure}\hfill
-\begin{subfigure}[c]{0.30\textwidth}
-  \centering
-  \includegraphics[width=\linewidth]{images/Phase1/appendix/stylized_facts/volatility_clustering_ve-cos_2048.png}
-  \label{fig:app_vol_ve_cos}
-\end{subfigure}\hfill
-\begin{subfigure}[c]{0.30\textwidth}
-  \centering
-  \includegraphics[width=\linewidth]{images/Phase1/volatility_clustering_ve-exp_2048.png}
-  \label{fig:app_vol_ve_exp}
-\end{subfigure}%
+% % ROW 2: VE SDE
+% \rotatebox[origin=c]{90}{\small\textbf{VE}}\hspace{0.4em}%
+% \begin{subfigure}[c]{0.30\textwidth}
+%   \centering
+%   \includegraphics[width=\linewidth]{images/Phase1/appendix/stylized_facts/volatility_clustering_ve-lin_2048.png}
+%   \label{fig:app_vol_ve_lin}
+% \end{subfigure}\hfill
+% \begin{subfigure}[c]{0.30\textwidth}
+%   \centering
+%   \includegraphics[width=\linewidth]{images/Phase1/appendix/stylized_facts/volatility_clustering_ve-cos_2048.png}
+%   \label{fig:app_vol_ve_cos}
+% \end{subfigure}\hfill
+% \begin{subfigure}[c]{0.30\textwidth}
+%   \centering
+%   \includegraphics[width=\linewidth]{images/Phase1/volatility_clustering_ve-exp_2048.png}
+%   \label{fig:app_vol_ve_exp}
+% \end{subfigure}%
 
-\vspace{0.2em}
+% \vspace{0.2em}
 
-% ROW 3: GBM SDE
-\rotatebox[origin=c]{90}{\small\textbf{GBM}}\hspace{0.4em}%
-\begin{subfigure}[c]{0.30\textwidth}
-  \centering
-  \includegraphics[width=\linewidth]{images/Phase1/appendix/stylized_facts/volatility_clustering_gbm-lin_2048.png}
-  \label{fig:app_vol_gbm_lin}
-\end{subfigure}\hfill
-\begin{subfigure}[c]{0.30\textwidth}
-  \centering
-  \includegraphics[width=\linewidth]{images/Phase1/appendix/stylized_facts/volatility_clustering_gbm-cos_2048.png}
-  \label{fig:app_vol_gbm_cos}
-\end{subfigure}\hfill
-\begin{subfigure}[c]{0.30\textwidth}
-  \centering
-  \includegraphics[width=\linewidth]{images/Phase1/volatility_clustering_gbm-exp_2048.png}
-  \label{fig:app_vol_gbm_exp}
-\end{subfigure}%
+% % ROW 3: GBM SDE
+% \rotatebox[origin=c]{90}{\small\textbf{GBM}}\hspace{0.4em}%
+% \begin{subfigure}[c]{0.30\textwidth}
+%   \centering
+%   \includegraphics[width=\linewidth]{images/Phase1/appendix/stylized_facts/volatility_clustering_gbm-lin_2048.png}
+%   \label{fig:app_vol_gbm_lin}
+% \end{subfigure}\hfill
+% \begin{subfigure}[c]{0.30\textwidth}
+%   \centering
+%   \includegraphics[width=\linewidth]{images/Phase1/appendix/stylized_facts/volatility_clustering_gbm-cos_2048.png}
+%   \label{fig:app_vol_gbm_cos}
+% \end{subfigure}\hfill
+% \begin{subfigure}[c]{0.30\textwidth}
+%   \centering
+%   \includegraphics[width=\linewidth]{images/Phase1/volatility_clustering_gbm-exp_2048.png}
+%   \label{fig:app_vol_gbm_exp}
+% \end{subfigure}%
 
-\caption{Volatility clustering (autocorrelation of absolute returns on a log--log
-scale) for all nine Phase~1 configurations.
-Rows (top to bottom): VP, VE, and GBM SDE families.
-Columns (left to right): linear, cosine, and exponential noise schedules.
-Slow power-law decay indicates successful reproduction of long-range volatility
-dependence; rapid collapse or flattening indicates failure.}
-\label{fig:app_phase1_vol_grid}
-\end{figure}
+% \caption{Volatility clustering (autocorrelation of absolute returns on a log--log
+% scale) for all nine Phase~1 configurations.
+% Rows (top to bottom): VP, VE, and GBM SDE families.
+% Columns (left to right): linear, cosine, and exponential noise schedules.
+% Slow power-law decay indicates successful reproduction of long-range volatility
+% dependence; rapid collapse or flattening indicates failure.}
+% \label{fig:app_phase1_vol_grid}
+% \end{figure}
 
-% ----------------------------------------------------------------
-% GRID 3: LEVERAGE EFFECT
-% ----------------------------------------------------------------
-\begin{figure}[htbp]
-\centering
+% % ----------------------------------------------------------------
+% % GRID 3: LEVERAGE EFFECT
+% % ----------------------------------------------------------------
+% \begin{figure}[htbp]
+% \centering
 
-% COLUMN HEADERS
-\hspace{1.8em}%
-\begin{minipage}[c]{0.30\textwidth}
-  \centering\small\textbf{Linear}
-\end{minipage}%
-\hfill
-\begin{minipage}[c]{0.30\textwidth}
-  \centering\small\textbf{Cosine}
-\end{minipage}%
-\hfill
-\begin{minipage}[c]{0.30\textwidth}
-  \centering\small\textbf{Exponential}
-\end{minipage}
+% % COLUMN HEADERS
+% \hspace{1.8em}%
+% \begin{minipage}[c]{0.30\textwidth}
+%   \centering\small\textbf{Linear}
+% \end{minipage}%
+% \hfill
+% \begin{minipage}[c]{0.30\textwidth}
+%   \centering\small\textbf{Cosine}
+% \end{minipage}%
+% \hfill
+% \begin{minipage}[c]{0.30\textwidth}
+%   \centering\small\textbf{Exponential}
+% \end{minipage}
 
-\vspace{0.4em}
-{\color{black!25}\hrule}
-\vspace{0.2em}
+% \vspace{0.4em}
+% {\color{black!25}\hrule}
+% \vspace{0.2em}
 
-% ROW 1: VP SDE
-\rotatebox[origin=c]{90}{\small\textbf{VP}}\hspace{0.4em}%
-\begin{subfigure}[c]{0.30\textwidth}
-  \centering
-  \includegraphics[width=\linewidth]{images/Phase1/appendix/stylized_facts/leverage_effects_vp-lin_2048.png}
-  \label{fig:app_lev_vp_lin}
-\end{subfigure}\hfill
-\begin{subfigure}[c]{0.30\textwidth}
-  \centering
-  \includegraphics[width=\linewidth]{images/Phase1/leverage_effects_vp-cos_2048.png}
-  \label{fig:app_lev_vp_cos}
-\end{subfigure}\hfill
-\begin{subfigure}[c]{0.30\textwidth}
-  \centering
-  \includegraphics[width=\linewidth]{images/Phase1/appendix/stylized_facts/leverage_effects_vp-exp_2048.png}
-  \label{fig:app_lev_vp_exp}
-\end{subfigure}%
+% % ROW 1: VP SDE
+% \rotatebox[origin=c]{90}{\small\textbf{VP}}\hspace{0.4em}%
+% \begin{subfigure}[c]{0.30\textwidth}
+%   \centering
+%   \includegraphics[width=\linewidth]{images/Phase1/appendix/stylized_facts/leverage_effects_vp-lin_2048.png}
+%   \label{fig:app_lev_vp_lin}
+% \end{subfigure}\hfill
+% \begin{subfigure}[c]{0.30\textwidth}
+%   \centering
+%   \includegraphics[width=\linewidth]{images/Phase1/leverage_effects_vp-cos_2048.png}
+%   \label{fig:app_lev_vp_cos}
+% \end{subfigure}\hfill
+% \begin{subfigure}[c]{0.30\textwidth}
+%   \centering
+%   \includegraphics[width=\linewidth]{images/Phase1/appendix/stylized_facts/leverage_effects_vp-exp_2048.png}
+%   \label{fig:app_lev_vp_exp}
+% \end{subfigure}%
 
-\vspace{0.2em}
+% \vspace{0.2em}
 
-% ROW 2: VE SDE
-\rotatebox[origin=c]{90}{\small\textbf{VE}}\hspace{0.4em}%
-\begin{subfigure}[c]{0.30\textwidth}
-  \centering
-  \includegraphics[width=\linewidth]{images/Phase1/appendix/stylized_facts/leverage_effects_ve-lin_2048.png}
-  \label{fig:app_lev_ve_lin}
-\end{subfigure}\hfill
-\begin{subfigure}[c]{0.30\textwidth}
-  \centering
-  \includegraphics[width=\linewidth]{images/Phase1/appendix/stylized_facts/leverage_effects_ve-cos_2048.png}
-  \label{fig:app_lev_ve_cos}
-\end{subfigure}\hfill
-\begin{subfigure}[c]{0.30\textwidth}
-  \centering
-  \includegraphics[width=\linewidth]{images/Phase1/leverage_effects_ve-exp_2048.png}
-  \label{fig:app_lev_ve_exp}
-\end{subfigure}%
+% % ROW 2: VE SDE
+% \rotatebox[origin=c]{90}{\small\textbf{VE}}\hspace{0.4em}%
+% \begin{subfigure}[c]{0.30\textwidth}
+%   \centering
+%   \includegraphics[width=\linewidth]{images/Phase1/appendix/stylized_facts/leverage_effects_ve-lin_2048.png}
+%   \label{fig:app_lev_ve_lin}
+% \end{subfigure}\hfill
+% \begin{subfigure}[c]{0.30\textwidth}
+%   \centering
+%   \includegraphics[width=\linewidth]{images/Phase1/appendix/stylized_facts/leverage_effects_ve-cos_2048.png}
+%   \label{fig:app_lev_ve_cos}
+% \end{subfigure}\hfill
+% \begin{subfigure}[c]{0.30\textwidth}
+%   \centering
+%   \includegraphics[width=\linewidth]{images/Phase1/leverage_effects_ve-exp_2048.png}
+%   \label{fig:app_lev_ve_exp}
+% \end{subfigure}%
 
-\vspace{0.2em}
+% \vspace{0.2em}
 
-% ROW 3: GBM SDE
-\rotatebox[origin=c]{90}{\small\textbf{GBM}}\hspace{0.4em}%
-\begin{subfigure}[c]{0.30\textwidth}
-  \centering
-  \includegraphics[width=\linewidth]{images/Phase1/appendix/stylized_facts/leverage_effects_gbm-lin_2048.png}
-  \label{fig:app_lev_gbm_lin}
-\end{subfigure}\hfill
-\begin{subfigure}[c]{0.30\textwidth}
-  \centering
-  \includegraphics[width=\linewidth]{images/Phase1/appendix/stylized_facts/leverage_effects_gbm-cos_2048.png}
-  \label{fig:app_lev_gbm_cos}
-\end{subfigure}\hfill
-\begin{subfigure}[c]{0.30\textwidth}
-  \centering
-  \includegraphics[width=\linewidth]{images/Phase1/leverage_effects_gbm-exp_2048.png}
-  \label{fig:app_lev_gbm_exp}
-\end{subfigure}%
+% % ROW 3: GBM SDE
+% \rotatebox[origin=c]{90}{\small\textbf{GBM}}\hspace{0.4em}%
+% \begin{subfigure}[c]{0.30\textwidth}
+%   \centering
+%   \includegraphics[width=\linewidth]{images/Phase1/appendix/stylized_facts/leverage_effects_gbm-lin_2048.png}
+%   \label{fig:app_lev_gbm_lin}
+% \end{subfigure}\hfill
+% \begin{subfigure}[c]{0.30\textwidth}
+%   \centering
+%   \includegraphics[width=\linewidth]{images/Phase1/appendix/stylized_facts/leverage_effects_gbm-cos_2048.png}
+%   \label{fig:app_lev_gbm_cos}
+% \end{subfigure}\hfill
+% \begin{subfigure}[c]{0.30\textwidth}
+%   \centering
+%   \includegraphics[width=\linewidth]{images/Phase1/leverage_effects_gbm-exp_2048.png}
+%   \label{fig:app_lev_gbm_exp}
+% \end{subfigure}%
 
-\caption{Leverage effect (lead--lag correlation $L(k)$ between returns and future
-squared returns) for all nine Phase~1 configurations.
-Rows (top to bottom): VP, VE, and GBM SDE families.
-Columns (left to right): linear, cosine, and exponential noise schedules.
-Persistent negative values at small positive lags indicate successful reproduction
-of the leverage effect; oscillation around zero indicates failure.}
-\label{fig:app_phase1_lev_grid}
-\end{figure}
+% \caption{Leverage effect (lead--lag correlation $L(k)$ between returns and future
+% squared returns) for all nine Phase~1 configurations.
+% Rows (top to bottom): VP, VE, and GBM SDE families.
+% Columns (left to right): linear, cosine, and exponential noise schedules.
+% Persistent negative values at small positive lags indicate successful reproduction
+% of the leverage effect; oscillation around zero indicates failure.}
+% \label{fig:app_phase1_lev_grid}
+% \end{figure}

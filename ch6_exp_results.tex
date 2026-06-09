@@ -104,7 +104,7 @@ One key distribution due to decimalization, atypical in distributions is the cor
 
 \section{Phase 1: Replication}
 \label{sec:phase1_results}
-Phase~1 aims to replicate the generative approach of Kim et al.~\cite{kim2025diffusion} as detailed in the first column of Tab.\ \ref{tab:training_setup}. For each model a dataset of 512 windows of length \(L=2048\) (\(1,048,576\) observation each) were generated using probability-flow ODE, Eq.\ref{eq:probability_flow} with 2000 discretization steps. The number of sampled was choosen for computational feasibility.
+Phase~1 aims to replicate the generative approach of Kim et al.~\cite{kim2025diffusion} as detailed in the first column of Tab.\ \ref{tab:training_setup}. For each model a dataset of 512 windows of length \(L=2048\) (\(1,048,576\) observation each) were generated using probability-flow ODE, Eq.\ \ref{eq:probability_flow} with 2000 discretization steps. The number of sampled was choosen for computational feasibility.
 
 [RIPRENDERE DA QUI]
 
@@ -198,7 +198,7 @@ Importantly, the interpretation of the log-returns as cumulative didn't yield an
 
 Clearly the VE seem to be superior with linear that while more promising in training it has more difficulties in reconstructing the series and it is either unstable or smooth excessively the distribution. There are still two limitations distributionally of the VE approach: first it undershoot tail reconstruction, as it is possible to see from Fig.\ \ref{fig:level_marginal_ve_exponantial_2048} QQ-plot and it misses the 0\% returns peak as for GARCH-X and Merton-X, as shown by the generated ECDF cutting through the central vertical jump.
 
-Based on the results in Tab.~\ref{tab:phase1_aggregate} and
+Based on the results in Tab.\ \ref{tab:phase1_aggregate} and
 Fig.~\ref{fig:phase1_qq_ecdf},
 
 
@@ -213,7 +213,7 @@ The reference stylized facts are display here and have been recomputed from Sec.
 \centering
 
 % ----------------------------------------------------------------
-% COLUMN HEADERS
+% COLUMN HEADERS\
 % ----------------------------------------------------------------
 \hspace{1.8em}%
 \begin{minipage}[c]{0.30\textwidth}
@@ -322,7 +322,7 @@ The reference stylized facts are display here and have been recomputed from Sec.
 
 \caption{Stylized facts across Phase~1 SDE families and the empirical training
 reference on windows with \(L=2048\). \textit{Columns} (left to right): heavy-tail distribution on a log--log
-scale with estimated power-law exponent~$\hat{\alpha}$, Tab.\ref{tab:phase1_aggregate}; autocorrelation of absolute
+scale with estimated power-law exponent~$\hat{\alpha}$, Tab.\ \ref{tab:phase1_aggregate}; autocorrelation of absolute
 returns on a log--log scale (volatility clustering); lead--lag correlation $L(k)$
 (leverage effect).}
 \label{fig:phase1_stylized_grid}
@@ -373,9 +373,288 @@ In conclusion, it seem that under certain condition, it could work. but we disca
 \section{Phase 2: EDM-CSDI}
 In this section we will explore the results concerning the unconditional generation of our EDM model. The training parameters are the same defined in Tab.\ \ref{tab:training_setup} Phase 2 but with the \texttt{unconditional} mask instead of the \texttt{predict\_close} one and with the number of features \(K=1\). In order to have a fair comparison with Phase 1, the two most promising models were retrained. Both use VE SDE formulation and one rely on exponental noise schedule, while the other on cosine. Their settings are the same as Phase 1 in Tab.\ \ref{tab:training_setup} with the exception of \(L=512\) and \(s=100\).
 
-\textbf{Phase~1 Champion Models} \quad The generalization of these two models to a total of \(20,000\) windows of which 10\% hold-out for validation generalized correctly.
+\subsection{Phase~1 Champion Models}
+The generalization of these two models to a total of \(20,000\) windows of which 10\% hold-out. It was used an Heun second order ODE probability-flow sampler. Follow aggregate statistics for the \emph{Validation} split and the entirety generated, a complete table is presented in the appendix, Tab.\ \ref{tab:ve_phase1_512_100_complete}.
 
-\section{Phase 2 --- EDM-CSDI Conditional Generation}
+\begin{table}[htbp]
+\centering
+\footnotesize
+\renewcommand{\arraystretch}{1.3}
+\setlength{\tabcolsep}{4.5pt}
+\begin{tabular}{
+  l
+  l
+  S[table-format= 1.4]   % Mean:     ±0.xxxx
+  S[table-format= 1.5]   % Std:      0.xxxxx
+  S[table-format=-1.4]   % Skew.:   -x.xxxx
+  S[table-format= 2.4]   % Ex.Kurt.: xx.xxxx
+  S[table-format=-1.4]   % q01:     -x.xxxx
+  S[table-format= 1.4]   % q99:      x.xxxx
+  S[table-format= 1.3]   % KS:       x.xxx
+  S[table-format= 1.3]   % W1:       x.xxx
+  l                      % alpha:    blank
+}
+\toprule
+{\textbf{Split}}
+  & \textbf{Configuration}
+  & {\textbf{Mean}}
+  & {\textbf{Std}}
+  & {\textbf{Skew.}}
+  & {\textbf{Ex.\ Kurt.}}
+  & {$\boldsymbol{q_{0.01}}$}
+  & {$\boldsymbol{q_{0.99}}$}
+  & {$D_{\mathrm{KS}}$}
+  & {$W_1$}
+  & {$\hat{\alpha}$} \\
+\midrule
+Val  & Reference        & 0.0005 & 0.0206 & -0.4962 & 26.8995 & -0.0560 & 0.0572 & {---} & {---} &  4.346 \\
+Val  & VE + Exponential & 0.0003 & 0.0203 & -0.3531 & 18.3077 & -0.0522 & 0.0525 & 0.0454 & 0.0019 &  4.633 \\
+Val  & VE + Cosine      & 0.0004 & 0.0211 & -0.2933 & 11.6873 & -0.0545 & 0.0558 & 0.0469 & 0.0020 & 4.383 \\
+\midrule
+Both & Reference        & 0.0005 & 0.0209 & -0.5864 & 39.5137 & -0.0563 & 0.0583 & {---} & {---} & 4.178 \\
+Both & VE + Exponential & 0.0003 & 0.0199 & -0.2382 & 14.3986 & -0.0508 & 0.0514 & 0.0436 & 0.0019 & 4.634 \\
+Both & VE + Cosine      & 0.0004 & 0.0209 & -0.2368 & 16.6755 & -0.0535 & 0.0553 & 0.0458 & 0.0020 & 4.577 \\
+\bottomrule
+\end{tabular}
+\caption{Aggregate statistics for dataset split. Data is reported for the Validation hold-out windows, "Val", and all the windows. Excess kurtosis is reported relative to the Gaussian. $D_{\mathrm{KS}}$ and $W_1$ measure discrepancy against the training marginal (lower is better). $\hat{\alpha}$ is the estimated power-law tail exponent extimated on a subsample of \(300,000\) observation (reference $\hat{\alpha}=XXX$; closer is better).}
+\label{tab:ve_phase1_512_100}
+\end{table}
+
+As it is possible to see generalization of Phase~1 generalize well in agreement with the first phase of experimentation, nevertheless still lacking to match the higher moments, or to close the gap on the \(D_{KS}\) and \(W_1\) metrics. Moreover, as possible to notice from figure Fig. [REFERENCE] the central part of the distribution, quantile range \(q_{0.02}-q_{0.98}\), is still smoothened out, with no significant ability of the model to learn the patter.
+
+Interestingly, the stilyzed facts seem to be matching the validation reference, even if they are lacking the necessary precision to match them. Heavy-tails prediction is fairly close, while volatility clustering is still underestimated, and similarly for the leverage effect.
+
+\begin{figure}[h]
+    \centering
+    \includegraphics[width=1\textwidth]{images/Phase2/overlap_stylized_facts_phase2.png}
+    \caption{Stylized facts for Reference, VE SDE with Exponential and Cosine noise schedule for Validation windows. From left to right, heavy-tail distribution, volatility clustering, and leverage effects}
+    \label{fig:level_marginal_ve_exponantial_2048}
+\end{figure}
+
+[ADD REFERENCE CAPTION IMAGE]
+
+\subsection{Phase~2 Unconditional EDM-CSDI}
+
+The next phase focused on understanding how the EDM formulation can improve the generalization and stylized facts learning of the CSDI models. From here onwards we will refer to the current model as \emph{EDM+Unconditional} (Unc.).
+
+In particular an improvement was measured in the capture of the decimalization 0\% returns effect. This is likely due to the fact that in Phase~1 the mdodel still tries to predict the added noise, \(\epsilon\sim\mathcal{N}(0,I)\), which makes the precise inference of the missed amount harder, while for the EDM framework which predicts directly the output values it is easier, possibly overestimating because it is an easy cheatcode to reduce errors.
+
+\begin{figure}[htbp]
+    \centering
+
+    \begin{subfigure}{0.4\textwidth}
+        \centering
+        \includegraphics[width=\textwidth]{images/Phase2/unconditional/level_marginal_edm_unconditional_density.png}
+        \caption{Density \(q_{0.001}-q_{0.999}\)}
+        \label{fig:image1}
+    \end{subfigure}
+    \hspace{0.04\textwidth}
+    \begin{subfigure}{0.4\textwidth}
+        \centering
+        \includegraphics[width=\textwidth]{images/Phase2/unconditional/level_thinner_marginal_edm_unconditional_density.png}
+        \caption{Density \(q_{0.02}-q_{0.98}\)}
+        \label{fig:image2}
+    \end{subfigure}
+
+    \caption{Marginal distribution against Reference (in blue) of Both Validation and Training windows for EDM+Unc. model.}
+    \label{fig:density_edm_unconditional}
+\end{figure}
+
+\begin{table}[htbp]
+\centering
+\footnotesize
+\renewcommand{\arraystretch}{1.3}
+\setlength{\tabcolsep}{4.5pt}
+\begin{tabular}{
+  l
+  l
+  S[table-format= 1.4]   % Mean:     ±0.xxxx
+  S[table-format= 1.5]   % Std:      0.xxxxx
+  S[table-format=-1.4]   % Skew.:   -x.xxxx
+  S[table-format= 2.4]   % Ex.Kurt.: xx.xxxx
+  S[table-format=-1.4]   % q01:     -x.xxxx
+  S[table-format= 1.4]   % q99:      x.xxxx
+  S[table-format= 1.3]   % KS:       x.xxx
+  S[table-format= 1.3]   % W1:       x.xxx
+  l                      % alpha:    blank
+}
+\toprule
+{\textbf{Split}}
+  & \textbf{Configuration}
+  & {\textbf{Mean}}
+  & {\textbf{Std}}
+  & {\textbf{Skew.}}
+  & {\textbf{Ex.\ Kurt.}}
+  & {$\boldsymbol{q_{0.01}}$}
+  & {$\boldsymbol{q_{0.99}}$}
+  & {$D_{\mathrm{KS}}$}
+  & {$W_1$}
+  & {$\hat{\alpha}$} \\
+\midrule
+Both & Reference & 0.0000 & 1.0000 & -0.5864 & 39.5137 & -2.7188 & 2.7784 & {---} & {---} & 4.178 \\
+Both & EDM+Unc. & 0.0008 & 0.7523 & -0.2292 & 20.0563 & -2.0292 & 2.0855 & 0.0390 & 0.0028 & 4.640 \\
+\bottomrule
+\end{tabular}
+\caption{Aggregate statistics for normalize dataset split. Data is reported for the Validation hold-out windows, "Val", and all the windows. Excess kurtosis is reported relative to the Gaussian. $D_{\mathrm{KS}}$ and $W_1$ measure discrepancy against the training marginal (lower is better), in this case is on unnormalized version of generated data. $\hat{\alpha}$ is the estimated power-law tail exponent extimated on a subsample of \(300,000\) observation (reference $\hat{\alpha}=4.178$; closer is better).}
+\label{tab:phase2_edm_unconditional_512_100}
+\end{table}
+
+Unconditional has better capacity to capture peculiar patterns such as those in the 96\% quantile, but nevertheless it is not per-se bringing any significant improvement in heavy tails capturing.
+
+\subsection{Phase~2 Conditional EDM-CSDI}
+\label{subsec:conditiona_edm_csdi}
+The next step in modeling involved the introduction of conditional information as explained previously, in particular OHL transformed values. The specific settings are described in Tab.\ \ref{tab:training_setup}, Phase~2, and the model would be referred as to \emph{EDM+Conditional} (Con.).
+
+In this first experiments \(20,000\) windows of length \(L=512\) were considered and for each conditional set of information (window) 5 sample paths were generated.
+
+\textbf{Aggregate Statistics}
+\begin{table}[htbp]
+\centering
+\footnotesize
+\renewcommand{\arraystretch}{1.3}
+\setlength{\tabcolsep}{4.5pt}
+\begin{tabular}{
+  l
+  l
+  S[table-format= 1.4]   % Mean:     ±0.xxxx
+  S[table-format= 1.5]   % Std:      0.xxxxx
+  S[table-format=-1.4]   % Skew.:   -x.xxxx
+  S[table-format= 2.4]   % Ex.Kurt.: xx.xxxx
+  S[table-format=-1.4]   % q01:     -x.xxxx
+  S[table-format= 1.4]   % q99:      x.xxxx
+  S[table-format= 1.3]   % KS:       x.xxx
+  S[table-format= 1.3]   % W1:       x.xxx
+  l                      % alpha:    blank
+}
+\toprule
+{\textbf{Split}}
+  & \textbf{Configuration}
+  & {\textbf{Mean}}
+  & {\textbf{Std}}
+  & {\textbf{Skew.}}
+  & {\textbf{Ex.\ Kurt.}}
+  & {$\boldsymbol{q_{0.01}}$}
+  & {$\boldsymbol{q_{0.99}}$}
+  & {$D_{\mathrm{KS}}$}
+  & {$W_1$}
+  & {$\hat{\alpha}$} \\
+\midrule
+Val & Ground Truth & -0.0024 & 0.8656 & -0.4069 & 13.9640 & -2.3305 & 2.3723 & {---} & {---} &  \\
+Val & EDM+Unc. & 0.0031 & 0.7314 & -0.3558 & 19.9018 & -1.9595 & 2.0232 &  &  &  \\
+Val & EDM+Con. & 0.0033 & 0.8299 & -0.4432 & 13.9598 & -2.2396 & 2.2635 &  &  &  \\
+\midrule
+Both & Reference & 0.0000 & 1.0000 & -0.5864 & 39.5137 & -2.7188 & 2.7784 & {---} & {---} & 4.178 \\
+Both & EDM+Unc. & 0.0008 & 0.7523 & -0.2292 & 20.0563 & -2.0292 & 2.0855 & 0.0390 & 0.0028 & 4.640 \\
+Both & EDM+Con. & 0.0029 & 0.9487 & -0.5390 & 39.0522 & -2.5789 & 2.6306 &  &  & \\
+\bottomrule
+\end{tabular}
+\caption{Aggregate statistics for normalize dataset split. Data is reported for the Validation hold-out windows, \emph{Val}, and all the windows. Excess kurtosis is reported relative to the Gaussian. $D_{\mathrm{KS}}$ and $W_1$ measure discrepancy against the training marginal (lower is better), in this case is on unnormalized version of generated data. $\hat{\alpha}$ is the estimated power-law tail exponent extimated on a subsample of \(300,000\) observation (reference $\hat{\alpha}=4.178$; closer is better).}
+\label{tab:phase2_edm_conditional_512_100}
+\end{table}
+
+As it is possible to observe in Fig.\ \ref{fig:marginals_edm_conditional} the distributional metrics improved significantly and even more interestingly the introduction of conditional information provide more signal to the model that is not able to better calibrate the reconstruction of the 0\% interest event. The fully held out windows have a lower performance, but it is still able to recover the log-returns given the conditional input, even if slighlty underestimating the 0\% return event. The thinner different distribution shape is due to the fact that validaiton window are a small proportion of the overall windows, therefore their shape might vary slightly.
+
+\begin{figure}[htbp]
+    \centering
+    % Row 1: both (training + validation)
+    \begin{subfigure}{0.45\textwidth}
+        \centering
+        \includegraphics[width=\textwidth]{images/Phase2/conditional/marginal_distribution_rep_Pm-1.4_Ps1.8_ODE_val_large_quantiles.png}
+        \label{fig:marg_a}
+    \end{subfigure}
+    \hfill
+    \begin{subfigure}{0.45\textwidth}
+        \centering
+        \includegraphics[width=\textwidth]{images/Phase2/conditional/marginal_thinner_rep_Pm-1.4_Ps1.8_ODE_val_quantiles.png}
+        \label{fig:marg_b}
+    \end{subfigure}
+
+    \vspace{0.2em}
+
+    % Row 2: validation only
+    \begin{subfigure}{0.45\textwidth}
+        \centering
+        \includegraphics[width=\textwidth]{images/Phase2/conditional/marginal_distribution_rep_Pm-1.4_Ps1.8_ODE_both_large_quantiles.png}
+        \label{fig:marg_c}
+    \end{subfigure}
+    \hfill
+    \begin{subfigure}{0.45\textwidth}
+        \centering
+        \includegraphics[width=\textwidth]{images/Phase2/conditional/marginal_thinner_rep_Pm-1.4_Ps1.8_ODE_both_quantiles.png}
+        \label{fig:marg_d}
+    \end{subfigure}
+
+    \caption{Marginal distribution against the empirical reference (blue) for the EDM+Conditional model. \textit{Top row}: validation windows only (GT, because only windows used for conditioning were considered);
+    \textit{bottom row}: validation and training windows combined.
+    \textit{Left column}: full density range \(q_{0.001}\text{--}q_{0.999}\);
+    \textit{right column}: central range \(q_{0.02}\text{--}q_{0.98}\).}
+    \label{fig:marginals_edm_conditional}
+\end{figure}
+
+\textbf{Stylized Facts} \quad In this paragraph we present the stylized facts for the EDM+Con. model.
+[VALIDATION INSERT IMAGES]
+
+\begin{figure}[htbp]
+    \centering
+    % Row 1
+    \begin{subfigure}{0.3\textwidth}
+        \centering
+        \includegraphics[width=\textwidth]{images/Phase2/conditional/overlap_distribution_pos_log_repl_FINAL_VAL_ODE_Ps18_smax_8.png}
+        \label{fig:marg_a}
+    \end{subfigure}
+    \hfill
+    \begin{subfigure}{0.3\textwidth}
+        \centering
+        \includegraphics[width=\textwidth]{images/Phase2/conditional/overlap_volatility_clustering_repl_FINAL_VAL_ODE_Ps18_smax_8.png}
+        \label{fig:marg_b}
+    \end{subfigure}
+    \hfill
+    \begin{subfigure}{0.3\textwidth}
+        \centering
+        \includegraphics[width=\textwidth]{images/Phase2/conditional/overlap_leverage_effect_repl_FINAL_VAL_ODE_Ps18_smax_8.png}
+        \label{fig:marg_c}
+    \end{subfigure}
+
+    \vspace{0.2em}
+
+    % Row 2
+    \begin{subfigure}{0.3\textwidth}
+        \centering
+        \includegraphics[width=\textwidth]{images/Phase2/conditional/overlap_distribution_pos_rep_Pm-1.4_Ps1.8_ODE_both.png}
+        \label{fig:marg_d}
+    \end{subfigure}
+    \hfill
+    \begin{subfigure}{0.3\textwidth}
+        \centering
+        \includegraphics[width=\textwidth]{images/Phase2/conditional/overlap_acf_rep_Pm-1.4_Ps1.8_ODE_both.png}
+        \label{fig:marg_e}
+    \end{subfigure}
+    \hfill
+    \begin{subfigure}{0.3\textwidth}
+        \centering
+        \includegraphics[width=\textwidth]{images/Phase2/conditional/overlap_leverage_rep_Pm-1.4_Ps1.8_ODE_both.png}
+        \label{fig:marg_f}
+    \end{subfigure}
+
+    \caption{Stylized facts with Reference or Ground Truth (GT) (blue) versus Generated for the EDM+Conditional model. \textit{Top row}: validation windows only;
+    \textit{first column}: Validation windows versus the ground truth (conditioning windows).
+    \textit{second column}: combined validation and training windows versus the entire Reference (dataset).
+    \textit{Left column}: heavy-tail distribution;
+    \textit{centre column}: volatility clustering;
+    \textit{right column}: leverage effect.}
+    \label{fig:marginals_edm_conditional}
+\end{figure}
+
+\section{Phase 3 --- EDM-CSDI Sampling exploration}
+In this section we will discuss some of the exploration that has been conducted in order to assess if samples improvements are possibles and how does the model behave when stochasticity is re-introduced during the generation phase.
+
+This section will contain three sampling exploration: second order Heun's stochastic sampler, \(\sigma_{\max}\) sampler prior, and NFEs exploration. Specifically, the former is to evaluate if the model can recover some peculiarity of FTS paths through the injection of stochasticity; the second is to explore whether further or closer prior to the original distribution may influence sampling quality while retaining the same computational cost; and as last the NFEs to check if reconstruction error is already under control with current settings \(NFEs=400\) or \(steps=200\), or if there is margin for improvement, and decreasement, given that this was an upper bound.
+
+\textbf{Heun Stochastic Sampler} \quad In the first phase we generated data under the same condition as sub-Sec.\ \ref{subsec:conditiona_edm_csdi}, but using a stochastic sampler. Specifically, we experimented with a budget of \(S_{\text{churn}}=10\), \(S_{\text{tmin}}=0.05\), \(S_{\text{tmax}}=\infty\), and \(S_{\text{noise}}=1.0\). Over \(20,000\) windows the distributional properties were the same.
+
+
+
+\section{Structure map}
 \label{sec:phase2}
 
 \begin{itemize}
