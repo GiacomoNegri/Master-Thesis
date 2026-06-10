@@ -533,7 +533,7 @@ In this first experiments \(20,000\) windows of length \(L=512\) were considered
 \midrule
 Val & Ground Truth & -0.0024 & 0.8656 & -0.4069 & 13.9640 & -2.3305 & 2.3723 & {---} & {---} &  \\
 Val & EDM+Unc. & 0.0031 & 0.7314 & -0.3558 & 19.9018 & -1.9595 & 2.0232 &  &  &  \\
-Val & EDM+Con. & 0.0033 & 0.8299 & -0.4432 & 13.9598 & -2.2396 & 2.2635 &  &  & 4.278 \\
+Val & EDM+Con. & 0.0033 & 0.8299 & -0.4432 & 13.9598 & -2.2396 & 2.2635 & 0.0352 & 0.0005 & 4.278 \\
 \midrule
 Both & Reference & 0.0000 & 1.0000 & -0.5864 & 39.5137 & -2.7188 & 2.7784 & {---} & {---} & 4.418 \\
 Both & EDM+Unc. & 0.0008 & 0.7523 & -0.2292 & 20.0563 & -2.0292 & 2.0855 & 0.0390 & 0.0028 & 4.640 \\
@@ -636,7 +636,50 @@ As it is possible to observe in Fig.\ \ref{fig:marginals_edm_conditional} the di
     \label{fig:stylized_facts_edm_conditional}
 \end{figure}
 
-\textbf{CRPS and Interval Coverage} \quad 
+\textbf{CRPS and Interval Coverage} \quad In this specific case we generated 50 samples each for a new dataset of 2000 windows \(L=2048\) and \(s=100\), due to computational constraints generating 50 samples for each of the \(20,000\) windows was unfeasible.
+
+\begin{table}[H]
+\centering
+\footnotesize
+\renewcommand{\arraystretch}{1.3}
+\setlength{\tabcolsep}{4.5pt}
+\begin{tabular}{
+  l                        % Configuration
+  l                        % Sampler
+  S[table-format= 3.0]     % Num. Samples
+  S[table-format= 1.4]     % CRPS
+  S[table-format= 1.4]     % Term 1 (Norm.)
+  S[table-format= 1.4]     % Term 1 (Unnorm.)
+  S[table-format= 1.4]     % Term 2
+}
+\toprule
+{\textbf{Configuration}}
+  & {\textbf{Sampler}}
+  & {\textbf{Num.\ Samples}}
+  & {\textbf{CRPS}}
+  & {$\boldsymbol{\mathrm{T}_1^{\mathrm{norm}}}$}
+  & {$\boldsymbol{\mathrm{T}_1}$}
+  & {$\boldsymbol{\mathrm{T}_2^{\mathrm{norm}}}$} \\
+\midrule
+Climatology             & {---}          & 500 & 0.0000 & 0.0000 & 0.0000 & 0.0000 \\
+\midrule
+EDM-CSDI (Unc.)         & ODE            & 100 & 0.0000 & 0.0000 & 0.0000 & 0.0000 \\
+EDM-CSDI (Unc.)         & SDE            & 100 & 0.0000 & 0.0000 & 0.0000 & 0.0000 \\
+EDM-CSDI (Cond.)        & ODE            & 100 & 0.0000 & 0.0000 & 0.0000 & 0.0000 \\
+EDM-CSDI (Cond.)        & SDE            & 100 & 0.0000 & 0.0000 & 0.0000 & 0.0000 \\
+\bottomrule
+\end{tabular}
+\caption{CRPS decomposition for the EDM-CSDI models against the climatology
+baseline. \emph{Climatology} draws samples directly from the empirical training
+distribution. \emph{ODE} denotes the deterministic second-order Heun probability-flow
+sampler ($S_{\mathrm{churn}}=0$, 400~NFE); \emph{SDE} denotes the stochastic Heun
+sampler ($S_{\mathrm{churn}}=10$, 400~NFE). CRPS is decomposed as
+$\mathrm{CRPS} = \mathrm{T}_1 - \mathrm{T}_2$, where $\overline{\mathrm{T}}_1$
+is the spread term normalised by the number of samples, $\mathrm{T}_1$ its
+unnormalised counterpart, and $\mathrm{T}_2$ the mean absolute error against the
+observation. Lower CRPS is better.}
+\label{tab:crps_results}
+\end{table}
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
@@ -645,9 +688,131 @@ In this section we will discuss some of the exploration that has been conducted 
 
 This section will contain three sampling exploration: second order Heun's stochastic sampler, \(\sigma_{\max}\) sampler prior, and NFEs exploration. Specifically, the former is to evaluate if the model can recover some peculiarity of FTS paths through the injection of stochasticity; the second is to explore whether further or closer prior to the original distribution may influence sampling quality while retaining the same computational cost; and as last the NFEs to check if reconstruction error is already under control with current settings \(NFEs=400\) or \(steps=200\), or if there is margin for improvement, and decreasement, given that this was an upper bound.
 
-\textbf{Heun Stochastic Sampler} \quad In the first phase we generated data under the same condition as sub-Sec.\ \ref{subsec:conditiona_edm_csdi}, but using a stochastic sampler. Specifically, we experimented with a budget of \(S_{\text{churn}}=10\), \(S_{\text{tmin}}=0.05\), \(S_{\text{tmax}}=\infty\), and \(S_{\text{noise}}=1.0\). Over \(20,000\) windows the distributional properties were the same.
+\textbf{Heun Stochastic Sampler} \quad In the first phase we generated data under the same condition as sub-Sec.\ \ref{subsec:conditiona_edm_csdi}, using EDM+Conditional but using a stochastic sampler. Specifically, we experimented with a budget of \(S_{\text{churn}}=10\), \(S_{\text{tmin}}=0.05\), \(S_{\text{tmax}}=\infty\), and \(S_{\text{noise}}=1.0\). Over \(20,000\) windows the distributional properties were the same.
 
+\begin{table}[htbp]
+\centering
+\footnotesize
+\renewcommand{\arraystretch}{1.3}
+\setlength{\tabcolsep}{4.5pt}
+\begin{tabular}{
+  l
+  l
+  S[table-format= 1.4]   % Mean:     ±0.xxxx
+  S[table-format= 1.5]   % Std:      0.xxxxx
+  S[table-format=-1.4]   % Skew.:   -x.xxxx
+  S[table-format= 2.4]   % Ex.Kurt.: xx.xxxx
+  S[table-format=-1.4]   % q01:     -x.xxxx
+  S[table-format= 1.4]   % q99:      x.xxxx
+}
+\toprule
+{\textbf{Split}}
+  & \textbf{Sampler}
+  & {\textbf{Mean}}
+  & {\textbf{Std}}
+  & {\textbf{Skew.}}
+  & {\textbf{Ex.\ Kurt.}}
+  & {$\boldsymbol{q_{0.01}}$}
+  & {$\boldsymbol{q_{0.99}}$} \\
+\midrule
+Val  & Ground Truth & -0.0024 & 0.8656 & -0.4069 & 13.9640 & -2.3305 & 2.3723 \\
+Val  & Heun ODE     &  0.0031 & 0.7314 & -0.3558 & 19.9018 & -1.9595 & 2.0232 \\
+Val  & Heun SDE     &  0.0064 & 0.8983 & -0.8480 & 47.5565 & -2.4424 & 2.4561 \\
+\midrule
+Both & Reference    &  0.0000 & 1.0000 & -0.5864 & 39.5137 & -2.7188 & 2.7784 \\
+Both & Heun ODE     &  0.0029 & 0.9487 & -0.5390 & 39.0522 & -2.5789 & 2.6306 \\
+Both & Heun SDE     &  0.0012 & 1.0041 & -0.6876 & 45.6189 & -2.7224 & 2.7662 \\
+\bottomrule
+\end{tabular}
+\caption{Aggregate statistics for normalised dataset split. Data is reported for
+the validation hold-out windows, \emph{Val}, and all windows combined, \emph{Both}.}
+\label{tab:sampler_experiment}
+\end{table}
 
+\begin{table}[htbp]
+\centering
+\footnotesize
+\renewcommand{\arraystretch}{1.3}
+\setlength{\tabcolsep}{4.5pt}
+\begin{tabular}{
+  l
+  l
+  % S[table-format= 1.4]   % Mean:     ±0.xxxx
+  % S[table-format= 1.5]   % Std:      0.xxxxx
+  % S[table-format=-1.4]   % Skew.:   -x.xxxx
+  % S[table-format= 2.4]   % Ex.Kurt.: xx.xxxx
+  % S[table-format=-1.4]   % q01:     -x.xxxx
+  % S[table-format= 1.4]   % q99:      x.xxxx
+  l
+  l
+  % S[table-format= 2]   % KS:       x.xxx
+  % S[table-format= 2]   % W1:       x.xxx
+  l                      % alpha:    blank
+}
+\toprule
+{\textbf{Split}}
+  & \textbf{Sampler}
+  & {$D_{\mathrm{KS}}$}
+  & {$W_1$}
+  & {$\hat{\alpha}$} \\
+\midrule
+Val & Ground Truth & {---} & {---} &  \\
+Val & Heun ODE & 0.0352 & 0.000498 &  \\
+Val & Heun SDE & 0.0469 & 0.000997 & \\
+\midrule
+Both & Reference & {---} & {---} & 4.418 \\
+Both & Heun ODE &  0.0411 & 0.000569 & 4.572 \\
+Both & Heun SDE &  0.0377 & 0.000077 & \\
+\bottomrule
+\end{tabular}
+\caption{Distributional similarity metrics}
+\label{tab:edm_sampler_distributional_metrics}
+\end{table}
+
+As it is possible to see from the tables Tab.\ \ref{tab:sampler_experiment} and Tab.\ \ref{tab:edm_sampler_distributional_metrics} the advantage of using SDE is that the injection of noise bring new possible trajectory increasing standard deviation also for Validation windows. While this is positive because it bring us closer to the original distirbution, it also cause kurtosis to increase and skewness to grow beyond reference, probably this is due to the stochasticity pushing the model into regions that are poorly learned.
+
+\textbf{(\(\sigma_{\max}\) value} \quad Subsequently it was experimented with different \(\sigma_{\max}\) values whose role as been explained in Sec.\ \ref{sec:training_config}.
+
+\begin{table}[htbp]
+\centering
+\footnotesize
+\renewcommand{\arraystretch}{1.3}
+\setlength{\tabcolsep}{4.5pt}
+\begin{tabular}{
+  l
+  l
+  S[table-format= 1.4]   % Mean:     ±0.xxxx
+  S[table-format= 1.5]   % Std:      0.xxxxx
+  S[table-format=-1.4]   % Skew.:   -x.xxxx
+  S[table-format= 2.4]   % Ex.Kurt.: xx.xxxx
+  S[table-format=-1.4]   % q01:     -x.xxxx
+  S[table-format= 1.4]   % q99:      x.xxxx
+}
+\toprule
+{\textbf{Split}}
+  & \textbf{Sampler}
+  & \textbf{\(\sigma_{\max}\)}
+  & {\textbf{Mean}}
+  & {\textbf{Std}}
+  & {\textbf{Skew.}}
+  & {\textbf{Ex.\ Kurt.}}
+  & {$\boldsymbol{q_{0.01}}$}
+  & {$\boldsymbol{q_{0.99}}$} \\
+\midrule
+Val  & Ground Truth & {---} & -0.0024 & 0.8656 & -0.4069 & 13.9640 & -2.3305 & 2.3723 \\
+Val  & Heun-ODE & 8.0   &  0.0031 & 0.7314 & -0.3558 & 19.9018 & -1.9595 & 2.0232 \\
+Val  & Heun-ODE & 10.0 &   &  &  &  &  &  \\
+\midrule
+Both & Reference & {---} &  0.0000 & 1.0000 & -0.5864 & 39.5137 & -2.7188 & 2.7784 \\
+Both & Heun ODE & 8.0 &  0.0029 & 0.9487 & -0.5390 & 39.0522 & -2.5789 & 2.6306 \\
+Both & Heun SDE & 10.0 & & &  &  &  &  \\
+\bottomrule
+\end{tabular}
+\caption{Aggregate statistics for normalised dataset split. Data is reported for
+the validation hold-out windows, \emph{Val}, and all windows combined, \emph{Both}.}
+\label{tab:sigma_max_experiment}
+\end{table}
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
 \section{Structure map}
 \label{sec:phase2}
