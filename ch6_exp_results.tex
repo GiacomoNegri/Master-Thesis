@@ -578,7 +578,7 @@ As reported in Tab.\ \ref{tab:phase2_edm_conditional_512_100} and illustrated in
     \label{fig:marginals_edm_conditional}
 \end{figure}
 
-\textbf{Stylized Facts} \quad For the EDM-CSDI (Cond.) model the matching of stylized facts is much closer to the reference, showing that the model has learned the indirect reletionships between log-returns. Of particular interest is its ability to discern leverage effect intensity which varies between \emph{Validation} and \emph{Both}, pointing to a discriminative power of between different conditioning information.
+\textbf{Stylized Facts} \quad Through the conditioning information, EDM-CSDI (Cond.) model is able to matching much closer the stylized facts, as visualize in Fig.\ \ref{fig:stylized_facts_edm_conditional}, showing that it has learned the indirect relationships between log-returns at different lags. Of particular interest is its ability to discern leverage effect intensity which varies between \emph{Validation} and \emph{Both}, pointing to a discriminative power of diverse conditioning information.
 
 \begin{figure}[htbp]
     \centering
@@ -631,7 +631,11 @@ As reported in Tab.\ \ref{tab:phase2_edm_conditional_512_100} and illustrated in
     \label{fig:stylized_facts_edm_conditional}
 \end{figure}
 
-\textbf{CRPS and Interval Coverage} \quad For this analysis the model was re-trained to generate 50 samples for each 2,000 windows with \(L=512\) and \(s=100\), generating 50 samples for each of the \(20,000\) windows was computationally unfeasible given the HPC constraints.
+\textbf{CRPS and Interval Coverage} \quad For this analysis the EDM-CSDI (Con.) was used to generate two datasets. One with 50 samples for each 2,000 windows, while the other only 25 samples. Both with \(L=512\) and \(s=100\). Generating these samples for each of the \(20,000\) windows was computationally unfeasible given the HPC constraints.
+
+As observable in Tab.\ \ref{tab:crps_results}, the EDM-CSDI model achieve a CRPS skill score of $X$, meaning a reduction of $1-X$ while OHL are not ignored. This helps reduce the average MAE from approximately one standard deviation for daily log-return to a quarter, while decreasing the breathness. This is true both for `Validation' and for combined windows.
+
+Regarding the interval coverage, Tab.\ \ref{tab:coverage_results}, `Climatology 50' is overconfident for nominal percentages above 80\%, which makes it not covering the necessary interval, while not performing excessively poorly. On the other hand, EDM-CSDI in both cases outperform it, ensuring that the generated paths cover the intervals correctly.
 
 \begin{table}[H]
 \centering
@@ -640,39 +644,30 @@ As reported in Tab.\ \ref{tab:phase2_edm_conditional_512_100} and illustrated in
 \setlength{\tabcolsep}{4.5pt}
 \begin{tabular}{
   l                        % Configuration
-  l                        % Sampler
   S[table-format= 3.0]     % Num. Samples
-  S[table-format= 1.4]     % CRPS
-  S[table-format= 1.4]     % Term 1 (Norm.)
-  S[table-format= 1.4]     % Term 1 (Unnorm.)
-  S[table-format= 1.4]     % Term 2
+  S[table-format= 1.5]     % CRPS
+  S[table-format= 1.5]     % Term 1 (Norm.)
+  S[table-format= 1.5]     % Term 1 (Unnorm.)
+  S[table-format= 1.5]     % Term 2
 }
 \toprule
 {\textbf{Configuration}}
-  & {\textbf{Sampler}}
-  & {\textbf{Num.\ Samples}}
-  & {\textbf{CRPS}}
+  & {\textbf{N.\ Samples}}
+  & {\textbf{CRPS $\downarrow$}}
   & {$\boldsymbol{\mathrm{T}_1^{\mathrm{norm}}}$}
   & {$\boldsymbol{\mathrm{T}_1}$}
   & {$\boldsymbol{\mathrm{T}_2^{\mathrm{norm}}}$} \\
 \midrule
-Climatology             & {---}          & 500 & 0.0000 & 0.0000 & 0.0000 & 0.0000 \\
+Climatology             & 50 & 0.44900 & 0.89782 & 0.01873 & 0.89765 \\
 \midrule
-EDM-CSDI (Unc.)         & Heun ODE       & 100 & 0.0000 & 0.0000 & 0.0000 & 0.0000 \\
-EDM-CSDI (Unc.)         & Heun SDE       & 100 & 0.0000 & 0.0000 & 0.0000 & 0.0000 \\
-EDM-CSDI (Cond.)        & Heun ODE       & 100 & 0.0000 & 0.0000 & 0.0000 & 0.0000 \\
-EDM-CSDI (Cond.)        & Heun SDE       & 100 & 0.0000 & 0.0000 & 0.0000 & 0.0000 \\
+EDM-CSDI (Cond.)        & 25 & 0.00000 & 0.00000 & 0.00000 & 0.00000 \\
+EDM-CSDI (Cond.)        & 50 & 0.12659 & 0.25344 & 0.00529 & 0.25371 \\
 \bottomrule
 \end{tabular}
 \caption{CRPS decomposition for the EDM-CSDI models against the climatology
-baseline. \emph{Climatology} draws samples directly from the empirical training
-distribution. \emph{ODE} denotes the deterministic second-order Heun probability-flow
-sampler ($S_{\mathrm{churn}}=0$, 400~NFE); \emph{SDE} denotes the stochastic Heun
-sampler ($S_{\mathrm{churn}}=10$, 400~NFE). CRPS is decomposed as
-$\mathrm{CRPS} = \mathrm{T}_1 - \mathrm{T}_2$, where $\overline{\mathrm{T}}_1$
-is the spread term normalised by the number of samples, $\mathrm{T}_1$ its
-unnormalised counterpart, and $\mathrm{T}_2$ the mean absolute error against the
-observation. Lower CRPS is better.}
+baseline. CRPS is decomposed as
+$\mathrm{CRPS} = \mathrm{T}^{\text{norm}}_1 - \mathrm{T}^{\text{norm}}_2$, where ${\mathrm{T}}_1$
+is the spread term unnormalised by \(\sigma=0.020867\). \textbf{N.\ Samples} is to be intended for each window. Lower CRPS is better.}
 \label{tab:crps_results}
 \end{table}
 
@@ -682,59 +677,38 @@ observation. Lower CRPS is better.}
 \renewcommand{\arraystretch}{1.3}
 \setlength{\tabcolsep}{4.5pt}
 \begin{tabular}{
-  l                        % Configuration
-  l                        % Sampler
-  S[table-format= 3.0]     % Num. Samples
-  S[table-format= 2.1]     % Nominal (%)
-  S[table-format= 3.4]     % Empirical (%)
+  l                        % Nominal level
+  S[table-format=2.2]      % Climatology
+  S[table-format=2.2]      % EDM-CSDI 25
+  S[table-format=2.2]      % EDM-CSDI 50
 }
 \toprule
-{\textbf{Configuration}}
-  & {\textbf{Sampler}}
-  & {\textbf{Num.\ Samples}}
-  & {\textbf{Nominal (\%)}}
-  & {\textbf{Empirical (\%)}} \\
+{\textbf{Nominal (\%)}}
+  & {\textbf{Climatology 50}}
+  & {\textbf{EDM-CSDI 25}}
+  & {\textbf{EDM-CSDI 50}} \\
 \midrule
-\multirow{4}{*}{Climatology} & \multirow{4}{*}{{---}} & \multirow{4}{*}{500}
-  & 50.0 & 0.0000 \\
-  & & & 80.0 & 0.0000 \\
-  & & & 90.0 & 0.0000 \\
-  & & & 95.0 & 0.0000 \\
-\midrule
-\multirow{4}{*}{EDM-CSDI (Unc.)} & \multirow{4}{*}{Heun ODE} & \multirow{4}{*}{100}
-  & 50.0 & 0.0000 \\
-  & & & 80.0 & 0.0000 \\
-  & & & 90.0 & 0.0000 \\
-  & & & 95.0 & 0.0000 \\
-\midrule
-\multirow{4}{*}{EDM-CSDI (Unc.)} & \multirow{4}{*}{Heun SDE} & \multirow{4}{*}{100}
-  & 50.0 & 0.0000 \\
-  & & & 80.0 & 0.0000 \\
-  & & & 90.0 & 0.0000 \\
-  & & & 95.0 & 0.0000 \\
-\midrule
-\multirow{4}{*}{EDM-CSDI (Cond.)} & \multirow{4}{*}{Heun ODE} & \multirow{4}{*}{100}
-  & 50.0 & 0.0000 \\
-  & & & 80.0 & 0.0000 \\
-  & & & 90.0 & 0.0000 \\
-  & & & 95.0 & 0.0000 \\
-\midrule
-\multirow{4}{*}{EDM-CSDI (Cond.)} & \multirow{4}{*}{Heun SDE} & \multirow{4}{*}{100}
-  & 50.0 & 0.0000 \\
-  & & & 80.0 & 0.0000 \\
-  & & & 90.0 & 0.0000 \\
-  & & & 95.0 & 0.0000 \\
+50.0 & 48.08 & 0.0000 & 0.0000 \\
+80.0 & 76.87 & 0.0000 & 0.0000 \\
+90.0 & 86.70 & 0.0000 & 0.0000 \\
+95.0 & 91.50 & 0.0000 & 0.0000 \\
 \bottomrule
 \end{tabular}
-\caption{Empirical coverage of central prediction intervals for the EDM-CSDI models
-against the climatology baseline, computed on the same dataset of 2000 windows
-($L=2048$, $s=100$) used for Tab.\ \ref{tab:crps_results}. \emph{Nominal (\%)}
-denotes the requested central prediction interval level; \emph{Empirical (\%)}
-denotes the proportion of held-out observations falling within that interval.
-A well-calibrated model has Empirical~$\approx$~Nominal. \emph{ODE} and \emph{SDE}
-samplers are defined as in Tab.\ \ref{tab:crps_results}.}
-\label{tab:interval_coverage_results}
+\caption{Empirical coverage at nominal levels for Climatology, EDM-CSDI with
+25 samples, and EDM-CSDI with 50 samples. Values closer to the nominal level
+indicate better-calibrated prediction intervals.}
+\label{tab:coverage_results}
 \end{table}
+
+It is also possible to observe this in the samples paths of Fig.\ [CONDITIONAL] and Fig.\ [AGGREGATE], where it is possible to observe how conditional information do influence model reconstruction even though as we move further away from the origin point the divergence becomes wider, while retaining part of the signal direction.
+
+\begin{figure}[h]
+    \centering
+    \includegraphics[width=1\textwidth]{images/Phase2/level_marginal_thinner_ve-exponential_512.png}
+    \caption{Marginal distribution for VE+Exponential ($L=512$) against Reference (blue).}
+    \label{fig:thinner_marginal_ve_exponential_512}
+\end{figure}
+
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 

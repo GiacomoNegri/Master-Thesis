@@ -145,7 +145,6 @@ Ex.\ Kurt.  & 36.0632 & 21.4585 & 14.3427 &  7.0516 &  0.0675 &  0.0727 &  0.018
 \label{tab:phase1_raw_with_reference}
 \end{table}
 
-[INSERTING MARIGNAL IMAGES]
 %%%%% Phase 1 — Marginal Distribution: all 9 configurations (9×1)
 %%%%% Phase 1 — Marginal Distribution: VE (3×1)
 \begin{figure}[htbp]
@@ -754,15 +753,15 @@ In this sub-sectionthe detailed data regarding the model EDM+Unconditional and E
 & \multicolumn{3}{c}{\textbf{Both}} \\
 \cmidrule(lr){2-4}\cmidrule(lr){5-7}\cmidrule(lr){8-10}
 \textbf{Statistic}
-  & \textbf{GT} & \textbf{EDM+CSDI (Unc.)} & \textbf{EDM+CSDI (Con.)}
-  & \textbf{Ref.} & \textbf{EDM+CSDI (Unc.)} & \textbf{EDM+CSDI (Con.)} \\
+  & \textbf{GT} & \textbf{Unc.} & \textbf{Con.}
+  & \textbf{Ref.} & \textbf{Unc.} & \textbf{Con.} \\
 \midrule
 Mean
   &  -0.0024 &  0.0031 &  0.0033
   &  0.0000 &  0.0008 &  0.0029 \\
 Std
   &  0.8656 &  0.7314 &  0.8299
-  &  1.0000 &  0.07523 &  0.09487 \\
+  &  1.0000 &  0.7523 &  0.9487 \\
 Min
   & $-$13.8337 & $-$32.0912 & $-$14.6549
   & $-$44.8905 & $-$45.0383 & $-$60.237 \\
@@ -800,15 +799,51 @@ Ex.\ Kurt.
   & 39.5137 & 20.0563 & 39.0522 \\
 \midrule
 $D_{\mathrm{KS}}$
-  & {---} & 0.0454 & 0.0469
-  & {---} & 0.0436 & 0.0458 \\
+  & {---} & 0.0331 & 0.0352
+  & {---} & 0.0418 & 0.0411 \\
 $W_1$
-  & {---} & 0.0018 & 0.0020
-  & {---} & 0.0019 & 0.0020 \\
+  & {---} & 0.0020 & 0.0005
+  & {---} & 0.0029 & 0.0006 \\
 \bottomrule
 \end{tabular}
 \caption{Full aggregate statistics for EDM-CSDI (Unc.) and (Cond.) on normalized log-returns. \emph{Validation}: GT vs.\ generated; \emph{Both}: full Reference vs.\ generated. $D_{\mathrm{KS}}$ and $W_1$ are computed against the unnormalized training marginal.}
 \label{tab:phase2_edm_uncond_cond_full}
+\end{table}
+
+\begin{table}[htbp]
+\centering
+\footnotesize
+\renewcommand{\arraystretch}{1.28}
+\setlength{\tabcolsep}{3pt}
+\begin{tabular}{
+  l
+  r r r          % Validation: GT  Unc.  Con.
+  r r r          % Both:       Ref. Unc.  Con.
+}
+\toprule
+& \multicolumn{3}{c}{\textbf{Validation}}
+& \multicolumn{3}{c}{\textbf{Both}} \\
+\cmidrule(lr){2-4}\cmidrule(lr){5-7}
+\textbf{Statistic}
+  & \textbf{GT} & \textbf{Unc.} & \textbf{Con.}
+  & \textbf{Ref.} & \textbf{Unc.} & \textbf{Con.} \\
+\midrule
+\(\hat{\alpha}\)
+  &  4.072 &  4.768 &  4.278
+  &  4.418 &  4.640 &  4.572 \\
+\(x_{\min}\)
+  &  1.6504 &  2.4861 &  2.1686
+  &  3.6664 & 2.4406  & 4.2274 \\
+\(D_{KS}\)
+  & 0.0235 & 0.0226 & 0.0180
+  & 0.0208 & 0.0276 & 0.0086 \\
+\(n\)-\textbf{tail}
+  & 3486 & 3494 & 1429
+  & 2869 & 4003 & 3137 \\
+\bottomrule
+\end{tabular}
+\caption{Heavy-tail (power-law) statistics for VE+Exponential and VE+Cosine ($L=512$), Validation, Training, and Both splits. $D_{KS}$ is the distance between the fitted power law and the empirical tail.}
+\label{tab:appendix_stylized_facts_edm_conditional}
 \end{table}
 % ================================================================
 % APPENDIX: STYLIZED FACTS — THREE SEPARATE GRIDS

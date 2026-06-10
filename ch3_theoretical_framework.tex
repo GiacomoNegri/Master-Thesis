@@ -153,9 +153,10 @@ Follows the role of each preconditioning parameter:
     \item \(c_{\text{skip}}(\sigma)\), skip connection: is the Wiener filter coefficient, or the optimal linear estimator of \(x_0\) given \(x_t\). This is dervied from the MMSE argument, and it controls how much of the noisy input is passed directly to the output.
     \item \(c_{\text{out}}(\sigma)\), output scaling: rescales the network output so that the effective training targets also have unit variance, similarly to \(c_{\text{in}}(\sigma)\).
 \end{itemize}
+
 \begin{figure}[htbp]          % placement: here, top, bottom, page
   \centering
-  \includegraphics[width=0.7\textwidth]{images/preconditioning.png}
+  \includegraphics[width=0.6\textwidth]{images/preconditioning.png}
   \caption{Preconditioning coefficients for \(\sigma_{\text{data}}=1\), with \(\sigma_{\min}=0.002\) and \(\sigma_{\max}=7.0\).}
   \label{fig:preconditioning}
 \end{figure}
@@ -205,12 +206,19 @@ potentially trickier to optimise.
 
 % THE GRAPHS ARCHITECTURES ARE HERE
 
-\input{graphs/overview_flow}
+% \input{graphs/overview_flow}
 
-\input{graphs/architecture}
+% \input{graphs/architecture}
 
 \textbf{Input projection} \quad A pointwise \(1 \times 1\) convolution projects the two-channel input ( signal and mask channels) into a \(d\)-dimensional 
 latent space, where \(d\) is a free hyperparameter, lifting the two input channels into a richer representation.
+
+\begin{figure}[htbp]          % placement: here, top, bottom, page
+  \centering
+  \includegraphics[width=0.5\textwidth]{images/Transformer_architecture.png}
+  \caption{Transformer model architecture. Source: Vaswani et al.\ \cite{vaswani2017attention}.}
+  \label{fig:transformer_architecture}
+\end{figure}
 
 \textbf{Temporal and feature Transformer layers} \quad A new temporal 
 \((K, L, d)\) and feature \((L, K, d)\) Transformer is initialised per 
@@ -221,7 +229,7 @@ independent weights allow each layer to specialise. This is consistent
 with the CSDI implementation \cite{tashiro2021csdi}. Multi-head attention 
 \cite{vaswani2017attention} allows the model to attend to multiple 
 dependency patterns simultaneously within each axis, for instance it could modeled 
-short-range trend and longer-range volatility clustering along the temporal axis, or spread relationships along the feature axis. 
+short-range trend and longer-range volatility clustering along the temporal axis, or spread relationships along the feature axis. The detailed structure is represented in Fig.\ \ref{fig:transformer_architecture}. 
 
 \textbf{Gated residual blocks} \quad Following the WaveNet structure 
 \cite{oord2016wavenet}, each block applies \(\sigma(\cdot) \odot 
