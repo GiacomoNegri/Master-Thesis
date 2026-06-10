@@ -1,7 +1,7 @@
 \begin{figure}[p]
     \centering
 
-\resizebox{!}{0.92\textheight}{%
+\begin{adjustbox}{max width=\textwidth, max height=0.92\textheight}
 \begin{tikzpicture}[
     font=\small,
     >=Latex,
@@ -267,7 +267,7 @@
 ] (rescontainer) {};
 
 \end{tikzpicture}
-} % end resizebox
+\end{adjustbox} % end adjustbox
 
     \caption{High-level overview of the CSDI denoising network. The two-channel input is projected into a latent space, processed by $n$ stacked residual blocks with skip connections, and decoded back to the predicted clean signal.}
     \label{fig:csdi_overview}

@@ -1,6 +1,6 @@
 \begin{figure}[p]
     \centering
-\resizebox{!}{0.92\textheight}{%
+\begin{adjustbox}{max width=\textwidth, max height=0.92\textheight}
 \begin{tikzpicture}[
     font=\small,
     >=Latex,
@@ -286,7 +286,7 @@
 \end{scope}
 
 \end{tikzpicture}
-} %end resize box
+\end{adjustbox} %end adjustbox
     \caption{\texttt{ResidualBlock} architecture, CSDI--inspired. Each block emits a skip connection aggregated across all $n_{\mathrm{layers}}$ blocks (see Fig.~\ref{fig:csdi_overview}).}
     \label{fig:csdi_residual_block}
 \end{figure}
