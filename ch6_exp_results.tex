@@ -25,7 +25,7 @@ A key design difference that is worth to keep in mind between Phase~1 and Phase~
 
 Moreover, because the way data are processed to build windows, the 'Reference' values vary slightly according to the specific configuration that it is being analyzed: raw reference, \(L=2048\) windows with \texttt{stride}\(=100\), or \(L=512\) windows with \texttt{stride}\(=100\).
 
-Unless stated otherwise, all power-law coefficients, \(\hat{\alpha}\) are computed through Alstott et al.\ \cite{alstott2014powerlaw} python package \texttt{powerlaw} on a subsample of \(300,000\) observations. Similarly, \(D_{KS}\) and \(W_1\) are computed on a subsample of 1M observations randomly selected using a fixed seed. Finally, excess kurtosis (Ex. Kurt.) is reported relative to the Gaussian.
+Unless stated otherwise, all power-law coefficients, \(\hat{\alpha}\) are computed through Alstott et al.\ \cite{alstott2014powerlaw} python package \texttt{powerlaw} on a subsample of \(300,000\) observations. Similarly, \(D_{KS}\) and \(W_1\) are computed on a subsample of 1M observations randomly selected using a fixed seed. Finally, excess kurtosis (Kur.) is reported relative to the Gaussian.
 
 \section{Baseline Models: GARCH-X and Merton-X}
 GARCH-X and Merton-X models, defined in Sec.\ \ref{sec:classical_baselines_theoretical}, were trained on log transformed Sec.\ \ref{sec:ch4_data} data, according to Eq.\ \ref{eq:preprocessed_data}. A GARCH-X and Merton-X was specifically fit for each ticker. Details about the design choices and constraints applied are available at App.\ \ref{app:baselines_constraints}.
@@ -42,7 +42,7 @@ In Tab.\ \ref{tab:baseline_aggregate} are described distributional statistics (f
   S[table-format= 1.4]   % Mean
   S[table-format= 1.4]   % Std
   S[table-format=-1.4]   % Skew.     (range: -7.5635 to 1.2102)
-  S[table-format= 5.4]   % Ex.Kurt.  (up to 11021.7000)
+  S[table-format= 5.1]   % Kur.  (up to 11021.7)
   S[table-format=-1.4]   % q01
   S[table-format= 1.4]   % q99
   S[table-format= 1.4]   % D_KS
@@ -54,16 +54,16 @@ In Tab.\ \ref{tab:baseline_aggregate} are described distributional statistics (f
   & {\textbf{Mean}}
   & {\textbf{Std}}
   & {\textbf{Skew.}}
-  & {\textbf{Ex.\ Kurt.}}
+  & {\textbf{Kur.}}
   & {$\boldsymbol{q_{0.01}}$}
   & {$\boldsymbol{q_{0.99}}$}
   & {$D_{\mathrm{KS}}$}
   & {$W_1$}
   & {$\hat{\alpha}$} \\
 \midrule
-Reference & 0.0005 & 0.0232 & -0.5773 &    38.5028 & -0.0626 & 0.0649 & {---} & {---} & 4.532\\
-GARCH-X   & 0.0009 & 0.0230 & -7.5635 & 11021.7000 & -0.0577 & 0.0597 & 0.0540 & 0.0012 & 4.188\\
-Merton-X  & 0.0005 & 0.0364 &  1.2102 &  3736.4870 & -0.0584 & 0.0598 & 0.0423 & 0.0018 & 3.344 \\
+Reference & 0.0005 & 0.0232 & -0.5773 &  38.5 & -0.0626 & 0.0649 & {---} & {---} & 4.532\\
+GARCH-X   & 0.0009 & 0.0230 & -7.5635 & 11021.7 & -0.0577 & 0.0597 & 0.0540 & 0.0012 & 4.188\\
+Merton-X  & 0.0005 & 0.0364 &  1.2102 &  3736.4 & -0.0584 & 0.0598 & 0.0423 & 0.0018 & 3.344 \\
 \bottomrule
 \end{tabular}
 \caption{Aggregate distributional statistics for Reference, GARCH-X, and Merton-X. Values are computed over pooled log-returns. For Reference the entire dataset was used, while for GARCH-X, Merton-X a subsample of 10M observations was considered.}
@@ -135,7 +135,7 @@ Phase~1 aims to replicate the generative approach of Kim et al.~\cite{kim2025dif
   S[table-format= 1.4]   % Mean:     ±0.xxxx
   S[table-format= 1.5]   % Std:      0.xxxx
   S[table-format= 1.4]   % Skew.:    x.xxxx  (handles 6.3270)
-  S[table-format= 3.3]   % Ex.Kurt.: xxx.xxx (handles 529.825)
+  S[table-format= 3.1]   % Kur.: xxx.x (handles 529.8)
   S[table-format=-1.4]   % q01:     -x.xxxx
   S[table-format= 1.4]   % q99:      x.xxxx
   S[table-format= 1.3]   % KS:       x.xxx
@@ -147,7 +147,7 @@ Phase~1 aims to replicate the generative approach of Kim et al.~\cite{kim2025dif
   & {\textbf{Mean}}
   & {\textbf{Std}}
   & {\textbf{Skew.}}
-  & {\textbf{Ex.\ Kurt.}}
+  & {\textbf{Kur.}}
   & {$\boldsymbol{q_{0.01}}$}
   & {$\boldsymbol{q_{0.99}}$}
   & {$D_{\mathrm{KS}}$}
@@ -155,22 +155,22 @@ Phase~1 aims to replicate the generative approach of Kim et al.~\cite{kim2025dif
   & {$\hat{\alpha}$} \\
 \midrule
 % Training reference (no KS/W1 — computed against itself; alpha from empirical data)
-Reference        & 0.0005 & 0.0208 & -0.5387 &  36.063 & -0.0562 & 0.0572 & {---} & {---} & 4.378 \\
+Reference        & 0.0005 & 0.0208 & -0.5387 &  36.0 & -0.0562 & 0.0572 & {---} & {---} & 4.378 \\
 \midrule
 % VE family
-VE + Linear      &  0.0004 & 0.0270 & -0.1712 &   7.052 & -0.0649 & 0.0659 & 0.121 & 0.007 & 5.429 \\
-VE + Exponential &  0.0005 & 0.0190 & -0.0860 &  14.343 & -0.0479 & 0.0492 & \bfseries 0.037 & \bfseries 0.002 & 4.461 \\
-VE + Cosine      &  0.0008 & 0.0221 & -0.5979 &  21.459 & -0.0558 & 0.0575 & 0.062 & 0.003 & 4.448 \\
+VE + Linear      &  0.0004 & 0.0270 & -0.1712 &   7.0 & -0.0649 & 0.0659 & 0.121 & 0.007 & 5.429 \\
+VE + Exponential &  0.0005 & 0.0190 & -0.0860 &  14.3 & -0.0479 & 0.0492 & \bfseries 0.037 & \bfseries 0.002 & 4.461 \\
+VE + Cosine      &  0.0008 & 0.0221 & -0.5979 &  21.4 & -0.0558 & 0.0575 & 0.062 & 0.003 & 4.448 \\
 \midrule
 % VP family
-VP + Linear      &  0.0023 & 0.0446 &  6.3270 & 529.825 & -0.0739 & 0.0891 & 0.142 & 0.011 & 4.883 \\
-VP + Exponential &  0.0011 & 0.0546 &  0.1530 &   5.626 & -0.1365 & 0.1539 & 0.206 & 0.025 & 5.535 \\
-VP + Cosine      &  0.0003 & 0.0235 & -0.2985 &  15.799 & -0.0607 & 0.0627 & 0.060 & 0.003 & \bfseries 4.368 \\
+VP + Linear      &  0.0023 & 0.0446 &  6.3270 & 529.8 & -0.0739 & 0.0891 & 0.142 & 0.011 & 4.883 \\
+VP + Exponential &  0.0011 & 0.0546 &  0.1530 &   5.6 & -0.1365 & 0.1539 & 0.206 & 0.025 & 5.535 \\
+VP + Cosine      &  0.0003 & 0.0235 & -0.2985 &  15.7 & -0.0607 & 0.0627 & 0.060 & 0.003 & \bfseries 4.368 \\
 \midrule
 % GBM family (no alpha — distributions too far from training for power-law fitting)
-GBM + Linear     &  0.0001 & 0.2797 & -0.0023 &   0.018 & -0.6519 & 0.6516 & 0.419 & 0.210 & 13.055 \\
-GBM + Exponential&  0.0001 & 0.1453 & -0.0122 &   0.073 & -0.3385 & 0.3379 & 0.370 & 0.101 & {10.935} \\
-GBM + Cosine     &  0.0000 & 0.1437 & -0.0130 &   0.068 & -0.3350 & 0.3342 & 0.371 & 0.102 & {11.134} \\
+GBM + Linear     &  0.0001 & 0.2797 & -0.0023 &   0.0 & -0.6519 & 0.6516 & 0.419 & 0.210 & 13.055 \\
+GBM + Exponential&  0.0001 & 0.1453 & -0.0122 &   0.0 & -0.3385 & 0.3379 & 0.370 & 0.101 & {10.935} \\
+GBM + Cosine     &  0.0000 & 0.1437 & -0.0130 &   0.0 & -0.3350 & 0.3342 & 0.371 & 0.102 & {11.134} \\
 \bottomrule
 \end{tabular}
 \caption{Aggregate distributional statistics for Phase~1 generated close
@@ -185,7 +185,7 @@ $\hat{\alpha}=4.378$; closer is better).}
 
 %%%%%%%%%%%%%%%%%%%%%%%
 [WRITE INTERPRETATION]
-The statistics above show consistency in performance and have the advantage that they are bound in kurtosis and skewness. The other statistics, as it is possible to appreciate also by Tab.\ \ref{tab:phase1_raw_with_reference}, match fairly well the distributions in aggregate statistics, nevertheless they still fails in learning the specific patter observable between \(q_{0.02}-q_{0.98}\). The 'Ex. Kurt.' of 'VP + Linear' is likely bound to a poorly learned score field for few samples and ODE truncation error.
+The statistics above show consistency in performance and have the advantage that they are bound in kurtosis and skewness. The other statistics, as it is possible to appreciate also by Tab.\ \ref{tab:phase1_raw_with_reference}, match fairly well the distributions in aggregate statistics, nevertheless they still fails in learning the specific patter observable between \(q_{0.02}-q_{0.98}\). The 'Kur.' of 'VP + Linear' is likely bound to a poorly learned score field for few samples and ODE truncation error.
 
 Importantly, the interpretation of the log-returns as cumulative didn't yield any useful advantage, instead the learning seemed basic and the generated values are very close to forward added Gaussian Noise, casting doubt on the ability of the model to discern between signal and noise.
 
@@ -349,7 +349,7 @@ The generalization of these two models to a total of \(20,000\) windows. It was 
   S[table-format= 1.4]   % Mean:     ±0.xxxx
   S[table-format= 1.5]   % Std:      0.xxxxx
   S[table-format=-1.4]   % Skew.:   -x.xxxx
-  S[table-format= 2.4]   % Ex.Kurt.: xx.xxxx
+  S[table-format= 2.1]   % Kur.: xx.x
   S[table-format=-1.4]   % q01:     -x.xxxx
   S[table-format= 1.4]   % q99:      x.xxxx
   S[table-format= 1.3]   % KS:       x.xxx
@@ -362,20 +362,20 @@ The generalization of these two models to a total of \(20,000\) windows. It was 
   & {\textbf{Mean}}
   & {\textbf{Std}}
   & {\textbf{Skew.}}
-  & {\textbf{Ex.\ Kurt.}}
+  & {\textbf{Kur.}}
   & {$\boldsymbol{q_{0.01}}$}
   & {$\boldsymbol{q_{0.99}}$}
   & {$D_{\mathrm{KS}}$}
   & {$W_1$}
   & {$\hat{\alpha}$} \\
 \midrule
-Val  & Reference        & 0.0005 & 0.0206 & -0.4962 & 26.8995 & -0.0560 & 0.0572 & {---} & {---} &  4.072 \\
-Val  & VE + Exponential & 0.0003 & 0.0203 & -0.3531 & 18.3077 & -0.0522 & 0.0525 & 0.0454 & 0.0019 &  4.633 \\
-Val  & VE + Cosine      & 0.0004 & 0.0211 & -0.2933 & 11.6873 & -0.0545 & 0.0558 & 0.0469 & 0.0020 & 4.383 \\
+Val  & Reference        & 0.0005 & 0.0206 & -0.4962 & 26.8 & -0.0560 & 0.0572 & {---} & {---} &  4.072 \\
+Val  & VE + Exponential & 0.0003 & 0.0203 & -0.3531 & 18.3 & -0.0522 & 0.0525 & 0.0454 & 0.0019 &  4.633 \\
+Val  & VE + Cosine      & 0.0004 & 0.0211 & -0.2933 & 11.6 & -0.0545 & 0.0558 & 0.0469 & 0.0020 & 4.383 \\
 \midrule
-Both & Reference        & 0.0005 & 0.0209 & -0.5864 & 39.5137 & -0.0563 & 0.0583 & {---} & {---} & 4.418 \\
-Both & VE + Exponential & 0.0003 & 0.0199 & -0.2382 & 14.3986 & -0.0508 & 0.0514 & 0.0436 & 0.0019 & 4.634 \\
-Both & VE + Cosine      & 0.0004 & 0.0209 & -0.2368 & 16.6755 & -0.0535 & 0.0553 & 0.0458 & 0.0020 & 4.577 \\
+Both & Reference        & 0.0005 & 0.0209 & -0.5864 & 39.5 & -0.0563 & 0.0583 & {---} & {---} & 4.418 \\
+Both & VE + Exponential & 0.0003 & 0.0199 & -0.2382 & 14.3 & -0.0508 & 0.0514 & 0.0436 & 0.0019 & 4.634 \\
+Both & VE + Cosine      & 0.0004 & 0.0209 & -0.2368 & 16.6 & -0.0535 & 0.0553 & 0.0458 & 0.0020 & 4.577 \\
 \bottomrule
 \end{tabular}
 \caption{Aggregate statistics for dataset split. Data is reported for the Validation hold-out windows, "Val", and all the windows. Excess kurtosis is reported relative to the Gaussian. $D_{\mathrm{KS}}$ and $W_1$ measure discrepancy against the training marginal (lower is better). $\hat{\alpha}$ is the estimated power-law tail exponent extimated on a subsample of \(300,000\) observation (reference $\hat{\alpha}=4.178$; closer is better).}
@@ -438,7 +438,7 @@ In particular an improvement was measured in the ability to capture the decimali
   S[table-format= 1.4]   % Mean:     ±0.xxxx
   S[table-format= 1.5]   % Std:      0.xxxxx
   S[table-format=-1.4]   % Skew.:   -x.xxxx
-  S[table-format= 2.4]   % Ex.Kurt.: xx.xxxx
+  S[table-format= 2.1]   % Kur.: xx.x
   S[table-format=-1.4]   % q01:     -x.xxxx
   S[table-format= 1.4]   % q99:      x.xxxx
   S[table-format= 1.3]   % KS:       x.xxx
@@ -451,15 +451,15 @@ In particular an improvement was measured in the ability to capture the decimali
   & {\textbf{Mean}}
   & {\textbf{Std}}
   & {\textbf{Skew.}}
-  & {\textbf{Ex.\ Kurt.}}
+  & {\textbf{Kur.}}
   & {$\boldsymbol{q_{0.01}}$}
   & {$\boldsymbol{q_{0.99}}$}
   & {$D_{\mathrm{KS}}$}
   & {$W_1$}
   & {$\hat{\alpha}$} \\
 \midrule
-Both & Reference & 0.0000 & 1.0000 & -0.5864 & 39.5137 & -2.7188 & 2.7784 & {---} & {---} & 4.418 \\
-Both & EDM+Unc. & 0.0008 & 0.7523 & -0.2292 & 20.0563 & -2.0292 & 2.0855 & 0.0390 & 0.0028 & 4.6400 \\
+Both & Reference & 0.0000 & 1.0000 & -0.5864 & 39.5 & -2.7188 & 2.7784 & {---} & {---} & 4.418 \\
+Both & EDM+CSDI (Unc.) & 0.0008 & 0.7523 & -0.2292 & 20.0 & -2.0292 & 2.0855 & 0.0390 & 0.0028 & 4.6400 \\
 \bottomrule
 \end{tabular}
 \caption{Aggregate statistics for normalize dataset split. Data is reported for the Validation hold-out windows, "Val", and all the windows. Excess kurtosis is reported relative to the Gaussian. $D_{\mathrm{KS}}$ and $W_1$ measure discrepancy against the training marginal (lower is better), in this case is on unnormalized version of generated data. $\hat{\alpha}$ is the estimated power-law tail exponent extimated on a subsample of \(300,000\) observation (reference $\hat{\alpha}=4.178$; closer is better).}
@@ -511,7 +511,7 @@ In this first experiments \(20,000\) windows of length \(L=512\) were considered
   S[table-format= 1.4]   % Mean:     ±0.xxxx
   S[table-format= 1.5]   % Std:      0.xxxxx
   S[table-format=-1.4]   % Skew.:   -x.xxxx
-  S[table-format= 2.4]   % Ex.Kurt.: xx.xxxx
+  S[table-format= 2.1]   % Kur.: xx.x
   S[table-format=-1.4]   % q01:     -x.xxxx
   S[table-format= 1.4]   % q99:      x.xxxx
   S[table-format= 1.3]   % KS:       x.xxx
@@ -524,20 +524,20 @@ In this first experiments \(20,000\) windows of length \(L=512\) were considered
   & {\textbf{Mean}}
   & {\textbf{Std}}
   & {\textbf{Skew.}}
-  & {\textbf{Ex.\ Kurt.}}
+  & {\textbf{Kur.}}
   & {$\boldsymbol{q_{0.01}}$}
   & {$\boldsymbol{q_{0.99}}$}
   & {$D_{\mathrm{KS}}$}
   & {$W_1$}
   & {$\hat{\alpha}$} \\
 \midrule
-Val & Ground Truth & -0.0024 & 0.8656 & -0.4069 & 13.9640 & -2.3305 & 2.3723 & {---} & {---} &  \\
-Val & EDM+Unc. & 0.0031 & 0.7314 & -0.3558 & 19.9018 & -1.9595 & 2.0232 &  &  &  \\
-Val & EDM+Con. & 0.0033 & 0.8299 & -0.4432 & 13.9598 & -2.2396 & 2.2635 & 0.0352 & 0.0005 & 4.278 \\
+Val & Ground Truth & -0.0024 & 0.8656 & -0.4069 & 13.9 & -2.3305 & 2.3723 & {---} & {---} &  \\
+Val & EDM+CSDI (Unc.) & 0.0031 & 0.7314 & -0.3558 & 19.9 & -1.9595 & 2.0232 &  &  &  \\
+Val & EDM+CSDI (Con.) & 0.0033 & 0.8299 & -0.4432 & 13.9 & -2.2396 & 2.2635 & 0.0352 & 0.0005 & 4.278 \\
 \midrule
-Both & Reference & 0.0000 & 1.0000 & -0.5864 & 39.5137 & -2.7188 & 2.7784 & {---} & {---} & 4.418 \\
-Both & EDM+Unc. & 0.0008 & 0.7523 & -0.2292 & 20.0563 & -2.0292 & 2.0855 & 0.0390 & 0.0028 & 4.640 \\
-Both & EDM+Con. & 0.0029 & 0.9487 & -0.5390 & 39.0522 & -2.5789 & 2.6306 &  0.0411 & 0.0006 & 4.572 \\
+Both & Reference & 0.0000 & 1.0000 & -0.5864 & 39.5 & -2.7188 & 2.7784 & {---} & {---} & 4.418 \\
+Both & EDM+CSDI (Unc.) & 0.0008 & 0.7523 & -0.2292 & 20.0 & -2.0292 & 2.0855 & 0.0390 & 0.0028 & 4.640 \\
+Both & EDM+CSDI (Con.) & 0.0029 & 0.9487 & -0.5390 & 39.0 & -2.5789 & 2.6306 &  0.0411 & 0.0006 & 4.572 \\
 \bottomrule
 \end{tabular}
 \caption{Aggregate statistics for normalize dataset split. Data is reported for the Validation hold-out windows, \emph{Val}, and all the windows. Excess kurtosis is reported relative to the Gaussian. $D_{\mathrm{KS}}$ and $W_1$ measure discrepancy against the training marginal (lower is better), in this case is on unnormalized version of generated data. $\hat{\alpha}$ is the estimated power-law tail exponent extimated on a subsample of \(300,000\) observation (reference $\hat{\alpha}=4.178$; closer is better).}
@@ -663,10 +663,10 @@ As it is possible to observe in Fig.\ \ref{fig:marginals_edm_conditional} the di
 \midrule
 Climatology             & {---}          & 500 & 0.0000 & 0.0000 & 0.0000 & 0.0000 \\
 \midrule
-EDM-CSDI (Unc.)         & ODE            & 100 & 0.0000 & 0.0000 & 0.0000 & 0.0000 \\
-EDM-CSDI (Unc.)         & SDE            & 100 & 0.0000 & 0.0000 & 0.0000 & 0.0000 \\
-EDM-CSDI (Cond.)        & ODE            & 100 & 0.0000 & 0.0000 & 0.0000 & 0.0000 \\
-EDM-CSDI (Cond.)        & SDE            & 100 & 0.0000 & 0.0000 & 0.0000 & 0.0000 \\
+EDM-CSDI (Unc.)         & Heun ODE       & 100 & 0.0000 & 0.0000 & 0.0000 & 0.0000 \\
+EDM-CSDI (Unc.)         & Heun SDE       & 100 & 0.0000 & 0.0000 & 0.0000 & 0.0000 \\
+EDM-CSDI (Cond.)        & Heun ODE       & 100 & 0.0000 & 0.0000 & 0.0000 & 0.0000 \\
+EDM-CSDI (Cond.)        & Heun SDE       & 100 & 0.0000 & 0.0000 & 0.0000 & 0.0000 \\
 \bottomrule
 \end{tabular}
 \caption{CRPS decomposition for the EDM-CSDI models against the climatology
@@ -679,6 +679,66 @@ is the spread term normalised by the number of samples, $\mathrm{T}_1$ its
 unnormalised counterpart, and $\mathrm{T}_2$ the mean absolute error against the
 observation. Lower CRPS is better.}
 \label{tab:crps_results}
+\end{table}
+
+\begin{table}[H]
+\centering
+\footnotesize
+\renewcommand{\arraystretch}{1.3}
+\setlength{\tabcolsep}{4.5pt}
+\begin{tabular}{
+  l                        % Configuration
+  l                        % Sampler
+  S[table-format= 3.0]     % Num. Samples
+  S[table-format= 2.1]     % Nominal (%)
+  S[table-format= 3.4]     % Empirical (%)
+}
+\toprule
+{\textbf{Configuration}}
+  & {\textbf{Sampler}}
+  & {\textbf{Num.\ Samples}}
+  & {\textbf{Nominal (\%)}}
+  & {\textbf{Empirical (\%)}} \\
+\midrule
+\multirow{4}{*}{Climatology} & \multirow{4}{*}{{---}} & \multirow{4}{*}{500}
+  & 50.0 & 0.0000 \\
+  & & & 80.0 & 0.0000 \\
+  & & & 90.0 & 0.0000 \\
+  & & & 95.0 & 0.0000 \\
+\midrule
+\multirow{4}{*}{EDM-CSDI (Unc.)} & \multirow{4}{*}{Heun ODE} & \multirow{4}{*}{100}
+  & 50.0 & 0.0000 \\
+  & & & 80.0 & 0.0000 \\
+  & & & 90.0 & 0.0000 \\
+  & & & 95.0 & 0.0000 \\
+\midrule
+\multirow{4}{*}{EDM-CSDI (Unc.)} & \multirow{4}{*}{Heun SDE} & \multirow{4}{*}{100}
+  & 50.0 & 0.0000 \\
+  & & & 80.0 & 0.0000 \\
+  & & & 90.0 & 0.0000 \\
+  & & & 95.0 & 0.0000 \\
+\midrule
+\multirow{4}{*}{EDM-CSDI (Cond.)} & \multirow{4}{*}{Heun ODE} & \multirow{4}{*}{100}
+  & 50.0 & 0.0000 \\
+  & & & 80.0 & 0.0000 \\
+  & & & 90.0 & 0.0000 \\
+  & & & 95.0 & 0.0000 \\
+\midrule
+\multirow{4}{*}{EDM-CSDI (Cond.)} & \multirow{4}{*}{Heun SDE} & \multirow{4}{*}{100}
+  & 50.0 & 0.0000 \\
+  & & & 80.0 & 0.0000 \\
+  & & & 90.0 & 0.0000 \\
+  & & & 95.0 & 0.0000 \\
+\bottomrule
+\end{tabular}
+\caption{Empirical coverage of central prediction intervals for the EDM-CSDI models
+against the climatology baseline, computed on the same dataset of 2000 windows
+($L=2048$, $s=100$) used for Tab.\ \ref{tab:crps_results}. \emph{Nominal (\%)}
+denotes the requested central prediction interval level; \emph{Empirical (\%)}
+denotes the proportion of held-out observations falling within that interval.
+A well-calibrated model has Empirical~$\approx$~Nominal. \emph{ODE} and \emph{SDE}
+samplers are defined as in Tab.\ \ref{tab:crps_results}.}
+\label{tab:interval_coverage_results}
 \end{table}
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
@@ -701,7 +761,7 @@ This section will contain three sampling exploration: second order Heun's stocha
   S[table-format= 1.4]   % Mean:     ±0.xxxx
   S[table-format= 1.5]   % Std:      0.xxxxx
   S[table-format=-1.4]   % Skew.:   -x.xxxx
-  S[table-format= 2.4]   % Ex.Kurt.: xx.xxxx
+  S[table-format= 2.1]   % Kur.: xx.x
   S[table-format=-1.4]   % q01:     -x.xxxx
   S[table-format= 1.4]   % q99:      x.xxxx
 }
@@ -711,17 +771,17 @@ This section will contain three sampling exploration: second order Heun's stocha
   & {\textbf{Mean}}
   & {\textbf{Std}}
   & {\textbf{Skew.}}
-  & {\textbf{Ex.\ Kurt.}}
+  & {\textbf{Kur.}}
   & {$\boldsymbol{q_{0.01}}$}
   & {$\boldsymbol{q_{0.99}}$} \\
 \midrule
-Val  & Ground Truth & -0.0024 & 0.8656 & -0.4069 & 13.9640 & -2.3305 & 2.3723 \\
-Val  & Heun ODE     &  0.0031 & 0.7314 & -0.3558 & 19.9018 & -1.9595 & 2.0232 \\
-Val  & Heun SDE     &  0.0064 & 0.8983 & -0.8480 & 47.5565 & -2.4424 & 2.4561 \\
+Val  & Ground Truth & -0.0024 & 0.8656 & -0.4069 & 13.9 & -2.3305 & 2.3723 \\
+Val  & Heun ODE     &  0.0031 & 0.7314 & -0.3558 & 19.9 & -1.9595 & 2.0232 \\
+Val  & Heun SDE     &  0.0064 & 0.8983 & -0.8480 & 47.5 & -2.4424 & 2.4561 \\
 \midrule
-Both & Reference    &  0.0000 & 1.0000 & -0.5864 & 39.5137 & -2.7188 & 2.7784 \\
-Both & Heun ODE     &  0.0029 & 0.9487 & -0.5390 & 39.0522 & -2.5789 & 2.6306 \\
-Both & Heun SDE     &  0.0012 & 1.0041 & -0.6876 & 45.6189 & -2.7224 & 2.7662 \\
+Both & Reference    &  0.0000 & 1.0000 & -0.5864 & 39.5 & -2.7188 & 2.7784 \\
+Both & Heun ODE     &  0.0029 & 0.9487 & -0.5390 & 39.0 & -2.5789 & 2.6306 \\
+Both & Heun SDE     &  0.0012 & 1.0041 & -0.6876 & 45.6 & -2.7224 & 2.7662 \\
 \bottomrule
 \end{tabular}
 \caption{Aggregate statistics for normalised dataset split. Data is reported for
@@ -781,10 +841,11 @@ As it is possible to see from the tables Tab.\ \ref{tab:sampler_experiment} and 
 \begin{tabular}{
   l
   l
+  S[table-format=2.1]    % sigma_max: x.x or xx.x
   S[table-format= 1.4]   % Mean:     ±0.xxxx
   S[table-format= 1.5]   % Std:      0.xxxxx
   S[table-format=-1.4]   % Skew.:   -x.xxxx
-  S[table-format= 2.4]   % Ex.Kurt.: xx.xxxx
+  S[table-format= 2.1]   % Kur.: xx.x
   S[table-format=-1.4]   % q01:     -x.xxxx
   S[table-format= 1.4]   % q99:      x.xxxx
 }
@@ -795,67 +856,24 @@ As it is possible to see from the tables Tab.\ \ref{tab:sampler_experiment} and 
   & {\textbf{Mean}}
   & {\textbf{Std}}
   & {\textbf{Skew.}}
-  & {\textbf{Ex.\ Kurt.}}
+  & {\textbf{Kur.}}
   & {$\boldsymbol{q_{0.01}}$}
   & {$\boldsymbol{q_{0.99}}$} \\
 \midrule
-Val  & Ground Truth & {---} & -0.0024 & 0.8656 & -0.4069 & 13.9640 & -2.3305 & 2.3723 \\
-Val  & Heun-ODE & 8.0   &  0.0031 & 0.7314 & -0.3558 & 19.9018 & -1.9595 & 2.0232 \\
-Val  & Heun-ODE & 10.0 &   &  &  &  &  &  \\
+Val  & Ground Truth & {---} & -0.0024 & 0.8656 & -0.4069 & 13.9 & -2.3305 & 2.3723 \\
+Val  & Heun ODE & 8.0  &  0.0031 & 0.7314 & -0.3558 & 19.9 & -1.9595 & 2.0232 \\
+Val  & Heun ODE & 10.0 &   &  &  &  &  &  \\
 \midrule
-Both & Reference & {---} &  0.0000 & 1.0000 & -0.5864 & 39.5137 & -2.7188 & 2.7784 \\
-Both & Heun ODE & 8.0 &  0.0029 & 0.9487 & -0.5390 & 39.0522 & -2.5789 & 2.6306 \\
-Both & Heun SDE & 10.0 & & &  &  &  &  \\
+Both & Reference & {---} &  0.0000 & 1.0000 & -0.5864 & 39.5 & -2.7188 & 2.7784 \\
+Both & Heun ODE & 8.0  &  0.0029 & 0.9487 & -0.5390 & 39.0 & -2.5789 & 2.6306 \\
+Both & Heun ODE & 10.0 & & &  &  &  &  \\
 \bottomrule
 \end{tabular}
-\caption{Aggregate statistics for normalised dataset split. Data is reported for
-the validation hold-out windows, \emph{Val}, and all windows combined, \emph{Both}.}
+\caption{Aggregate statistics for normalised dataset split under varying
+\(\sigma_{\max}\) priors, using the second-order Heun ODE sampler. Data is reported for
+the validation hold-out windows, \emph{Val}, and all windows combined, \emph{Both}.
+\(\sigma_{\max}=8.0\) corresponds to the default EDM sampler configuration used
+throughout this chapter (\(\sigma_{\max}=P_{\text{mean}}+5P_{\text{std}}\)); results
+for \(\sigma_{\max}=10.0\) are pending and left blank.}
 \label{tab:sigma_max_experiment}
 \end{table}
-%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-
-\section{Structure map}
-\label{sec:phase2}
-
-\begin{itemize}
-    \item Introduction
-    \item Baseline model
-    \item comparison with equivalent Phase1
-    \item comparison with GARCH and Merton (industry)
-    \item Unconditional comparison
-    \item Stochastic sampler
-    \item variations
-    \item (optional) Post-2002
-\end{itemize}
-
-Phase~2 extends the explored CSDI-backbone architecture to the multivariate conditional
-setting within the EDM framework. Relative to Phase~1, three structural changes are
-introduced, each with a distinct theoretical motivation.First, the EDM training framework with preconditioning and structured presented in previous chapters. Second, Multivariete OHLC conditioning. Thirdly, the validation windows are now fully held out and sampling windows' length is reduced to \(L=512\) and \(s=100\).
-
-Unless otherwise stated, in this section we use "EDM sampler" for Heun's ODE second order approximation with 200 discretization steps (400 NFE) and \(\sigma_{\max}=P_{\text{mean}}+5P_{\text{std}}\).
-
-\textbf{EDM Baseline Model} \quad After a series of ablations and experimentations the baseline models has the characteristics reported in Tab.\ \ref{tab:training_setup}, of which the most important are \(P_{\text{mean}}=-1.4\) and \(P_{\text{std}}=1.8\).
-
-In order to assess the improvements brought by the implementation of EDM framework with the CSDI backbone and conditioning, the next phase was structured in three steps: first we compare with interpretable industry wide accepted models, such as GARCH-X and Merton-X, this will give us a performance baseline for comparison. Secondly, the Baseline will be compared against the best models of Phase~1 trained with \(L=512\) and \(s=100\), similarly to EDM. This will enable us to, understand Kim et al.\ \cite{kim2025diffusion} improvement on classical modeling and most importantly the oThirdly, it would be compared against an unconditional v
-
-\textbf{Phase~1 Champions} \quad In order to understand the improvements brough
-%%%%%%%%%%%%%%%%%%%%%%%
-
-A necessary condition for attributing Phase~2 improvements to the EDM framework or to
-the conditioning signal is a fair comparison with the Phase~1 baseline on identical
-windows and identical evaluation splits. To this end, the best Phase~1 configuration
-identified in Sec.~\ref{sec:phase1_summary} is retrained from scratch at $L=512$ and
-stride $s=100$, using the probability flow ODE sampler and the same validation split
-employed in Phase~2. This retrained model is referred to as Phase~1$^*$ throughout
-this section. Because the window length, stride, and evaluation split are now identical
-for both models, differences in generation quality can be attributed to the modelling
-choices rather than to differences in the data seen during training.
-
-The comparison is conducted on the metrics used throughout Phase~1 --- KS statistic,
-$W_1$ distance, tail exponent $\alpha$, and pathwise aggregate statistics --- computed
-on the generated Close log-return channel in both cases. CRPS is reported for Phase~2 BM
-but is not applicable to Phase~1$^*$, which is unconditional and does not produce a
-predictive distribution over the Close channel given OHL context. The isolated
-contribution of conditioning to generation quality is examined in
-Sec.~\ref{sec:phase2_unconditional}, which introduces an unconditional EDM baseline
-as an intermediate control.
