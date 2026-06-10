@@ -242,14 +242,10 @@ on ImageNet \cite{deng2009imagenet}.
   {\small
   \includegraphics[width=\textwidth]{images/EDM_Sampler.png}
   }
-  \caption{ A sketch of ODE curvature in 1D where \(p_{\text{data}}\) is two Dirac peaks at \(x\pm1\) Horizontal \(t\) axis is chosen to show \(\sigma\in[0,0.25]\) in each plot, with insets showing \ near the data. Example
-local gradients are shown with black arrows. (a) Variance preserving ODE of Song et al. [49] has
-solution trajectories that flatten out to horizontal lines at large σ. Local gradients start pointing
-towards data only at small σ. (b) Variance exploding variant has extreme curvature near data and
-the solution trajectories are curved everywhere. (c) With the schedule used by DDIM [47] and us, as
-σ increases the solution trajectories approach straight lines that point towards the mean of data. As
-σ → 0, the trajectories become linear and point towards the data manifold. Source: Song et al.\ \cite{song2021score}.}
-  \label{fig:sde_diffusion_process}
+  \caption{ A sketch of ODE curvature in 1D where \(p_{\text{data}}\) is two Dirac peaks at \(x\pm1\) Horizontal \(t\) axis is chosen to show \(\sigma\in[0,0.25]\) in each plot, with insets showing \(\sigma\in[0,1]\) near the data. Example local gradients are shown with black arrows. \emph{Left.} Variance preserving ODE of Song et al. \cite{song2021score} has
+solution trajectories that flatten out to horizontal lines at large \(\sigma\). Local gradients start pointing towards data only at small \(\sigma\). \emph{Center.} Variance exploding variant has extreme curvature near data and the solution trajectories are curved everywhere. \emph{Right.} With the schedule used by DDIM \cite{song2021denoising} and us, as
+\(\sigma\) increases the solution trajectories approach straight lines that point towards the mean of data. As \(\sigma \rightarrow 0\), the trajectories become linear and point towards the data manifold. Source: Karras et al.\ \cite{karras2022elucidating}.}
+  \label{fig:karras_sampler_image}
 \end{figure}
 
 \textbf{Sampler design} \quad
@@ -263,7 +259,7 @@ a $\rho$-power noise schedule:
 \end{equation}
 with $\rho = 7$. The power-law schedule concentrates discretisation steps at
 small $\sigma$, where the ODE curvature is highest and denoising errors have the
-greatest impact on sample quality, which is why instead of \(\rho=3\) that equalize the truncation error at each step they chose higher values. This resulted in equivalent sample quality to DDPM with approximately $7\times$ fewer NFEs. Moreover, the sampler is independent of the training procedure, therefore a model trained with the EDM loss could be evaluated with any compatible ODE or SDE solver.
+greatest impact on sample quality, which is why instead of \(\rho=3\) that equalize the truncation error at each step they chose higher values. This resulted in equivalent sample quality to DDPM with approximately $7\times$ fewer NFEs, and better convergence as shown in Fig.\ \ref{fig:karras_sampler_image}. Moreover, the sampler is independent of the training procedure, therefore a model trained with the EDM loss could be evaluated with any compatible ODE or SDE solver.
 
 \textbf{Stochastic Heun Sampler} \label{sec:stochastic_heun} \quad Karras et al.\ also propose a stochastic variant of the Heun solver in which a controlled amount of noise is reinjected before each denoising step. Before applying the standard second-order Heun update, the current noise level $\sigma_i$ is temporarily inflated to
 \begin{equation}
