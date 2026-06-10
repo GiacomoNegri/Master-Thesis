@@ -66,7 +66,7 @@ GARCH-X   & 0.0009 & 0.0230 & -7.5635 & 11021.7 & -0.0577 & 0.0597 & 0.0540 & 0.
 Merton-X  & 0.0005 & 0.0364 &  1.2102 &  3736.4 & -0.0584 & 0.0598 & 0.0423 & 0.0018 & 3.344 \\
 \bottomrule
 \end{tabular}
-\caption{Aggregate distributional statistics for Reference, GARCH-X, and Merton-X. Values are computed over pooled log-returns. For Reference the entire dataset was used, while for GARCH-X, Merton-X a subsample of 10M observations was considered.}
+\caption{Aggregate distributional statistics for Reference, GARCH-X, and Merton-X over pooled log-returns. Reference uses the full dataset; GARCH-X and Merton-X use a 10M-observation subsample.}
 \label{tab:baseline_aggregate}
 \end{table}
 
@@ -173,9 +173,7 @@ GBM + Exponential&  0.0001 & 0.1453 & -0.0122 &   0.0 & -0.3385 & 0.3379 & 0.370
 GBM + Cosine     &  0.0000 & 0.1437 & -0.0130 &   0.0 & -0.3350 & 0.3342 & 0.371 & 0.102 & {11.134} \\
 \bottomrule
 \end{tabular}
-\caption{Aggregate distributional statistics for Phase~1 generated close
-log-returns and the training reference. Values are computed over pooled
-window-level \((L=2048, \texttt{ stride}=100)\) returns.}
+\caption{Aggregate distributional statistics for Phase~1 generated close log-returns and the training reference, computed over pooled window-level returns ($L=2048$, stride$=100$).}
 \label{tab:phase1_aggregate}
 \end{table}
 
@@ -373,14 +371,14 @@ Both & VE + Exponential & 0.0003 & 0.0199 & -0.2382 & 14.3 & -0.0508 & 0.0514 & 
 Both & VE + Cosine      & 0.0004 & 0.0209 & -0.2368 & 16.6 & -0.0535 & 0.0553 & 0.0458 & 0.0020 & 4.577 \\
 \bottomrule
 \end{tabular}
-\caption{Aggregate statistics for dataset split. Data is reported for the Validation hold-out windows, "Val", and all the windows. Excess kurtosis is reported relative to the Gaussian. $D_{\mathrm{KS}}$ and $W_1$ measure discrepancy against the training marginal (lower is better). $\hat{\alpha}$ is the estimated power-law tail exponent extimated on a subsample of \(300,000\) observation (reference $\hat{\alpha}=4.178$; closer is better).}
+\caption{Aggregate distributional statistics for the Phase~1 champion models (VE+Exponential, VE+Cosine) generalized to $L=512$, stride$=100$. \emph{Val}: validation hold-out windows; \emph{Both}: validation and training combined.}
 \label{tab:ve_phase1_512_100}
 \end{table}
 
 \begin{figure}[h]
     \centering
     \includegraphics[width=1\textwidth]{images/Phase2/level_marginal_thinner_ve-exponential_512.png}
-    \caption{Marginal distribution of VE SDE with Exponential noise schedule against Reference (in blue).}
+    \caption{Marginal distribution for VE+Exponential ($L=512$) against Reference (blue).}
     \label{fig:thinner_marginal_ve_exponential_512}
 \end{figure}
 
@@ -391,8 +389,8 @@ Interestingly, the stilyzed facts seem to be learned the validation reference, e
 \begin{figure}[h]
     \centering
     \includegraphics[width=1\textwidth]{images/Phase2/overlap_stylized_facts_phase2.png}
-    \caption{From left to right, heavy-tail distribution, volatility clustering, and leverage effects. Stylized facts for Reference, VE SDE with Exponential and Cosine noise schedule for Validation windows.}
-    \label{fig:level_marginal_ve_exponantial_2048}
+    \caption{Stylized facts for Reference, VE+Exponential, and VE+Cosine on validation windows ($L=512$). From left to right: heavy-tail distribution, volatility clustering, leverage effect (cf.\ Fig.~\ref{fig:phase1_stylized_grid}).}
+    \label{fig:phase1_champions_stylized_facts}
 \end{figure}
 
 \subsection{Phase~2 Unconditional EDM-CSDI}
@@ -418,7 +416,7 @@ In particular an improvement was measured in the ability to capture the decimali
         \label{fig:image2}
     \end{subfigure}
 
-    \caption{Marginal distribution against Reference (in blue) of Both Validation and Training windows for EDM+Unc. model.}
+    \caption{Marginal density for EDM-CSDI (Unc.) against Reference (blue), validation and training windows combined.}
     \label{fig:density_edm_unconditional}
 \end{figure}
 
@@ -457,7 +455,7 @@ Both & Reference & 0.0000 & 1.0000 & -0.5864 & 39.5 & -2.7188 & 2.7784 & {---} &
 Both & EDM+CSDI (Unc.) & 0.0008 & 0.7523 & -0.2292 & 20.0 & -2.0292 & 2.0855 & 0.0390 & 0.0028 & 4.640 \\
 \bottomrule
 \end{tabular}
-\caption{Aggregate statistics for normalize dataset split. Data is reported for the Validation hold-out windows, "Val", and all the windows. Excess kurtosis is reported relative to the Gaussian. $D_{\mathrm{KS}}$ and $W_1$ measure discrepancy against the training marginal (lower is better), in this case is on unnormalized version of generated data. $\hat{\alpha}$ is the estimated power-law tail exponent extimated on a subsample of \(300,000\) observation (reference $\hat{\alpha}=4.178$; closer is better).}
+\caption{Aggregate statistics for normalized log-returns, EDM-CSDI (Unc.), all windows (\emph{Both}). $D_{\mathrm{KS}}$ and $W_1$ are computed against the unnormalized training marginal.}
 \label{tab:phase2_edm_unconditional_512_100}
 \end{table}
 
@@ -484,8 +482,8 @@ Both & EDM+CSDI (Unc.) & 0.0008 & 0.7523 & -0.2292 & 20.0 & -2.0292 & 2.0855 & 0
         \label{fig:stylized_facts_unconditional}
     \end{subfigure}
 
-    \caption{From left to right, heavy-tail distribution, volatility clustering, and leverage effects. Stylized facts for Reference and EDM+Unconditional on all generated windows.}
-    \label{fig:three_graphs}
+    \caption{Stylized facts for Reference and EDM-CSDI (Unc.) on all generated windows. From left to right: heavy-tail distribution, volatility clustering, leverage effect.}
+    \label{fig:phase2_unconditional_stylized_facts}
 \end{figure}
 
 \subsection{Phase~2 Conditional EDM-CSDI}
@@ -535,7 +533,7 @@ Both & EDM+CSDI (Unc.) & 0.0008 & 0.7523 & -0.2292 & 20.0 & -2.0292 & 2.0855 & 0
 Both & EDM+CSDI (Con.) & 0.0029 & 0.9487 & -0.5390 & 39.0 & -2.5789 & 2.6306 &  0.0411 & 0.0006 & 4.572 \\
 \bottomrule
 \end{tabular}
-\caption{Aggregate statistics for normalize dataset split. Data is reported for the Validation hold-out windows, \emph{Val}, and all the windows. Excess kurtosis is reported relative to the Gaussian. $D_{\mathrm{KS}}$ and $W_1$ measure discrepancy against the training marginal (lower is better), in this case is on unnormalized version of generated data. $\hat{\alpha}$ is the estimated power-law tail exponent extimated on a subsample of \(300,000\) observation (reference $\hat{\alpha}=4.178$; closer is better).}
+\caption{Aggregate statistics for normalized log-returns, EDM-CSDI (Unc.) and (Cond.). \emph{Val}: validation windows vs.\ Ground Truth (GT) conditioning data; \emph{Both}: validation and training combined vs.\ the full Reference. $D_{\mathrm{KS}}$ and $W_1$ are computed against the unnormalized training marginal.}
 \label{tab:phase2_edm_conditional_512_100}
 \end{table}
 
@@ -571,7 +569,7 @@ As it is possible to observe in Fig.\ \ref{fig:marginals_edm_conditional} the di
         \label{fig:marg_d}
     \end{subfigure}
 
-    \caption{Marginal distribution against the empirical reference (blue) for the EDM+Conditional model. \textit{Top row}: validation windows only (GT, because only windows used for conditioning were considered);
+    \caption{Marginal distribution against the empirical reference (blue) for the EDM-CSDI (Cond.) model. \textit{Top row}: validation windows only (GT, because only windows used for conditioning were considered);
     \textit{bottom row}: validation and training windows combined.
     \textit{Left column}: full density range \(q_{0.001}\text{--}q_{0.999}\);
     \textit{right column}: central range \(q_{0.02}\text{--}q_{0.98}\).}
@@ -622,7 +620,7 @@ As it is possible to observe in Fig.\ \ref{fig:marginals_edm_conditional} the di
         \label{fig:marg_f}
     \end{subfigure}
 
-    \caption{Stylized facts with Reference or Ground Truth (GT) (blue) versus Generated for the EDM+Conditional model. \textit{Top row}: validation windows only;
+    \caption{Stylized facts with Reference or Ground Truth (GT) (blue) versus Generated for the EDM-CSDI (Cond.) model. \textit{Top row}: validation windows only;
     \textit{first column}: Validation windows versus the ground truth (conditioning windows).
     \textit{second column}: combined validation and training windows versus the entire Reference (dataset).
     \textit{Left column}: heavy-tail distribution;
@@ -779,8 +777,7 @@ Both & Heun ODE     &  0.0029 & 0.9487 & -0.5390 & 39.0 & -2.5789 & 2.6306 \\
 Both & Heun SDE     &  0.0012 & 1.0041 & -0.6876 & 45.6 & -2.7224 & 2.7662 \\
 \bottomrule
 \end{tabular}
-\caption{Aggregate statistics for normalised dataset split. Data is reported for
-the validation hold-out windows, \emph{Val}, and all windows combined, \emph{Both}.}
+\caption{Aggregate statistics for EDM-CSDI (Cond.) under the deterministic Heun ODE and stochastic Heun (SDE, $S_{\mathrm{churn}}=10$) samplers, normalized log-returns. \emph{Val}: validation windows; \emph{Both}: combined.}
 \label{tab:sampler_experiment}
 \end{table}
 
@@ -820,7 +817,7 @@ Both & Heun ODE &  0.0411 & 0.000569 & 4.572 \\
 Both & Heun SDE &  0.0377 & 0.000077 & \\
 \bottomrule
 \end{tabular}
-\caption{Distributional similarity metrics}
+\caption{Distributional similarity metrics ($D_{\mathrm{KS}}$, $W_1$, $\hat{\alpha}$) for EDM-CSDI (Cond.) under the Heun ODE/SDE samplers (cf.\ Tab.~\ref{tab:sampler_experiment}).}
 \label{tab:edm_sampler_distributional_metrics}
 \end{table}
 
@@ -864,11 +861,9 @@ Both & Heun ODE & 8.0  &  0.0029 & 0.9487 & -0.5390 & 39.0 & -2.5789 & 2.6306 \\
 Both & Heun ODE & 10.0 & & &  &  &  &  \\
 \bottomrule
 \end{tabular}
-\caption{Aggregate statistics for normalised dataset split under varying
-\(\sigma_{\max}\) priors, using the second-order Heun ODE sampler. Data is reported for
-the validation hold-out windows, \emph{Val}, and all windows combined, \emph{Both}.
-\(\sigma_{\max}=8.0\) corresponds to the default EDM sampler configuration used
-throughout this chapter (\(\sigma_{\max}=P_{\text{mean}}+5P_{\text{std}}\)); results
-for \(\sigma_{\max}=10.0\) are pending and left blank.}
+\caption{Aggregate statistics for EDM-CSDI (Cond.) under varying $\sigma_{\max}$ priors with the second-order Heun ODE sampler, normalized log-returns. \emph{Val}: validation windows; \emph{Both}: combined.
+$\sigma_{\max}=8.0$ corresponds to the default EDM configuration used
+throughout this chapter ($\sigma_{\max}=P_{\text{mean}}+5P_{\text{std}}$); results
+for $\sigma_{\max}=10.0$ are pending.}
 \label{tab:sigma_max_experiment}
 \end{table}
