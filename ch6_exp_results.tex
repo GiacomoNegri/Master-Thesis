@@ -492,7 +492,7 @@ Tab.\ \ref{tab:phase2_edm_conditional_512_100} alongside Fig.\ \ref{fig:density_
 \label{subsec:conditiona_edm_csdi}
 The next step involved the introduction of conditional information, specifically the transformed OHL (Open, High, Low) values. These settings are described in Tab.\ \ref{tab:training_setup}, Phase~2, and the model will be referred to as EDM-CSDI (Cond.).
 
-Were generated \(20,000\) windows of length \(L=512\) were considered, and for each conditional set of information (i.e., each window), five sample paths were generated.
+Were generated \(20,000\) windows of length \(L=512\) were considered, and for each conditional set of information (i.e., each window), five sample paths were generated. All experiments results are repoted in Sec.\ \ [SECTION IN THE APPENDIX].
 
 \textbf{Aggregate Statistics}
 \begin{table}[htbp]
@@ -539,7 +539,7 @@ Both & EDM-CSDI (Cond.) & 0.0029 & 0.9487 & -0.5390 & 39.0 & -2.5789 & 2.6306 & 
 \label{tab:phase2_edm_conditional_512_100}
 \end{table}
 
-As shown in Fig.\ \ref{fig:marginals_edm_conditional}, the distributional metrics improved significantly; even more interestingly, the introduction of conditional information provides more signal to the model, which is now better able to calibrate the reconstruction of the 0\% return event. The fully held-out windows show lower performance, but the model is still able to recover the log-returns given the conditional input. This suggests that the learned embeddings provide useful global and local information, even if they slightly underestimate the 0\% return event. The slightly different shape of the thinner distribution is due to the fact that validation windows are a small proportion of the overall windows, so their shape may vary slightly.
+As reported in Tab.\ \ref{tab:phase2_edm_conditional_512_100} and illustrated in Fig.\ \ref{fig:marginals_edm_conditional}, the new conditional information enabled the model to reach great accuracy in higher moements and distributional details. It reduce heavy tails when compared to other model and it match more accurately the quantiles of the Reference distribution. Additionally, the model is better at matching the IQR specific pattern, with lower yet fairly accurate performance for held-out validation windows. This suggests that the learned embeddings provide useful global and local information.
 
 \begin{figure}[htbp]
     \centering
@@ -578,7 +578,7 @@ As shown in Fig.\ \ref{fig:marginals_edm_conditional}, the distributional metric
     \label{fig:marginals_edm_conditional}
 \end{figure}
 
-\textbf{Stylized Facts} \quad In this paragraph, we present the stylized facts for the EDM-CSDI (Cond.) model. The matching is much closer, showing that the model has learned the underlying distribution accurately.
+\textbf{Stylized Facts} \quad For the EDM-CSDI (Cond.) model the matching of stylized facts is much closer to the reference, showing that the model has learned the indirect reletionships between log-returns. Of particular interest is its ability to discern leverage effect intensity which varies between \emph{Validation} and \emph{Both}, pointing to a discriminative power of between different conditioning information.
 
 \begin{figure}[htbp]
     \centering
@@ -631,7 +631,7 @@ As shown in Fig.\ \ref{fig:marginals_edm_conditional}, the distributional metric
     \label{fig:stylized_facts_edm_conditional}
 \end{figure}
 
-\textbf{CRPS and Interval Coverage} \quad In this specific case, we generated 50 samples each for a new dataset of 2,000 windows with \(L=2048\) and \(s=100\); generating 50 samples for each of the \(20,000\) windows was computationally unfeasible.
+\textbf{CRPS and Interval Coverage} \quad For this analysis the model was re-trained to generate 50 samples for each 2,000 windows with \(L=512\) and \(s=100\), generating 50 samples for each of the \(20,000\) windows was computationally unfeasible given the HPC constraints.
 
 \begin{table}[H]
 \centering

@@ -1,6 +1,6 @@
 \begin{figure}[p]
     \centering
-\begin{adjustbox}{max width=\textwidth, max height=0.92\textheight}
+\begin{adjustbox}{max width=\textwidth, max height=0.92\textheight, keepaspectratio}
 \begin{tikzpicture}[
     font=\small,
     >=Latex,
@@ -194,12 +194,6 @@
     \textbf{cond\_projection}\\
     Conv1d $(193\to2\mathrm{ch})$, $k=1$
 };
-
-% side_info is centered above cond_projection
-\node[inputblock, above=0.35cm of condproj] (sideinfo) {
-    \textbf{side\_info}
-};
-
 
 % side_info is centered above cond_projection
 \node[inputblock, above=0.35cm of condproj] (sideinfo) {
