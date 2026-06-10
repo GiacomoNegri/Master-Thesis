@@ -122,7 +122,7 @@ of each noise level, but this choice is heuristic rather than principled.
   \includegraphics[width=\textwidth]{images/Overview_score_generative-modeling_Song.png}
   }
   \caption{Data can be mapped to a noise distribution (the prior) with an SDE (Eq.~\ref{eq:generalsde}), and reverse this SDE for generative modeling
-(Eq.~\ref{eq:reverse_sde}). We can also reverse the associated probability flow ODE (Eq.~\ref{eq:prob_flow_ode}), which yields a deterministic process that samples from the same distribution as the SDE. Both the reverse-time SDE and probability flow ODE can be obtained by estimating the score \(\nabla_x\log p_t(x_t)\). Source: Song et al.\ \cite{song2021score}.}
+(Eq.~\ref{eq:reverse_sde}). We can also reverse the associated probability flow ODE (Eq.~\ref{eq:probability_flow}), which yields a deterministic process that samples from the same distribution as the SDE. Both the reverse-time SDE and probability flow ODE can be obtained by estimating the score \(\nabla_x\log p_t(x_t)\). Source: Song et al.\ \cite{song2021score}.}
   \label{fig:sde_diffusion_process}
 \end{figure}
 
@@ -237,6 +237,7 @@ high $\sigma$ the target collapses to the dataset mean. The informative region i
 with defaults $P_{\text{mean}} = -1.2$ and $P_{\text{std}} = 1.2$, calibrated 
 on ImageNet \cite{deng2009imagenet}. 
 
+[ADD KARRAS ET AL. SAMPLER PICTURES AND COMPARISON]
 \textbf{Sampler design} \quad
 At inference time, EDM employs a deterministic second-order Heun ODE solver with 
 a $\rho$-power noise schedule:

@@ -175,16 +175,11 @@ GBM + Cosine     &  0.0000 & 0.1437 & -0.0130 &   0.0 & -0.3350 & 0.3342 & 0.371
 \end{tabular}
 \caption{Aggregate distributional statistics for Phase~1 generated close
 log-returns and the training reference. Values are computed over pooled
-window-level \((L=2048, \texttt{ stride}=100)\) returns. Excess kurtosis is
-reported relative to the Gaussian. $D_{\mathrm{KS}}$ and $W_1$
-measure discrepancy against the training marginal (lower is better).
-$\hat{\alpha}$ is the estimated power-law tail exponent extimated on a subsample of \(300,000\) observation (reference
-$\hat{\alpha}=4.378$; closer is better).}
+window-level \((L=2048, \texttt{ stride}=100)\) returns.}
 \label{tab:phase1_aggregate}
 \end{table}
 
 %%%%%%%%%%%%%%%%%%%%%%%
-[WRITE INTERPRETATION]
 The statistics above show consistency in performance and have the advantage that they are bound in kurtosis and skewness. The other statistics, as it is possible to appreciate also by Tab.\ \ref{tab:phase1_raw_with_reference}, match fairly well the distributions in aggregate statistics, nevertheless they still fails in learning the specific patter observable between \(q_{0.02}-q_{0.98}\). The 'Kur.' of 'VP + Linear' is likely bound to a poorly learned score field for few samples and ODE truncation error.
 
 Importantly, the interpretation of the log-returns as cumulative didn't yield any useful advantage, instead the learning seemed basic and the generated values are very close to forward added Gaussian Noise, casting doubt on the ability of the model to discern between signal and noise.
@@ -459,7 +454,7 @@ In particular an improvement was measured in the ability to capture the decimali
   & {$\hat{\alpha}$} \\
 \midrule
 Both & Reference & 0.0000 & 1.0000 & -0.5864 & 39.5 & -2.7188 & 2.7784 & {---} & {---} & 4.418 \\
-Both & EDM+CSDI (Unc.) & 0.0008 & 0.7523 & -0.2292 & 20.0 & -2.0292 & 2.0855 & 0.0390 & 0.0028 & 4.6400 \\
+Both & EDM+CSDI (Unc.) & 0.0008 & 0.7523 & -0.2292 & 20.0 & -2.0292 & 2.0855 & 0.0390 & 0.0028 & 4.640 \\
 \bottomrule
 \end{tabular}
 \caption{Aggregate statistics for normalize dataset split. Data is reported for the Validation hold-out windows, "Val", and all the windows. Excess kurtosis is reported relative to the Gaussian. $D_{\mathrm{KS}}$ and $W_1$ measure discrepancy against the training marginal (lower is better), in this case is on unnormalized version of generated data. $\hat{\alpha}$ is the estimated power-law tail exponent extimated on a subsample of \(300,000\) observation (reference $\hat{\alpha}=4.178$; closer is better).}
