@@ -17,20 +17,20 @@ the analysis:
     generation quality over the Phase~1 baseline?
 \end{enumerate}
 
-The chapter is organised in four sequential parts. The former introduce two baseline models GARCH-X and Merton-X, this will function as baseline comparison for parametric models, widely accepted in the industry, fully understood and probabilistically modeled. The second part will cover Phase~1, which concern the replication of the work of Kim et al.~\cite{kim2025diffusion} on unconditional univariate generation of S\&P~500 close log-returns. The third part, will investigate the contribution of the EDM framework when applied to Kim et al. CSDI-based architectured, therefore it will retain unconditional information while introducing preconditioning in training. Lastly, the full EDM model will be presented incorporating conditional information and EDM framework.
+The chapter is organised in four sequential parts. The first part introduces two baseline models, GARCH-X and Merton-X, which serve as a baseline comparison against parametric models that are widely accepted in industry, fully understood, and probabilistically modeled. The second part covers Phase~1, which concerns the replication of the work of Kim et al.~\cite{kim2025diffusion} on unconditional univariate generation of S\&P~500 close log-returns. The third part investigates the contribution of the EDM framework when applied to Kim et al.'s CSDI-based architecture, retaining unconditional information while introducing preconditioning in training. Lastly, the full EDM model is presented, incorporating conditional information within the EDM framework.
 
-Subsequently, others smaller experimentations were executed to compare the models behavior under different sampling procedures.
+Subsequently, other, smaller experiments were carried out to compare the models' behavior under different sampling procedures.
 
-A key design difference that is worth to keep in mind between Phase~1 and Phase~2 concerns the validation split, as described in Sec.\ref{sec:sliding_window_ch4}. In Phase~1, validation windows are drawn randomly from the full sliding-window pool and are partially overlapping with others. In Phase~2, validation windows are strictly held out. Specifically, 239 windows corresponding to approximately 1.5\% of the overall windows and 10\% of the unique rows.
+A key design difference that is worth keeping in mind between Phase~1 and Phase~2 concerns the validation split, as described in Sec.\ref{sec:sliding_window_ch4}. In Phase~1, validation windows are drawn randomly from the full sliding-window pool and are partially overlapping with others. In Phase~2, validation windows are strictly held out: 239 windows, corresponding to approximately 1.5\% of the overall windows and 10\% of the unique rows.
 
-Moreover, because the way data are processed to build windows, the 'Reference' values vary slightly according to the specific configuration that it is being analyzed: raw reference, \(L=2048\) windows with \texttt{stride}\(=100\), or \(L=512\) windows with \texttt{stride}\(=100\).
+Moreover, because of the way the data are processed to build windows, the `Reference' values vary slightly according to the specific configuration being analyzed: raw reference, \(L=2048\) windows with \texttt{stride}\(=100\), or \(L=512\) windows with \texttt{stride}\(=100\).
 
-Unless stated otherwise, all power-law coefficients, \(\hat{\alpha}\) are computed through Alstott et al.\ \cite{alstott2014powerlaw} python package \texttt{powerlaw} on a subsample of \(300,000\) observations. Similarly, \(D_{KS}\) and \(W_1\) are computed on a subsample of 1M observations randomly selected using a fixed seed. Finally, excess kurtosis (Kur.) is reported relative to the Gaussian.
+Unless stated otherwise, all power-law coefficients \(\hat{\alpha}\) are computed using the \texttt{powerlaw} Python package by Alstott et al.~\cite{alstott2014powerlaw} on a subsample of \(300,000\) observations. Similarly, \(D_{KS}\) and \(W_1\) are computed on a subsample of 1M observations randomly selected using a fixed seed. Finally, excess kurtosis (Kur.) is reported relative to the Gaussian.
 
 \section{Baseline Models: GARCH-X and Merton-X}
-GARCH-X and Merton-X models, defined in Sec.\ \ref{sec:classical_baselines_theoretical}, were trained on log transformed Sec.\ \ref{sec:ch4_data} data, according to Eq.\ \ref{eq:preprocessed_data}. A GARCH-X and Merton-X was specifically fit for each ticker. Details about the design choices and constraints applied are available at App.\ \ref{app:baselines_constraints}.
+GARCH-X and Merton-X models, defined in Sec.\ \ref{sec:classical_baselines_theoretical}, were trained on the log-transformed data described in Sec.\ \ref{sec:ch4_data}, following Eq.\ \ref{eq:preprocessed_data}. A GARCH-X and a Merton-X model were fit specifically for each ticker. Details about the design choices and constraints applied are available in App.\ \ref{app:baselines_constraints}.
 
-In Tab.\ \ref{tab:baseline_aggregate} are described distributional statistics (full table is available in the appendix, Tab.\ \ref{tab:baseline_full}):
+Tab.\ \ref{tab:baseline_aggregate} reports distributional statistics (the full table is available in the appendix, Tab.\ \ref{tab:baseline_full}):
 
 \begin{table}[htbp]
 \centering
@@ -70,7 +70,7 @@ Merton-X  & 0.0005 & 0.0364 &  1.2102 &  3736.4 & -0.0584 & 0.0598 & 0.0423 & 0.
 \label{tab:baseline_aggregate}
 \end{table}
 
-From the statistics it is possible to observe that this model, which has been refined within a working windows can match many of the distributional properties, see Tab.\ \ref{tab:baseline_full}, but they still struggle with higher moments, mostly because even if bound, the generation still tends to drift afar for few samples, indeed less than 0.00\% have \(|r_t|>1\). Moreover, if we have a look at Fig.\ \ref{fig:baseline_models_stylized_facts}, we can see that the key properties of fat tails distribution and volatility clustering are or could possibly be learned, under tighter constraint and shorter windows. Nevertheless, leverage effects is clearly missed, and this has to do with structural impossibility.
+From the statistics, it can be observed that these models, which have been refined within working windows, can match many of the distributional properties (see Tab.\ \ref{tab:baseline_full}), but they still struggle with higher moments, mostly because, even if bounded, the generation still tends to drift away for a few samples --- indeed, less than 0.00\% have \(|r_t|>1\). Moreover, looking at Fig.\ \ref{fig:baseline_models_stylized_facts}, the key properties of heavy-tail distribution and volatility clustering are, or could plausibly be, learned under tighter constraints and shorter windows. Nevertheless, the leverage effect is clearly missing, due to a structural impossibility of these models.
 
 \begin{figure}[h]
     \centering
@@ -79,7 +79,7 @@ From the statistics it is possible to observe that this model, which has been re
     \label{fig:baseline_models_stylized_facts}
 \end{figure}
 
-One key distribution that would be relevant later is the atypical spike of returns at 0\%, which is possible to visualize in Fig.\ \ref{fig:garch_merton_thinner}. This is due to decimalization. GARCH-X and Merton-X smoothened the distribution.
+One key feature of the distribution that will be relevant later is the atypical spike of returns at 0\%, visible in Fig.\ \ref{fig:garch_merton_thinner}. This is due to decimalization, and GARCH-X and Merton-X smooth out this spike.
 
 \begin{figure}[htbp]
     \centering
@@ -104,7 +104,7 @@ One key distribution that would be relevant later is the atypical spike of retur
 
 \section{Phase 1: Replication}
 \label{sec:phase1_results}
-Phase~1 aims to replicate the generative approach of Kim et al.~\cite{kim2025diffusion} as detailed in the first column of Tab.\ \ref{tab:training_setup}. For each model a dataset of 512 windows of length \(L=2048\) (\(1,048,576\) observation) were generated using probability-flow ODE, Eq.\ \ref{eq:probability_flow} with 2000 discretization steps. The number of sampled was choosen for computational feasibility.
+Phase~1 aims to replicate the generative approach of Kim et al.~\cite{kim2025diffusion} as detailed in the first column of Tab.\ \ref{tab:training_setup}. For each model, a dataset of 512 windows of length \(L=2048\) (\(1,048,576\) observations) was generated using the probability-flow ODE (Eq.\ \ref{eq:probability_flow}) with 2000 discretization steps. The number of samples was chosen for computational feasibility.
 
 % In Phase~1 the main training bottleneck was small \(t\), this has to due with the fact that at this regimes it is a harder task for the model to distinguish between clean and corrupted data, because the added noise is minimal. Because of noise schedules progression linear reported lower training loss which was not matched by higher expressivity nor better generated distribution. 
 
@@ -173,14 +173,14 @@ GBM + Exponential&  0.0001 & 0.1453 & -0.0122 &   0.0 & -0.3385 & 0.3379 & 0.370
 GBM + Cosine     &  0.0000 & 0.1437 & -0.0130 &   0.0 & -0.3350 & 0.3342 & 0.371 & 0.102 & {11.134} \\
 \bottomrule
 \end{tabular}
-\caption{Aggregate distributional statistics for Phase~1 generated close log-returns and the training reference, computed over pooled window-level returns ($L=2048$, stride$=100$).}
+\caption{Aggregate distributional statistics for Phase~1 generated close log-returns and the training reference, computed over pooled window-level returns ($L=2048$, stride$=400$).}
 \label{tab:phase1_aggregate}
 \end{table}
 
 %%%%%%%%%%%%%%%%%%%%%%%
-The statistics above show consistency in performance and have the advantage that they are bound in kurtosis and skewness. The other statistics, as it is possible to appreciate also by Tab.\ \ref{tab:phase1_raw_with_reference}, match fairly well the distributions in aggregate statistics, nevertheless they still fails in learning the specific patter observable between \(q_{0.02}-q_{0.98}\). The 'Kur.' of 'VP + Linear' is likely bound to a poorly learned score field for few samples and ODE truncation error.
+The statistics above show consistency in performance and have the advantage of being bounded in kurtosis and skewness. The other statistics, as can also be appreciated from Tab.\ \ref{tab:phase1_raw_with_reference}, match the aggregate distributional statistics fairly well; nevertheless, they still fail to learn the specific pattern observable in the \(q_{0.02}-q_{0.98}\) range. The `Kur.' of `VP + Linear' is likely attributable to a poorly learned score field for a few samples and to ODE truncation error.
 
-Importantly, the interpretation of the log-returns as cumulative didn't yield any useful advantage, instead the learning seemed basic and the generated values are very close to forward added Gaussian Noise, casting doubt on the ability of the model to discern between signal and noise.
+Importantly, interpreting the log-returns as cumulative did not yield any useful advantage; instead, the learning appeared rudimentary, and the generated values are very close to the forward-added Gaussian noise, casting doubt on the model's ability to discern signal from noise.
 
 \begin{figure}[h]
     \centering
@@ -189,11 +189,11 @@ Importantly, the interpretation of the log-returns as cumulative didn't yield an
     \label{fig:level_marginal_ve_exponantial_2048}
 \end{figure}
 
-Clearly the VE SDE is superior than VP with linear noise scheduler that smooth out the distribution. This is interesting because while in training we observed lower losses for the predicted added noise \(\hat{\epsilon}\) due to  that while more promising in training it has more difficulties in reconstructing the series and it is either unstable or smooth excessively the distribution, implying that more model expressivity might matter more than detailed reconstruction. There are still two limitations distributionally of the VE approach: first it undershoot tail reconstruction, as it is possible to see from Fig.\ \ref{fig:level_marginal_ve_exponantial_2048}'s QQ-plot. Secondly, it misses the 0\% returns, as shown by the generated ECDF cutting through the central vertical jump.
+Clearly the VE SDE is superior to VP with a linear noise scheduler, which smooths out the distribution. This is interesting because, although VP reported lower training losses for the predicted noise \(\hat{\epsilon}\) --- seemingly more promising during training --- it has more difficulty reconstructing the series and is either unstable or oversmooths the distribution, implying that model expressivity might matter more than detailed reconstruction. There are still two distributional limitations of the VE approach: first, it undershoots tail reconstruction, as visible in the QQ-plot of Fig.\ \ref{fig:level_marginal_ve_exponantial_2048}. Secondly, it misses the 0\% returns, as shown by the generated ECDF cutting through the central vertical jump.
 
-\textbf{Stylized Facts} \quad Our estimation of the \(\alpha\) component is in line with Kim el al., which reported a \(\alpha\approx4.35\), while for us it was estimated at \(4.37\), therefore in line. An estimation below this benchmark indicates that the data has a heavier tails.
+\textbf{Stylized Facts} \quad Our estimate of the \(\alpha\) component is consistent with Kim et al., who reported \(\alpha\approx4.35\), while for us it was estimated at \(4.37\). An estimate below this benchmark indicates heavier tails in the data.
 
-The core advantage of Phase~1 models on baseline ones is its ability to recover the stylized facts of the training windows, especially leveraged effect, even if with a lower scale than the reference one.
+The core advantage of Phase~1 models over the baselines is their ability to recover the stylized facts of the training windows, especially the leverage effect, even if at a lower scale than the reference.
 
 \begin{figure}[htbp]
 \centering
@@ -322,14 +322,14 @@ returns on a log--log scale (volatility clustering) with \(\operatorname{lag}=10
 % as excessive mean-reversion, lack of regime changes, or path crossings that would
 % violate non-negativity of prices at realistic price levels.]
 
-\textbf{Summary and Selection of Best Phase~1 Configuration} \quad In conclusion the model seem to be working under certain conditions and it provide a good base for further expansions, nevertheless the GBM approach must be discarded in its current implementation.
+\textbf{Summary and Selection of Best Phase~1 Configuration} \quad In conclusion, the models appear to work under certain conditions and provide a good basis for further extensions; nevertheless, the GBM approach must be discarded in its current implementation.
 
 \section{Phase 2: EDM-CSDI}
-In this section we will explore the results concerning the EDM-CSDI framework. In the first part of this section it would be evaluated the unconditional generation, therefore the training parameters will be the same defined in Tab.\ \ref{tab:training_setup} Phase 2 but with the \texttt{unconditional} mask instead of the \texttt{predict\_close} one and with the number of features \(K=1\). In order to have a fair comparison with Phase 1, the two most promising models: VE+Exponential and VE+Cosine were retrained with the same settings as in Phase 1, Tab.\ \ref{tab:training_setup}, but with \(L=512\) and \(s=100\).
-In the second part of this section it will be explored the condional generation.
+In this section, we explore the results concerning the EDM-CSDI framework. The first part evaluates unconditional generation, with training parameters as defined in Tab.\ \ref{tab:training_setup} (Phase~2 column), but using the \texttt{unconditional} mask instead of the \texttt{predict\_close} one and with the number of features \(K=1\). For a fair comparison with Phase~1, the two most promising models --- VE+Exponential and VE+Cosine --- were retrained with the same settings as in Phase~1 (Tab.\ \ref{tab:training_setup}), but with \(L=512\) and \(s=100\).
+The second part explores conditional generation.
 
 \subsection{Phase~1 Champion Models}
-The generalization of these two models to a total of \(20,000\) windows. It was used an Heun second order ODE probability-flow sampler, as defined in Eq.\ \ref{eq:edm_sampler}. Follow aggregate statistics for the \emph{Validation} split and the entirety generated, a complete table is presented in the appendix, Tab.\ \ref{tab:phase1_512_100_full}.
+These two models were generalized to a total of \(20,000\) windows. A second-order Heun ODE probability-flow sampler was used, as defined in Eq.\ \ref{eq:edm_sampler}. The following aggregate statistics are reported for the \emph{Validation} split and for the entire generated set; a complete table is presented in the appendix, Tab.\ \ref{tab:phase1_512_100_full}.
 
 \begin{table}[htbp]
 \centering
@@ -382,9 +382,9 @@ Both & VE + Cosine      & 0.0004 & 0.0209 & -0.2368 & 16.6 & -0.0535 & 0.0553 & 
     \label{fig:thinner_marginal_ve_exponential_512}
 \end{figure}
 
-As it is possible to see generalization of Phase~1 works in agreement with the first phase of experimentation, nevertheless it still lack to match the higher moments, or to close the gap on the \(D_{KS}\) and \(W_1\) metrics. Moreover, as possible to notice from figure Fig.\ \ref{fig:thinner_marginal_ve_exponential_512} the central part of the distribution, quantile range \(q_{0.02}-q_{0.98}\), is still smoothened out, with no significant ability of the model to learn the patter.
+As shown, the generalization of Phase~1 is consistent with the first phase of experimentation; nevertheless, it still fails to match the higher moments, or to close the gap in the \(D_{KS}\) and \(W_1\) metrics. Moreover, as can be noted from Fig.\ \ref{fig:thinner_marginal_ve_exponential_512}, the central part of the distribution, quantile range \(q_{0.02}-q_{0.98}\), is still oversmoothed, with the model showing no significant ability to learn this pattern.
 
-Interestingly, the stilyzed facts seem to be learned the validation reference, even if with a lower intensity and precision . Heavy-tails prediction is fairly close, while volatility clustering is still underestimated, and similarly for the leverage effect.
+Interestingly, the stylized facts of the validation reference seem to be captured, even if with lower intensity and precision. Heavy-tail prediction is fairly close, while volatility clustering and the leverage effect are still underestimated.
 
 \begin{figure}[h]
     \centering
@@ -395,9 +395,9 @@ Interestingly, the stilyzed facts seem to be learned the validation reference, e
 
 \subsection{Phase~2 Unconditional EDM-CSDI}
 
-The next phase focused on understanding how the EDM formulation impact the generalization and stylized facts learning of the CSDI models. From here onward we will refer to the current model as \emph{EDM+Unconditional} (Unc.).
+The next phase focused on understanding how the EDM formulation impacts the generalization and the learning of stylized facts of the CSDI model. From here onward we will refer to the current model as EDM-CSDI (Unc.).
 
-In particular an improvement was measured in the ability to capture the decimalization 0\% returns effect. This is likely due to the fact that in Phase~1 the model still tries to predict the added noise, \(\epsilon\sim\mathcal{N}(0,I)\), which makes the precise inference of the missed amount harder, while for the EDM framework which predicts directly the output values it is easier, possibly overestimating because it is an easy cheatcode to reduce errors. Irregardless of such improvement the ability to capture heavy tails seem to remain somewhat limited.
+In particular, an improvement was measured in the ability to capture the decimalization 0\% returns effect. This is likely because, in Phase~1, the model still tries to predict the added noise \(\epsilon\sim\mathcal{N}(0,I)\), which makes precise inference of the missed amount harder, whereas the EDM framework, which predicts the output values directly, makes this easier --- possibly overestimating, since it is an easy way to reduce error. Regardless of this improvement, the ability to capture heavy tails seems to remain somewhat limited.
 
 \begin{figure}[htbp]
     \centering
@@ -452,14 +452,14 @@ In particular an improvement was measured in the ability to capture the decimali
   & {$\hat{\alpha}$} \\
 \midrule
 Both & Reference & 0.0000 & 1.0000 & -0.5864 & 39.5 & -2.7188 & 2.7784 & {---} & {---} & 4.418 \\
-Both & EDM+CSDI (Unc.) & 0.0008 & 0.7523 & -0.2292 & 20.0 & -2.0292 & 2.0855 & 0.0390 & 0.0028 & 4.640 \\
+Both & EDM-CSDI (Unc.) & 0.0008 & 0.7523 & -0.2292 & 20.0 & -2.0292 & 2.0855 & 0.0390 & 0.0028 & 4.640 \\
 \bottomrule
 \end{tabular}
 \caption{Aggregate statistics for normalized log-returns, EDM-CSDI (Unc.), all windows (\emph{Both}). $D_{\mathrm{KS}}$ and $W_1$ are computed against the unnormalized training marginal.}
 \label{tab:phase2_edm_unconditional_512_100}
 \end{table}
 
-\textbf{Stylized Facts} \quad Because of EDM the ability to capture stylized facts improved while remain slightly off.
+\textbf{Stylized Facts} \quad Because of EDM, the ability to capture stylized facts improved, although it remains slightly off.
 
 \begin{figure}[htbp]
     \centering
@@ -488,9 +488,9 @@ Both & EDM+CSDI (Unc.) & 0.0008 & 0.7523 & -0.2292 & 20.0 & -2.0292 & 2.0855 & 0
 
 \subsection{Phase~2 Conditional EDM-CSDI}
 \label{subsec:conditiona_edm_csdi}
-The next step in modeling involved the introduction of conditional information as explained previously, in particular OHL transformed values. The specific settings are described in Tab.\ \ref{tab:training_setup}, Phase~2, and the model would be referred as to \emph{EDM+Conditional} (Con.).
+The next step in modeling involved the introduction of conditional information as explained previously, in particular the transformed OHL (Open, High, Low) values. The specific settings are described in Tab.\ \ref{tab:training_setup}, Phase~2, and the model will be referred to as EDM-CSDI (Cond.).
 
-In this first experiments \(20,000\) windows of length \(L=512\) were considered and for each conditional set of information (window) 5 sample paths were generated.
+In these first experiments, \(20,000\) windows of length \(L=512\) were considered, and for each conditional set of information (i.e., each window), five sample paths were generated.
 
 \textbf{Aggregate Statistics}
 \begin{table}[htbp]
@@ -525,19 +525,19 @@ In this first experiments \(20,000\) windows of length \(L=512\) were considered
   & {$\hat{\alpha}$} \\
 \midrule
 Val & Ground Truth & -0.0024 & 0.8656 & -0.4069 & 13.9 & -2.3305 & 2.3723 & {---} & {---} &  \\
-Val & EDM+CSDI (Unc.) & 0.0031 & 0.7314 & -0.3558 & 19.9 & -1.9595 & 2.0232 &  &  &  \\
-Val & EDM+CSDI (Con.) & 0.0033 & 0.8299 & -0.4432 & 13.9 & -2.2396 & 2.2635 & 0.0352 & 0.0005 & 4.278 \\
+Val & EDM-CSDI (Unc.) & 0.0031 & 0.7314 & -0.3558 & 19.9 & -1.9595 & 2.0232 &  &  &  \\
+Val & EDM-CSDI (Cond.) & 0.0033 & 0.8299 & -0.4432 & 13.9 & -2.2396 & 2.2635 & 0.0352 & 0.0005 & 4.278 \\
 \midrule
 Both & Reference & 0.0000 & 1.0000 & -0.5864 & 39.5 & -2.7188 & 2.7784 & {---} & {---} & 4.418 \\
-Both & EDM+CSDI (Unc.) & 0.0008 & 0.7523 & -0.2292 & 20.0 & -2.0292 & 2.0855 & 0.0390 & 0.0028 & 4.640 \\
-Both & EDM+CSDI (Con.) & 0.0029 & 0.9487 & -0.5390 & 39.0 & -2.5789 & 2.6306 &  0.0411 & 0.0006 & 4.572 \\
+Both & EDM-CSDI (Unc.) & 0.0008 & 0.7523 & -0.2292 & 20.0 & -2.0292 & 2.0855 & 0.0390 & 0.0028 & 4.640 \\
+Both & EDM-CSDI (Cond.) & 0.0029 & 0.9487 & -0.5390 & 39.0 & -2.5789 & 2.6306 &  0.0411 & 0.0006 & 4.572 \\
 \bottomrule
 \end{tabular}
 \caption{Aggregate statistics for normalized log-returns, EDM-CSDI (Unc.) and (Cond.). \emph{Val}: validation windows vs.\ Ground Truth (GT) conditioning data; \emph{Both}: validation and training combined vs.\ the full Reference. $D_{\mathrm{KS}}$ and $W_1$ are computed against the unnormalized training marginal.}
 \label{tab:phase2_edm_conditional_512_100}
 \end{table}
 
-As it is possible to observe in Fig.\ \ref{fig:marginals_edm_conditional} the distributional metrics improved significantly and even more interestingly the introduction of conditional information provide more signal to the model that is now able to better calibrate the reconstruction of the 0\% interest event. The fully held out windows have a lower performance, but it is still able to recover the log-returns given the conditional input, this suggest that embeddings learning provide useful global and local information, even if it slightly underestimate the 0\% return event. The thinner different distribution shape is due to the fact that validation window are a small proportion of the overall windows, therefore their shape might vary slightly.
+As shown in Fig.\ \ref{fig:marginals_edm_conditional}, the distributional metrics improved significantly; even more interestingly, the introduction of conditional information provides more signal to the model, which is now better able to calibrate the reconstruction of the 0\% return event. The fully held-out windows show lower performance, but the model is still able to recover the log-returns given the conditional input. This suggests that the learned embeddings provide useful global and local information, even if they slightly underestimate the 0\% return event. The slightly different shape of the thinner distribution is due to the fact that validation windows are a small proportion of the overall windows, so their shape may vary slightly.
 
 \begin{figure}[htbp]
     \centering
@@ -576,7 +576,7 @@ As it is possible to observe in Fig.\ \ref{fig:marginals_edm_conditional} the di
     \label{fig:marginals_edm_conditional}
 \end{figure}
 
-\textbf{Stylized Facts} \quad In this paragraph we present the stylized facts for the EDM+Con. model., the matching is much closer which shows that the model learned accurately the underlying distribution.
+\textbf{Stylized Facts} \quad In this paragraph, we present the stylized facts for the EDM-CSDI (Cond.) model. The matching is much closer, showing that the model has learned the underlying distribution accurately.
 
 \begin{figure}[htbp]
     \centering
@@ -629,7 +629,7 @@ As it is possible to observe in Fig.\ \ref{fig:marginals_edm_conditional} the di
     \label{fig:stylized_facts_edm_conditional}
 \end{figure}
 
-\textbf{CRPS and Interval Coverage} \quad In this specific case we generated 50 samples each for a new dataset of 2000 windows \(L=2048\) and \(s=100\), due to computational constraints generating 50 samples for each of the \(20,000\) windows was unfeasible.
+\textbf{CRPS and Interval Coverage} \quad In this specific case, we generated 50 samples each for a new dataset of 2,000 windows with \(L=2048\) and \(s=100\); generating 50 samples for each of the \(20,000\) windows was computationally unfeasible.
 
 \begin{table}[H]
 \centering
@@ -737,11 +737,11 @@ samplers are defined as in Tab.\ \ref{tab:crps_results}.}
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
 \section{Phase 3 --- EDM-CSDI Sampling exploration}
-In this section we will discuss some of the exploration that has been conducted in order to assess if samples improvements are possibles and how does the model behave when stochasticity is re-introduced during the generation phase.
+In this section, we discuss some of the explorations conducted to assess whether sample improvements are possible and how the model behaves when stochasticity is re-introduced during the generation phase.
 
-This section will contain three sampling exploration: second order Heun's stochastic sampler, \(\sigma_{\max}\) sampler prior, and NFEs exploration. Specifically, the former is to evaluate if the model can recover some peculiarity of FTS paths through the injection of stochasticity; the second is to explore whether further or closer prior to the original distribution may influence sampling quality while retaining the same computational cost; and as last the NFEs to check if reconstruction error is already under control with current settings \(NFEs=400\) or \(steps=200\), or if there is margin for improvement, and decreasement, given that this was an upper bound.
+This section covers three sampling explorations: the second-order Heun stochastic sampler, the \(\sigma_{\max}\) sampler prior, and an NFEs exploration. Specifically, the first evaluates whether the model can recover some peculiarities of FTS paths through the injection of stochasticity; the second explores whether a prior further from or closer to the original distribution may influence sampling quality while retaining the same computational cost; and the last checks whether the reconstruction error is already under control with the current settings (\(NFEs=400\) or \(steps=200\)), or whether there is margin for improvement or reduction, given that this was an upper bound.
 
-\textbf{Heun Stochastic Sampler} \quad In the first phase we generated data under the same condition as sub-Sec.\ \ref{subsec:conditiona_edm_csdi}, using EDM+Conditional but using a stochastic sampler. Specifically, we experimented with a budget of \(S_{\text{churn}}=10\), \(S_{\text{tmin}}=0.05\), \(S_{\text{tmax}}=\infty\), and \(S_{\text{noise}}=1.0\). Over \(20,000\) windows the distributional properties were the same.
+\textbf{Heun Stochastic Sampler} \quad In the first phase, we generated data under the same conditions as sub-Sec.\ \ref{subsec:conditiona_edm_csdi}, using EDM-CSDI (Cond.) with a stochastic sampler instead. Specifically, we experimented with a budget of \(S_{\text{churn}}=10\), \(S_{\text{tmin}}=0.05\), \(S_{\text{tmax}}=\infty\), and \(S_{\text{noise}}=1.0\). Over \(20,000\) windows, the distributional properties remained largely unchanged.
 
 \begin{table}[htbp]
 \centering
@@ -821,9 +821,9 @@ Both & Heun SDE &  0.0377 & 0.000077 & \\
 \label{tab:edm_sampler_distributional_metrics}
 \end{table}
 
-As it is possible to see from the tables Tab.\ \ref{tab:sampler_experiment} and Tab.\ \ref{tab:edm_sampler_distributional_metrics} the advantage of using SDE is that the injection of noise bring new possible trajectory increasing standard deviation also for Validation windows. While this is positive because it bring us closer to the original distirbution, it also cause kurtosis to increase and skewness to grow beyond reference, probably this is due to the stochasticity pushing the model into regions that are poorly learned.
+As shown in Tab.\ \ref{tab:sampler_experiment} and Tab.\ \ref{tab:edm_sampler_distributional_metrics}, the advantage of using SDE is that the injection of noise brings new possible trajectories, increasing the standard deviation also for validation windows. While this is positive, as it brings us closer to the original distribution, it also causes kurtosis to increase and skewness to grow beyond the reference. This is probably due to the stochasticity pushing the model into regions that are poorly learned.
 
-\textbf{(\(\sigma_{\max}\) value} \quad Subsequently it was experimented with different \(\sigma_{\max}\) values whose role as been explained in Sec.\ \ref{sec:training_config}.
+\textbf{\(\sigma_{\max}\) Value} \quad Subsequently, different \(\sigma_{\max}\) values were experimented with, whose role has been explained in Sec.\ \ref{sec:training_config}.
 
 \begin{table}[htbp]
 \centering
