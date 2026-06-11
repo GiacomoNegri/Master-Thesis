@@ -21,7 +21,7 @@ The chapter is organised in four sequential parts. The first part introduces two
 
 Subsequently, other, smaller experiments were carried out to compare the models' behavior under different sampling procedures.
 
-A key design difference that is worth keeping in mind between Phase~1 and Phase~2 concerns the validation split, as described in Sec.\ref{sec:sliding_window_ch4}. In Phase~1, validation windows are drawn randomly from the full sliding-window pool and are partially overlapping with others. In Phase~2, validation windows are strictly held out: 239 windows, corresponding to approximately 1\% of the overall windows and 5\% of the unique rows.
+A key design difference that is worth keeping in mind between Phase~1 and Phase~2 concerns the validation split, as described in Sec.\ref{sec:sliding_window_ch4}. In Phase~1, validation windows are drawn randomly from the full sliding-window pool and are partially overlapping with others. In Phase~2, validation windows are strictly held out: 239 windows, corresponding to approximately 1\% of the overall windows and 5\% of the unique rows. These validation windows while less important for unconditional generation, since hidden date ranges can be seen across different windows, they are fundamental for assessing conditional learning.
 
 Moreover, because of the way the data are processed to build windows, the `Reference' values vary slightly according to the specific configuration being analyzed: raw reference, \(L=2048\) windows with \(s=400\), or \(L=512\) windows with \(s=100\).
 
@@ -329,7 +329,7 @@ returns on a log--log scale (volatility clustering) with \(\operatorname{lag}=10
 This section explores the results regarding the EDM-CSDI framework. The first part evaluates unconditional generation, analysing the generalization of Phase~1 models, and then training another model, EDM+CSDI (Unc.), with the parameters defined in Tab.\ \ref{tab:training_setup} (Phase~2 column), but using the \texttt{unconditional} mask instead of \texttt{predict\_close}, both seen in Sec.\ \ref{sec:masking_strategies_ch3}, and with the number of features equal to \(K=1\). For a fair comparison with Phase~1, the two most promising models, VE+Exponential and VE+Cosine, were retrained with the same settings as in Phase~1 (Tab.\ \ref{tab:training_setup}), but with \(L=512\) and \(s=100\). The second part of the section explores conditional generation.
 
 \subsection{Phase~1 Champion Models}
-A total of \(20,000\) windows each were generated for VE+Exponential and VE+Cosine. In this case, a second-order Heun ODE probability-flow sampler, Eq.\ \ref{eq:edm_sampler}, was used. The following aggregate statistics are reported for the \emph{Validation} split and for the entire generated set; a complete table is presented in the appendix, Tab.\ \ref{tab:phase1_512_100_full}.
+A total of \(20,000\) windows each were generated for VE+Exponential and VE+Cosine. In this case, a second-order Heun ODE probability-flow sampler, Eq.\ \ref{eq:edm_sampler}, was used. The following aggregate statistics are reported for the entire generated set; a complete table is presented in the appendix, Tab.\ \ref{tab:phase1_512_100_full}.
 
 \textbf{Aggregate Statistics and Distributional Similarity} \quad 
 
@@ -352,8 +352,8 @@ A total of \(20,000\) windows each were generated for VE+Exponential and VE+Cosi
   l                      % alpha:    blank
 }
 \toprule
-{\textbf{Split}}
-  & \textbf{Configuration}
+% {\textbf{Split}}
+\textbf{Configuration}
   & {\textbf{Mean}}
   & {\textbf{Std}}
   & {\textbf{Skew.}}
@@ -364,18 +364,22 @@ A total of \(20,000\) windows each were generated for VE+Exponential and VE+Cosi
   & {$W_1 \downarrow$}
   & {$\hat{\alpha}$} \\
 \midrule
-Val  & Reference        & 0.0005 & 0.0206 & -0.4962 & 26.8 & -0.0560 & 0.0572 & {---} & {---} &  4.072 \\
-Val  & VE + Exponential & 0.0003 & 0.0203 & -0.3531 & 18.3 & -0.0522 & 0.0525 & 0.0454 & 0.0018 &  4.633 \\
-Val  & VE + Cosine      & 0.0004 & 0.0211 & -0.2933 & 11.7 & -0.0545 & 0.0558 & 0.0469 & 0.0020 & 4.383 \\
-\midrule
-Both & Reference        & 0.0005 & 0.0209 & -0.5864 & 39.5 & -0.0563 & 0.0583 & {---} & {---} & 4.418 \\
-Both & VE + Exponential & 0.0003 & 0.0199 & -0.2382 & 14.3 & -0.0508 & 0.0514 & 0.0436 & 0.0019 & 4.634 \\
-Both & VE + Cosine      & 0.0004 & 0.0209 & -0.2368 & 16.6 & -0.0535 & 0.0553 & 0.0458 & 0.0020 & 4.577 \\
+% Val  & Reference        & 0.0005 & 0.0206 & -0.4962 & 26.8 & -0.0560 & 0.0572 & {---} & {---} &  4.072 \\
+% Val  & VE + Exponential & 0.0003 & 0.0203 & -0.3531 & 18.3 & -0.0522 & 0.0525 & 0.0454 & 0.0018 &  4.633 \\
+% Val  & VE + Cosine      & 0.0004 & 0.0211 & -0.2933 & 11.7 & -0.0545 & 0.0558 & 0.0469 & 0.0020 & 4.383 \\
+% \midrule
+% Both & 
+Reference        & 0.0005 & 0.0209 & -0.5864 & 39.5 & -0.0563 & 0.0583 & {---} & {---} & 4.418 \\
+% Both &
+VE + Exponential & 0.0003 & 0.0199 & -0.2382 & 14.3 & -0.0508 & 0.0514 & 0.0436 & 0.0019 & 4.634 \\
+% Both &
+VE + Cosine      & 0.0004 & 0.0209 & -0.2368 & 16.6 & -0.0535 & 0.0553 & 0.0458 & 0.0020 & 4.577 \\
 \bottomrule
 \end{tabular}
-\caption{Aggregate distributional statistics for the Phase~1 champion models (VE+Exponential, VE+Cosine) generalized to $L=512$, stride$=100$. \emph{Val}: validation hold-out windows; \emph{Both}: validation and training combined.}
+\caption{Aggregate distributional statistics for the Phase~1 champion models (VE+Exponential, VE+Cosine) generalized to $L=512$, stride$=100$.}
 \label{tab:ve_phase1_512_100}
 \end{table}
+% \emph{Val}: validation hold-out windows; \emph{Both}: validation and training combined.
 
 \begin{figure}[h]
     \centering
@@ -384,14 +388,14 @@ Both & VE + Cosine      & 0.0004 & 0.0209 & -0.2368 & 16.6 & -0.0535 & 0.0553 & 
     \label{fig:thinner_marginal_ve_exponential_512}
 \end{figure}
 
-As visible in Tab.\ \ref{tab:ve_phase1_512_100}, generalizing the Phase~1 champions to \(L=512\) does not produce a systematic improvement: \(D_{KS}\)/\(W_1\) remain in a similar range to Phase~1 (e.g., VE+Exponential 0.0454/0.0018 vs.\ 0.037/0.002 in Tab.\ \ref{tab:phase1_aggregate}), and while VE+Cosine's excess kurtosis moves closer to its local reference (11.7 vs.\ 26.8), VE+Exponential's moves further away (18.3 vs.\ 26.8). Moreover, as can be noted from Fig.\ \ref{fig:thinner_marginal_ve_exponential_512}, the central part of the distribution, quantile range \(q_{0.02}-q_{0.98}\), is still oversmoothed, with the model showing no significant ability to learn this pattern.
+As visible in Tab.\ \ref{tab:ve_phase1_512_100}, generalizing the Phase~1 champions to \(L=512\) does not produce a systematic improvement: \(D_{KS}\)/\(W_1\) remain in a similar range to Phase~1 (e.g., VE+Exponential 0.0436/0.0019 vs.\ 0.037/0.002 in Tab.\ \ref{tab:phase1_aggregate}), and while VE+Cosine's excess kurtosis moves away from reference (21.4 vs.\ 16.6 currently), VE+Exponential's stayed stable at 14.3. Moreover, as can be noted from Fig.\ \ref{fig:thinner_marginal_ve_exponential_512}, the central part of the distribution, quantile range \(q_{0.02}-q_{0.98}\), is still oversmoothed, with the model showing no significant ability to learn this pattern.
 
-\textbf{Stylized Facts} \quad  The stylized facts of the held-out validation windows are fairly captured by the model with heavy-tail prediction that is reasonably close, while volatility clustering and the leverage effect are still underestimated as illustrated in Fig.\ \ref{fig:phase1_champions_stylized_facts}.
+\textbf{Stylized Facts} \quad  The stylized facts of FTS windows are fairly captured by the model with heavy-tail prediction that is reasonably close, while volatility clustering and the leverage effect are still underestimated as illustrated in Fig.\ \ref{fig:phase1_champions_stylized_facts}.
 
 \begin{figure}[h]
     \centering
-    \includegraphics[width=1\textwidth]{images/Phase2/overlap_stylized_facts_phase2.png}
-    \caption{Stylized facts for Reference, VE+Exponential, and VE+Cosine on validation windows ($L=512$). From left to right: heavy-tail distribution, volatility clustering, leverage effect (cf.\ Fig.~\ref{fig:phase1_stylized_grid}).}
+    \includegraphics[width=1\textwidth]{images/Phase2/appendix/stylized_facts/overlap_stylized_facts_both.png}
+    \caption{Stylized facts for Reference, VE+Exponential, and VE+Cosine on windows ($L=512$). From left to right: heavy-tail distribution, volatility clustering, leverage effect (cf.\ Fig.~\ref{fig:phase1_stylized_grid}).}
     \label{fig:phase1_champions_stylized_facts}
 \end{figure}
 
@@ -492,7 +496,7 @@ Tab.\ \ref{tab:phase2_edm_unconditional_512_100} alongside Fig.\ \ref{fig:densit
 \label{subsec:conditiona_edm_csdi}
 The next step involved the introduction of conditional information, specifically the transformed OHL (Open, High, Low) values. These settings are described in Tab.\ \ref{tab:training_setup}, Phase~2, and the model will be referred to as EDM-CSDI (Cond.).
 
-A total of \(20,000\) windows of length \(L=512\) were considered, and for each conditional set of information (i.e., each window), five sample paths were generated. The full results are reported in the appendix, Tab.\ \ref{tab:phase2_edm_uncond_cond_full}.
+A total of \(20,000\) windows of length \(L=512\) were considered, and for each conditional set of information (i.e., each window), five sample paths were generated. In this case validation windows are just the same hold-out windows, therfore date ranges. The full results are reported in the appendix, Tab.\ \ref{tab:phase2_edm_uncond_cond_full}.
 
 \textbf{Aggregate Statistics}
 \begin{table}[htbp]
