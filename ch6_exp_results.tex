@@ -57,8 +57,8 @@ Tab.\ \ref{tab:baseline_aggregate} reports distributional statistics (the full t
   & {\textbf{Kur.}}
   & {$\boldsymbol{q_{0.01}}$}
   & {$\boldsymbol{q_{0.99}}$}
-  & {$D_{\mathrm{KS}}$}
-  & {$W_1$}
+  & {$D_{\mathrm{KS}} \downarrow$}
+  & {$W_1 \downarrow$}
   & {$\hat{\alpha}$} \\
 \midrule
 Reference & 0.0005 & 0.0232 & -0.5773 &  38.5 & -0.0626 & 0.0649 & {---} & {---} & 4.532\\
@@ -150,8 +150,8 @@ Phase~1 aims to replicate the generative approach of Kim et al.~\cite{kim2025dif
   & {\textbf{Kur.}}
   & {$\boldsymbol{q_{0.01}}$}
   & {$\boldsymbol{q_{0.99}}$}
-  & {$D_{\mathrm{KS}}$}
-  & {$W_1$}
+  & {$D_{\mathrm{KS}} \downarrow$}
+  & {$W_1 \downarrow$}
   & {$\hat{\alpha}$} \\
 \midrule
 % Training reference (no KS/W1 — computed against itself; alpha from empirical data)
@@ -360,8 +360,8 @@ A total of \(20,000\) windows each were generated for VE+Exponential and VE+Cosi
   & {\textbf{Kur.}}
   & {$\boldsymbol{q_{0.01}}$}
   & {$\boldsymbol{q_{0.99}}$}
-  & {$D_{\mathrm{KS}}$}
-  & {$W_1$}
+  & {$D_{\mathrm{KS}}\downarrow$}
+  & {$W_1 \downarrow$}
   & {$\hat{\alpha}$} \\
 \midrule
 Val  & Reference        & 0.0005 & 0.0206 & -0.4962 & 26.8 & -0.0560 & 0.0572 & {---} & {---} &  4.072 \\
@@ -426,8 +426,8 @@ The next phase focused on understanding how the EDM formulation impacts the gene
   & {\textbf{Kur.}}
   & {$\boldsymbol{q_{0.01}}$}
   & {$\boldsymbol{q_{0.99}}$}
-  & {$D_{\mathrm{KS}}$}
-  & {$W_1$}
+  & {$D_{\mathrm{KS}} \downarrow$}
+  & {$W_1 \downarrow$}
   & {$\hat{\alpha}$} \\
 \midrule
 Both & Reference & 0.0000 & 1.0000 & -0.5864 & 39.5 & -2.7188 & 2.7784 & {---} & {---} & 4.418 \\
@@ -522,8 +522,8 @@ Were generated \(20,000\) windows of length \(L=512\) were considered, and for e
   & {\textbf{Kur.}}
   & {$\boldsymbol{q_{0.01}}$}
   & {$\boldsymbol{q_{0.99}}$}
-  & {$D_{\mathrm{KS}}$}
-  & {$W_1$}
+  & {$D_{\mathrm{KS}} \downarrow$}
+  & {$W_1 \downarrow$}
   & {$\hat{\alpha}$} \\
 \midrule
 Val & Ground Truth & -0.0024 & 0.8656 & -0.4069 & 13.9 & -2.3305 & 2.3723 & {---} & {---} & 4.072 \\
@@ -544,28 +544,28 @@ As reported in Tab.\ \ref{tab:phase2_edm_conditional_512_100} and illustrated in
 \begin{figure}[htbp]
     \centering
     % Row 1: both (training + validation)
-    \begin{subfigure}{0.45\textwidth}
+    \begin{subfigure}{0.4\textwidth}
         \centering
         \includegraphics[width=\textwidth]{images/Phase2/conditional/marginal_distribution_rep_Pm-1.4_Ps1.8_ODE_val_large_quantiles.png}
         \label{fig:marg_a}
     \end{subfigure}
     \hfill
-    \begin{subfigure}{0.45\textwidth}
+    \begin{subfigure}{0.4\textwidth}
         \centering
         \includegraphics[width=\textwidth]{images/Phase2/conditional/marginal_thinner_rep_Pm-1.4_Ps1.8_ODE_val_quantiles.png}
         \label{fig:marg_b}
     \end{subfigure}
 
-    \vspace{0.2em}
+    \vspace{0.05em}
 
     % Row 2: validation only
-    \begin{subfigure}{0.45\textwidth}
+    \begin{subfigure}{0.4\textwidth}
         \centering
         \includegraphics[width=\textwidth]{images/Phase2/conditional/marginal_distribution_rep_Pm-1.4_Ps1.8_ODE_both_large_quantiles.png}
         \label{fig:marg_c}
     \end{subfigure}
     \hfill
-    \begin{subfigure}{0.45\textwidth}
+    \begin{subfigure}{0.4\textwidth}
         \centering
         \includegraphics[width=\textwidth]{images/Phase2/conditional/marginal_thinner_rep_Pm-1.4_Ps1.8_ODE_both_quantiles.png}
         \label{fig:marg_d}
@@ -633,9 +633,9 @@ As reported in Tab.\ \ref{tab:phase2_edm_conditional_512_100} and illustrated in
 
 \textbf{CRPS and Interval Coverage} \quad For this analysis the EDM-CSDI (Con.) was used to generate two datasets. One with 50 samples for each 2,000 windows, while the other only 25 samples. Both with \(L=512\) and \(s=100\). Generating these samples for each of the \(20,000\) windows was computationally unfeasible given the HPC constraints.
 
-As observable in Tab.\ \ref{tab:crps_results}, the EDM-CSDI model achieve a CRPS skill score of $X$, meaning a reduction of $1-X$ while OHL are not ignored. This helps reduce the average MAE from approximately one standard deviation for daily log-return to a quarter, while decreasing the breathness. This is true both for `Validation' and for combined windows.
+As observable in Tab.\ \ref{tab:crps_results}, the EDM-CSDI model achieve a CRPS skill score of 0.7376, meaning a 73.76\% improvement attributable to conditioning signal. This helps reduce the average MAE from approximately one standard deviation in daily log-returns to a quarter, while decreasing the breadth of the prediction. This is true both for `Validation' and for combined (`Both') windows. Interestingly, the validation windows has a lower CRPS, which correlated to the lower MAE, suggest less exposure to rare events and extreme market events.
 
-Regarding the interval coverage, Tab.\ \ref{tab:coverage_results}, `Climatology 50' is overconfident for nominal percentages above 80\%, which makes it not covering the necessary interval, while not performing excessively poorly. On the other hand, EDM-CSDI in both cases outperform it, ensuring that the generated paths cover the intervals correctly.
+Regarding the interval coverage, Tab.\ \ref{tab:coverage_results}, higher nominal levels are correlated with more overconfident model's predictions (negative bias). Interestingly, for nominal levels below 90\% the number of generated samples is associated with underconfident and wider prediction. For financial market, where coverage of extreme events is important more samples, which provide broader coverage of extreme events and better CRPS seem to be a more reasonable choice.
 
 \begin{table}[H]
 \centering
@@ -644,7 +644,9 @@ Regarding the interval coverage, Tab.\ \ref{tab:coverage_results}, `Climatology 
 \setlength{\tabcolsep}{4.5pt}
 \begin{tabular}{
   l                        % Configuration
+  l
   S[table-format= 3.0]     % Num. Samples
+  S[table-format= 1.5]     % MAE
   S[table-format= 1.5]     % CRPS
   S[table-format= 1.5]     % Term 1 (Norm.)
   S[table-format= 1.5]     % Term 1 (Unnorm.)
@@ -652,16 +654,26 @@ Regarding the interval coverage, Tab.\ \ref{tab:coverage_results}, `Climatology 
 }
 \toprule
 {\textbf{Configuration}}
+  & {\textbf{Split}}
   & {\textbf{N.\ Samples}}
+  & {\textbf{MAE $\downarrow$}}
   & {\textbf{CRPS $\downarrow$}}
   & {$\boldsymbol{\mathrm{T}_1^{\mathrm{norm}}}$}
   & {$\boldsymbol{\mathrm{T}_1}$}
   & {$\boldsymbol{\mathrm{T}_2^{\mathrm{norm}}}$} \\
 \midrule
-Climatology             & 50 & 0.44900 & 0.89782 & 0.01873 & 0.89765 \\
+Climatology & Val       & 25 & 0.61913 & 0.44869 & 0.89745 & 0.01873 & 0.89753\\
+EDM-CSDI (Cond.) &  Val    & 25 & 0.01860 & 0.12144 & 0.24438 & 0.00510 & 0.24588 \\
+
+Climatology &   Both        & 25 & 0.66288 & 0.48232 & 0.96466 & 0.02013 & 0.96429 \\
+EDM-CSDI (Cond.) &  Both    & 25 & 0.19546 & 0.12602 & 0.25731 & 0.00537 & 0.26258 \\
+
 \midrule
-EDM-CSDI (Cond.)        & 25 & 0.00000 & 0.00000 & 0.00000 & 0.00000 \\
-EDM-CSDI (Cond.)        & 50 & 0.12659 & 0.25344 & 0.00529 & 0.25371 \\
+Climatology   &  Val & 50 & 0.60851 & 0.44900 & 0.89782 & 0.01873 & 0.89765 \\
+EDM-CSDI (Cond.)  & Val  & 50 & 0.18441 & 0.12141 & 0.24431 & 0.00510 & 0.24584 \\
+
+Climatology   &  Both  & 50 & 0.65065 & 0.48235 & 0.96461 & 0.01974 & 0.94452 \\
+EDM-CSDI (Cond.)  & Both     & 50 & 0.19379 & 0.12659 & 0.25727 & 0.00537 & 0.26259 \\
 \bottomrule
 \end{tabular}
 \caption{CRPS decomposition for the EDM-CSDI models against the climatology
@@ -677,169 +689,206 @@ is the spread term unnormalised by \(\sigma=0.020867\). \textbf{N.\ Samples} is 
 \renewcommand{\arraystretch}{1.3}
 \setlength{\tabcolsep}{4.5pt}
 \begin{tabular}{
+  l                        % Split
   l                        % Nominal level
-  S[table-format=2.2]      % Climatology
+  % S[table-format=2.2]      % Climatology 25
   S[table-format=2.2]      % EDM-CSDI 25
+  % S[table-format=2.2]      % Climatology 50
   S[table-format=2.2]      % EDM-CSDI 50
 }
 \toprule
-{\textbf{Nominal (\%)}}
-  & {\textbf{Climatology 50}}
+{\textbf{Split}}
+  & {\textbf{Nominal (\%)}}
+  % & {\textbf{Climatology 25}}
   & {\textbf{EDM-CSDI 25}}
+  % & {\textbf{Climatology 50}}
   & {\textbf{EDM-CSDI 50}} \\
 \midrule
-50.0 & 48.08 & 0.0000 & 0.0000 \\
-80.0 & 76.87 & 0.0000 & 0.0000 \\
-90.0 & 86.70 & 0.0000 & 0.0000 \\
-95.0 & 91.50 & 0.0000 & 0.0000 \\
+Val & 50.0  & 50.59 & 52.23 \\
+Val & 80.0  & 78.41 & 82.16 \\
+Val & 90.0  & 86.66 & 90.35\\
+Val & 95.0  & 91.34 & 94.06 \\
+Val & 99.0  & 93.46 & 96.89 \\
+\midrule
+Both & 50.0  & 51.57  & 53.05 \\
+Both & 80.0  & 78.95  & 82.52 \\
+Both & 90.0  & 86.87  & 90.50 \\
+Both & 95.0  & 91.46  & 94.02 \\
+Both & 99.0  & 93.60  & 96.84 \\
 \bottomrule
 \end{tabular}
-\caption{Empirical coverage at nominal levels for Climatology, EDM-CSDI with
-25 samples, and EDM-CSDI with 50 samples. Values closer to the nominal level
+\caption{Empirical coverage at nominal levels for EDM-CSDI with 25 samples, and EDM-CSDI with 50 samples. Values closer to the nominal level
 indicate better-calibrated prediction intervals.}
 \label{tab:coverage_results}
 \end{table}
 
-It is also possible to observe this in the samples paths of Fig.\ [CONDITIONAL] and Fig.\ [AGGREGATE], where it is possible to observe how conditional information do influence model reconstruction even though as we move further away from the origin point the divergence becomes wider, while retaining part of the signal direction.
+\textbf{Price Paths Samples} \qaud It is also possible to observe the influence of conditioning directly by looking at the prices pathsm Fig.\ \ref{fig:prices_paths_comparison}. Conditional information do influence model generation of new windows, and that hard features, such as jumps can actually be learned and replicated by the model. A bulk comparison of price paths is reported in Fig.\ \ref{fig:conditional_price_paths_aggregate}.
+
+\begin{figure}[htbp]
+    \centering
+    \begin{subfigure}[c]{0.96\textwidth}
+        \centering
+        \includegraphics[width=\linewidth]{images/Phase2/conditional/price_paths_comparison_edm_conditional.png}
+        \label{fig:app_marg_ve_cos}
+    \end{subfigure}
+    \begin{subfigure}[c]{0.96\textwidth}
+        \centering
+        \includegraphics[width=\linewidth]{images/Phase2/conditional/price_paths_comparison_edm_unconditional.png}
+        \label{fig:app_marg_ve_exp}
+    \end{subfigure}
+
+    \caption{Samples of prices paths. \emph{Top.} EDM-CSDI (Con.). \emph{Bottom.} EDM-CSDI (Unc.). In black is drawn the Ground Truth.}
+    \label{fig:prices_paths_comparison}
+\end{figure}
+
+% \begin{figure}[h]
+%     \centering
+%     \includegraphics[width=1\textwidth]{images/Phase2/conditional/price_paths_edm_conditional.png}
+%     \caption{Sample of generated price paths by EDM+CSDI (Con.) for individual Validation windows. All price paths starts at \(S_0=1\) and the Ground Truth is drawn in black.}
+%     \label{fig:conditional_price_paths}
+% \end{figure}
 
 \begin{figure}[h]
     \centering
-    \includegraphics[width=1\textwidth]{images/Phase2/level_marginal_thinner_ve-exponential_512.png}
-    \caption{Marginal distribution for VE+Exponential ($L=512$) against Reference (blue).}
-    \label{fig:thinner_marginal_ve_exponential_512}
+    \includegraphics[width=1\textwidth]{images/Phase2/conditional/price_paths_aggregate_just_price_paths.png}
+    \caption{Samples of generated price path by EDM+CSDI (Con.) aggregated.}
+    \label{fig:conditional_price_paths_aggregate}
 \end{figure}
 
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+\section{Summary}
+In this chapter we have explored the implementation and journey that brought us to EDM-CSDI (Con.) model and its ability to replicate both the distributional and the 
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+\newpage
+% \section{STAND-BY for now. Phase 3 --- EDM-CSDI Sampling exploration}
+% In this section, we discuss some of the explorations conducted to assess whether sample improvements are possible and how the model behaves when stochasticity is re-introduced during the generation phase.
 
-\section{Phase 3 --- EDM-CSDI Sampling exploration}
-In this section, we discuss some of the explorations conducted to assess whether sample improvements are possible and how the model behaves when stochasticity is re-introduced during the generation phase.
+% This section covers three sampling explorations: the second-order Heun stochastic sampler, the \(\sigma_{\max}\) sampler prior, and an NFEs exploration. Specifically, the first evaluates whether the model can recover some peculiarities of FTS paths through the injection of stochasticity; the second explores whether a prior further from or closer to the original distribution may influence sampling quality while retaining the same computational cost; and the last checks whether the reconstruction error is already under control with the current settings (\(NFEs=400\) or \(steps=200\)), or whether there is margin for improvement or reduction, given that this was an upper bound.
 
-This section covers three sampling explorations: the second-order Heun stochastic sampler, the \(\sigma_{\max}\) sampler prior, and an NFEs exploration. Specifically, the first evaluates whether the model can recover some peculiarities of FTS paths through the injection of stochasticity; the second explores whether a prior further from or closer to the original distribution may influence sampling quality while retaining the same computational cost; and the last checks whether the reconstruction error is already under control with the current settings (\(NFEs=400\) or \(steps=200\)), or whether there is margin for improvement or reduction, given that this was an upper bound.
+% \textbf{Heun Stochastic Sampler} \quad In the first phase, we generated data under the same conditions as sub-Sec.\ \ref{subsec:conditiona_edm_csdi}, using EDM-CSDI (Cond.) with a stochastic sampler instead. Specifically, we experimented with a budget of \(S_{\text{churn}}=10\), \(S_{\text{tmin}}=0.05\), \(S_{\text{tmax}}=\infty\), and \(S_{\text{noise}}=1.0\). Over \(20,000\) windows, the distributional properties remained largely unchanged.
 
-\textbf{Heun Stochastic Sampler} \quad In the first phase, we generated data under the same conditions as sub-Sec.\ \ref{subsec:conditiona_edm_csdi}, using EDM-CSDI (Cond.) with a stochastic sampler instead. Specifically, we experimented with a budget of \(S_{\text{churn}}=10\), \(S_{\text{tmin}}=0.05\), \(S_{\text{tmax}}=\infty\), and \(S_{\text{noise}}=1.0\). Over \(20,000\) windows, the distributional properties remained largely unchanged.
+% \begin{table}[htbp]
+% \centering
+% \footnotesize
+% \renewcommand{\arraystretch}{1.3}
+% \setlength{\tabcolsep}{4.5pt}
+% \begin{tabular}{
+%   l
+%   l
+%   S[table-format= 1.4]   % Mean:     ±0.xxxx
+%   S[table-format= 1.5]   % Std:      0.xxxxx
+%   S[table-format=-1.4]   % Skew.:   -x.xxxx
+%   S[table-format= 2.1]   % Kur.: xx.x
+%   S[table-format=-1.4]   % q01:     -x.xxxx
+%   S[table-format= 1.4]   % q99:      x.xxxx
+% }
+% \toprule
+% {\textbf{Split}}
+%   & \textbf{Sampler}
+%   & {\textbf{Mean}}
+%   & {\textbf{Std}}
+%   & {\textbf{Skew.}}
+%   & {\textbf{Kur.}}
+%   & {$\boldsymbol{q_{0.01}}$}
+%   & {$\boldsymbol{q_{0.99}}$} \\
+% \midrule
+% Val  & Ground Truth & -0.0024 & 0.8656 & -0.4069 & 13.9 & -2.3305 & 2.3723 \\
+% Val  & Heun ODE     &  0.0031 & 0.7314 & -0.3558 & 19.9 & -1.9595 & 2.0232 \\
+% Val  & Heun SDE     &  0.0064 & 0.8983 & -0.8480 & 47.5 & -2.4424 & 2.4561 \\
+% \midrule
+% Both & Reference    &  0.0000 & 1.0000 & -0.5864 & 39.5 & -2.7188 & 2.7784 \\
+% Both & Heun ODE     &  0.0029 & 0.9487 & -0.5390 & 39.0 & -2.5789 & 2.6306 \\
+% Both & Heun SDE     &  0.0012 & 1.0041 & -0.6876 & 45.6 & -2.7224 & 2.7662 \\
+% \bottomrule
+% \end{tabular}
+% \caption{Aggregate statistics for EDM-CSDI (Cond.) under the deterministic Heun ODE and stochastic Heun (SDE, $S_{\mathrm{churn}}=10$) samplers, normalized log-returns. \emph{Val}: validation windows; \emph{Both}: combined.}
+% \label{tab:sampler_experiment}
+% \end{table}
 
-\begin{table}[htbp]
-\centering
-\footnotesize
-\renewcommand{\arraystretch}{1.3}
-\setlength{\tabcolsep}{4.5pt}
-\begin{tabular}{
-  l
-  l
-  S[table-format= 1.4]   % Mean:     ±0.xxxx
-  S[table-format= 1.5]   % Std:      0.xxxxx
-  S[table-format=-1.4]   % Skew.:   -x.xxxx
-  S[table-format= 2.1]   % Kur.: xx.x
-  S[table-format=-1.4]   % q01:     -x.xxxx
-  S[table-format= 1.4]   % q99:      x.xxxx
-}
-\toprule
-{\textbf{Split}}
-  & \textbf{Sampler}
-  & {\textbf{Mean}}
-  & {\textbf{Std}}
-  & {\textbf{Skew.}}
-  & {\textbf{Kur.}}
-  & {$\boldsymbol{q_{0.01}}$}
-  & {$\boldsymbol{q_{0.99}}$} \\
-\midrule
-Val  & Ground Truth & -0.0024 & 0.8656 & -0.4069 & 13.9 & -2.3305 & 2.3723 \\
-Val  & Heun ODE     &  0.0031 & 0.7314 & -0.3558 & 19.9 & -1.9595 & 2.0232 \\
-Val  & Heun SDE     &  0.0064 & 0.8983 & -0.8480 & 47.5 & -2.4424 & 2.4561 \\
-\midrule
-Both & Reference    &  0.0000 & 1.0000 & -0.5864 & 39.5 & -2.7188 & 2.7784 \\
-Both & Heun ODE     &  0.0029 & 0.9487 & -0.5390 & 39.0 & -2.5789 & 2.6306 \\
-Both & Heun SDE     &  0.0012 & 1.0041 & -0.6876 & 45.6 & -2.7224 & 2.7662 \\
-\bottomrule
-\end{tabular}
-\caption{Aggregate statistics for EDM-CSDI (Cond.) under the deterministic Heun ODE and stochastic Heun (SDE, $S_{\mathrm{churn}}=10$) samplers, normalized log-returns. \emph{Val}: validation windows; \emph{Both}: combined.}
-\label{tab:sampler_experiment}
-\end{table}
+% \begin{table}[htbp]
+% \centering
+% \footnotesize
+% \renewcommand{\arraystretch}{1.3}
+% \setlength{\tabcolsep}{4.5pt}
+% \begin{tabular}{
+%   l
+%   l
+%   % S[table-format= 1.4]   % Mean:     ±0.xxxx
+%   % S[table-format= 1.5]   % Std:      0.xxxxx
+%   % S[table-format=-1.4]   % Skew.:   -x.xxxx
+%   % S[table-format= 2.4]   % Ex.Kurt.: xx.xxxx
+%   % S[table-format=-1.4]   % q01:     -x.xxxx
+%   % S[table-format= 1.4]   % q99:      x.xxxx
+%   l
+%   l
+%   % S[table-format= 2]   % KS:       x.xxx
+%   % S[table-format= 2]   % W1:       x.xxx
+%   l                      % alpha:    blank
+% }
+% \toprule
+% {\textbf{Split}}
+%   & \textbf{Sampler}
+%   & {$D_{\mathrm{KS}}$}
+%   & {$W_1$}
+%   & {$\hat{\alpha}$} \\
+% \midrule
+% Val & Ground Truth & {---} & {---} &  \\
+% Val & Heun ODE & 0.0352 & 0.000498 &  \\
+% Val & Heun SDE & 0.0469 & 0.000997 & \\
+% \midrule
+% Both & Reference & {---} & {---} & 4.418 \\
+% Both & Heun ODE &  0.0411 & 0.000569 & 4.572 \\
+% Both & Heun SDE &  0.0377 & 0.000077 & \\
+% \bottomrule
+% \end{tabular}
+% \caption{Distributional similarity metrics ($D_{\mathrm{KS}}$, $W_1$, $\hat{\alpha}$) for EDM-CSDI (Cond.) under the Heun ODE/SDE samplers (cf.\ Tab.~\ref{tab:sampler_experiment}).}
+% \label{tab:edm_sampler_distributional_metrics}
+% \end{table}
 
-\begin{table}[htbp]
-\centering
-\footnotesize
-\renewcommand{\arraystretch}{1.3}
-\setlength{\tabcolsep}{4.5pt}
-\begin{tabular}{
-  l
-  l
-  % S[table-format= 1.4]   % Mean:     ±0.xxxx
-  % S[table-format= 1.5]   % Std:      0.xxxxx
-  % S[table-format=-1.4]   % Skew.:   -x.xxxx
-  % S[table-format= 2.4]   % Ex.Kurt.: xx.xxxx
-  % S[table-format=-1.4]   % q01:     -x.xxxx
-  % S[table-format= 1.4]   % q99:      x.xxxx
-  l
-  l
-  % S[table-format= 2]   % KS:       x.xxx
-  % S[table-format= 2]   % W1:       x.xxx
-  l                      % alpha:    blank
-}
-\toprule
-{\textbf{Split}}
-  & \textbf{Sampler}
-  & {$D_{\mathrm{KS}}$}
-  & {$W_1$}
-  & {$\hat{\alpha}$} \\
-\midrule
-Val & Ground Truth & {---} & {---} &  \\
-Val & Heun ODE & 0.0352 & 0.000498 &  \\
-Val & Heun SDE & 0.0469 & 0.000997 & \\
-\midrule
-Both & Reference & {---} & {---} & 4.418 \\
-Both & Heun ODE &  0.0411 & 0.000569 & 4.572 \\
-Both & Heun SDE &  0.0377 & 0.000077 & \\
-\bottomrule
-\end{tabular}
-\caption{Distributional similarity metrics ($D_{\mathrm{KS}}$, $W_1$, $\hat{\alpha}$) for EDM-CSDI (Cond.) under the Heun ODE/SDE samplers (cf.\ Tab.~\ref{tab:sampler_experiment}).}
-\label{tab:edm_sampler_distributional_metrics}
-\end{table}
+% As shown in Tab.\ \ref{tab:sampler_experiment} and Tab.\ \ref{tab:edm_sampler_distributional_metrics}, the advantage of using SDE is that the injection of noise brings new possible trajectories, increasing the standard deviation also for validation windows. While this is positive, as it brings us closer to the original distribution, it also causes kurtosis to increase and skewness to grow beyond the reference. This is probably due to the stochasticity pushing the model into regions that are poorly learned.
 
-As shown in Tab.\ \ref{tab:sampler_experiment} and Tab.\ \ref{tab:edm_sampler_distributional_metrics}, the advantage of using SDE is that the injection of noise brings new possible trajectories, increasing the standard deviation also for validation windows. While this is positive, as it brings us closer to the original distribution, it also causes kurtosis to increase and skewness to grow beyond the reference. This is probably due to the stochasticity pushing the model into regions that are poorly learned.
+% \textbf{\(\sigma_{\max}\) Value} \quad Subsequently, different \(\sigma_{\max}\) values were experimented with, whose role has been explained in Sec.\ \ref{sec:training_config}.
 
-\textbf{\(\sigma_{\max}\) Value} \quad Subsequently, different \(\sigma_{\max}\) values were experimented with, whose role has been explained in Sec.\ \ref{sec:training_config}.
-
-\begin{table}[htbp]
-\centering
-\footnotesize
-\renewcommand{\arraystretch}{1.3}
-\setlength{\tabcolsep}{4.5pt}
-\begin{tabular}{
-  l
-  l
-  S[table-format=2.1]    % sigma_max: x.x or xx.x
-  S[table-format= 1.4]   % Mean:     ±0.xxxx
-  S[table-format= 1.5]   % Std:      0.xxxxx
-  S[table-format=-1.4]   % Skew.:   -x.xxxx
-  S[table-format= 2.1]   % Kur.: xx.x
-  S[table-format=-1.4]   % q01:     -x.xxxx
-  S[table-format= 1.4]   % q99:      x.xxxx
-}
-\toprule
-{\textbf{Split}}
-  & \textbf{Sampler}
-  & \textbf{\(\sigma_{\max}\)}
-  & {\textbf{Mean}}
-  & {\textbf{Std}}
-  & {\textbf{Skew.}}
-  & {\textbf{Kur.}}
-  & {$\boldsymbol{q_{0.01}}$}
-  & {$\boldsymbol{q_{0.99}}$} \\
-\midrule
-Val  & Ground Truth & {---} & -0.0024 & 0.8656 & -0.4069 & 13.9 & -2.3305 & 2.3723 \\
-Val  & Heun ODE & 8.0  &  0.0031 & 0.7314 & -0.3558 & 19.9 & -1.9595 & 2.0232 \\
-Val  & Heun ODE & 10.0 &   &  &  &  &  &  \\
-\midrule
-Both & Reference & {---} &  0.0000 & 1.0000 & -0.5864 & 39.5 & -2.7188 & 2.7784 \\
-Both & Heun ODE & 8.0  &  0.0029 & 0.9487 & -0.5390 & 39.0 & -2.5789 & 2.6306 \\
-Both & Heun ODE & 10.0 & & &  &  &  &  \\
-\bottomrule
-\end{tabular}
-\caption{Aggregate statistics for EDM-CSDI (Cond.) under varying $\sigma_{\max}$ priors with the second-order Heun ODE sampler, normalized log-returns. \emph{Val}: validation windows; \emph{Both}: combined.
-$\sigma_{\max}=8.0$ corresponds to the default EDM configuration used
-throughout this chapter ($\sigma_{\max}=P_{\text{mean}}+5P_{\text{std}}$); results
-for $\sigma_{\max}=10.0$ are pending.}
-\label{tab:sigma_max_experiment}
-\end{table}
+% \begin{table}[htbp]
+% \centering
+% \footnotesize
+% \renewcommand{\arraystretch}{1.3}
+% \setlength{\tabcolsep}{4.5pt}
+% \begin{tabular}{
+%   l
+%   l
+%   S[table-format=2.1]    % sigma_max: x.x or xx.x
+%   S[table-format= 1.4]   % Mean:     ±0.xxxx
+%   S[table-format= 1.5]   % Std:      0.xxxxx
+%   S[table-format=-1.4]   % Skew.:   -x.xxxx
+%   S[table-format= 2.1]   % Kur.: xx.x
+%   S[table-format=-1.4]   % q01:     -x.xxxx
+%   S[table-format= 1.4]   % q99:      x.xxxx
+% }
+% \toprule
+% {\textbf{Split}}
+%   & \textbf{Sampler}
+%   & \textbf{\(\sigma_{\max}\)}
+%   & {\textbf{Mean}}
+%   & {\textbf{Std}}
+%   & {\textbf{Skew.}}
+%   & {\textbf{Kur.}}
+%   & {$\boldsymbol{q_{0.01}}$}
+%   & {$\boldsymbol{q_{0.99}}$} \\
+% \midrule
+% Val  & Ground Truth & {---} & -0.0024 & 0.8656 & -0.4069 & 13.9 & -2.3305 & 2.3723 \\
+% Val  & Heun ODE & 8.0  &  0.0031 & 0.7314 & -0.3558 & 19.9 & -1.9595 & 2.0232 \\
+% Val  & Heun ODE & 10.0 &   &  &  &  &  &  \\
+% \midrule
+% Both & Reference & {---} &  0.0000 & 1.0000 & -0.5864 & 39.5 & -2.7188 & 2.7784 \\
+% Both & Heun ODE & 8.0  &  0.0029 & 0.9487 & -0.5390 & 39.0 & -2.5789 & 2.6306 \\
+% Both & Heun ODE & 10.0 & & &  &  &  &  \\
+% \bottomrule
+% \end{tabular}
+% \caption{Aggregate statistics for EDM-CSDI (Cond.) under varying $\sigma_{\max}$ priors with the second-order Heun ODE sampler, normalized log-returns. \emph{Val}: validation windows; \emph{Both}: combined.
+% $\sigma_{\max}=8.0$ corresponds to the default EDM configuration used
+% throughout this chapter ($\sigma_{\max}=P_{\text{mean}}+5P_{\text{std}}$); results
+% for $\sigma_{\max}=10.0$ are pending.}
+% \label{tab:sigma_max_experiment}
+% \end{table}
