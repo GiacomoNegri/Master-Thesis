@@ -758,6 +758,8 @@ indicate better-calibrated prediction intervals.}
     \label{fig:conditional_price_paths_aggregate}
 \end{figure}
 
+\textbf{Sampling Variations} \quad Additional sampling explorations for EDM-CSDI (Cond.) are reported in App.~\ref{app:ch:additional_experiments}. Replacing the deterministic Heun ODE sampler with a stochastic second-order Heun (SDE) variant ($S_{\mathrm{churn}}=10$) increases the standard deviation of generated normalized log-returns from 0.9487 to 1.0041 (reference: 1.0000) and improves $W_1$ by roughly an order of magnitude (0.000569 to 0.000077), but overshoots kurtosis (45.6 vs.\ a reference of 39.5) and skewness (Tab.\ \ref{tab:sampler_experiment}, Tab.\ \ref{tab:edm_sampler_distributional_metrics}), suggesting that the injected stochasticity pushes the model into rarely-seen, poorly-learned regions of the distribution. Stylized facts are largely preserved under both samplers, though the SDE variant shows somewhat more variability in the leverage effect (Fig.\ \ref{fig:sampler_stylized_facts}). Separately, varying the number of function evaluations under the Heun ODE sampler ($NFEs \in \{200, 400, 600\}$) produced nearly indistinguishable aggregate statistics and distributional metrics (Tab.\ \ref{tab:nfe_experiment}, Tab.\ \ref{tab:nfe_distributional_metrics}), indicating that the default budget of $NFEs=400$ used throughout this chapter is not a binding constraint, and that halving it to $NFEs=200$ does not measurably degrade generation quality.
+
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 \section{Summary}
 This chapter has explored the implementation and journey that led to the EDM-CSDI (Cond.) model and its ability to replicate both the distributional and the stylized-fact properties of S\&P~500 close log-returns.
