@@ -4,12 +4,12 @@
 % Metadata rows removed (all identical across configurations) and moved to caption.
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 \newpage
-\section{STAND-BY for now. Phase 3 --- EDM-CSDI Sampling exploration}
+\section{STAND-BY Phase 3 --- EDM-CSDI Sampling exploration}
 In this section, we discuss some of the explorations conducted to assess whether sample improvements are possible and how the model behaves when stochasticity is re-introduced during the generation phase.
 
-This section covers three sampling explorations: the second-order Heun stochastic sampler (Heun SDE for brevity), the \(\sigma_{\max}\) sampler prior, and an NFEs exploration. Specifically, the first evaluates whether the model can recover some peculiarities of FTS paths through the injection of stochasticity; the second explores whether a prior further from or closer to the original distribution may influence sampling quality while retaining the same computational cost; and the last checks whether the reconstruction error is already under control with the current settings (\(NFEs=400\) or \(steps=200\)), or whether there is margin for improvement or reduction, given that this was an upper bound.
-
-\textbf{Heun Stochastic Sampler} \quad In the first phase, we generated data under the same conditions as sub-Sec.\ \ref{subsec:conditiona_edm_csdi}, using EDM-CSDI (Cond.) with a stochastic sampler instead. Specifically, we experimented with a budget of \(S_{\text{churn}}=10\), \(S_{\text{tmin}}=0.05\), \(S_{\text{tmax}}=\infty\), and \(S_{\text{noise}}=1.0\). Over \(20,000\) windows, the distributional properties remained largely unchanged.
+ Three sampling explorations were covered: the second-order Heun stochastic sampler (Heun SDE for brevity), the \(\sigma_{\max}\) sampler prior, and an NFEs exploration. Specifically, the first evaluates whether the model can recover some peculiarities of FTS paths through the injection of stochasticity; the second explores whether a prior further from or closer to the original distribution may influence sampling quality while retaining the same computational cost; and the last checks whether the reconstruction error is already under control with the current settings (\(NFEs=400\) or \(steps=200\)), or whether there is margin for improvement or reduction, given that this was an upper bound.
+\subsection{Heun Stochastic Sampler}
+In the first phase, we generated data under the same conditions as sub-Sec.\ \ref{subsec:conditiona_edm_csdi}, using EDM-CSDI (Cond.) with a stochastic sampler instead. Specifically, we experimented with a budget of \(S_{\text{churn}}=10\), \(S_{\text{tmin}}=0.05\), \(S_{\text{tmax}}=\infty\), and \(S_{\text{noise}}=1.0\). Over \(20,000\) windows, the distributional properties remained largely unchanged.
 
 \begin{table}[htbp]
 \centering
@@ -17,7 +17,7 @@ This section covers three sampling explorations: the second-order Heun stochasti
 \renewcommand{\arraystretch}{1.3}
 \setlength{\tabcolsep}{4.5pt}
 \begin{tabular}{
-  l
+  % l
   l
   S[table-format= 1.4]   % Mean:     ±0.xxxx
   S[table-format= 1.5]   % Std:      0.xxxxx
@@ -27,25 +27,25 @@ This section covers three sampling explorations: the second-order Heun stochasti
   S[table-format= 1.4]   % q99:      x.xxxx
 }
 \toprule
-{\textbf{Split}}
-  & \textbf{Sampler}
+% {\textbf{Split}} &
+    \textbf{Sampler}
   & {\textbf{Mean}}
   & {\textbf{Std}}
   & {\textbf{Skew.}}
   & {\textbf{Kur.}}
   & {$\boldsymbol{q_{0.01}}$}
   & {$\boldsymbol{q_{0.99}}$} \\
-\midrule
-Val  & Ground Truth & -0.0024 & 0.8656 & -0.4069 & 13.9 & -2.3305 & 2.3723 \\
-Val  & Heun ODE     &  0.0031 & 0.7314 & -0.3558 & 19.9 & -1.9595 & 2.0232 \\
-Val  & Heun SDE     &  0.0064 & 0.8983 & -0.8480 & 47.5 & -2.4424 & 2.4561 \\
+% \midrule
+% Val  & Ground Truth & -0.0024 & 0.8656 & -0.4069 & 13.9 & -2.3305 & 2.3723 \\
+% Val  & Heun ODE     &  0.0031 & 0.7314 & -0.3558 & 19.9 & -1.9595 & 2.0232 \\
+% Val  & Heun SDE     &  0.0064 & 0.8983 & -0.8480 & 47.5 & -2.4424 & 2.4561 \\
 \midrule
 Both & Reference    &  0.0000 & 1.0000 & -0.5864 & 39.5 & -2.7188 & 2.7784 \\
 Both & Heun ODE     &  0.0029 & 0.9487 & -0.5390 & 39.0 & -2.5789 & 2.6306 \\
 Both & Heun SDE     &  0.0012 & 1.0041 & -0.6876 & 45.6 & -2.7224 & 2.7662 \\
 \bottomrule
 \end{tabular}
-\caption{Aggregate statistics for EDM-CSDI (Cond.) under the deterministic Heun ODE and stochastic Heun (SDE, $S_{\mathrm{churn}}=10$) samplers, normalized log-returns. \emph{Val}: validation windows; \emph{Both}: combined.}
+\caption{Aggregate statistics for EDM-CSDI (Cond.) under the deterministic Heun ODE and stochastic Heun (SDE, $S_{\mathrm{churn}}=10$) samplers, normalized log-returns. This is for combined windows.}
 \label{tab:sampler_experiment}
 \end{table}
 
@@ -55,7 +55,7 @@ Both & Heun SDE     &  0.0012 & 1.0041 & -0.6876 & 45.6 & -2.7224 & 2.7662 \\
 \renewcommand{\arraystretch}{1.3}
 \setlength{\tabcolsep}{4.5pt}
 \begin{tabular}{
-  l
+  % l
   l
   % S[table-format= 1.4]   % Mean:     ±0.xxxx
   % S[table-format= 1.5]   % Std:      0.xxxxx
@@ -70,15 +70,15 @@ Both & Heun SDE     &  0.0012 & 1.0041 & -0.6876 & 45.6 & -2.7224 & 2.7662 \\
   l                      % alpha:    blank
 }
 \toprule
-{\textbf{Split}}
-  & \textbf{Sampler}
+% {\textbf{Split}} &
+    \textbf{Sampler}
   & {$D_{\mathrm{KS}}$}
   & {$W_1$}
   & {$\hat{\alpha}$} \\
-\midrule
-Val & Ground Truth & {---} & {---} & 4.072 \\
-Val & Heun ODE & 0.0352 & 0.000498 & 4.278 \\
-Val & Heun SDE & 0.0469 & 0.000997 & 4.984\\
+% \midrule
+% Val & Ground Truth & {---} & {---} & 4.072 \\
+% Val & Heun ODE & 0.0352 & 0.000498 & 4.278 \\
+% Val & Heun SDE & 0.0469 & 0.000997 & 4.984\\
 \midrule
 Both & Reference & {---} & {---} & 4.418 \\
 Both & Heun ODE &  0.0411 & 0.000569 & 4.572 \\
@@ -89,7 +89,7 @@ Both & Heun SDE &  0.0377 & 0.000077 & \\
 \label{tab:edm_sampler_distributional_metrics}
 \end{table}
 
-As shown in Tab.\ \ref{tab:sampler_experiment} and Tab.\ \ref{tab:edm_sampler_distributional_metrics}, the advantage of using SDE is that the injection of noise brings new possible trajectories, increasing the standard deviation also for validation windows. While this is positive, as it brings us closer to the original distribution, it also causes kurtosis to increase and skewness to grow beyond the reference. This is probably due to the stochasticity pushing the model into regions that are poorly learned.
+As shown in Tab.\ \ref{tab:sampler_experiment} and Tab.\ \ref{tab:edm_sampler_distributional_metrics}, the advantage of using SDE is that the injection of noise brings new possible trajectories, increasing the standard deviation. While this is positive, as it brings us closer to the original distribution, it also causes kurtosis to increase and skewness to grow beyond the reference. This is probably due to the stochasticity pushing the model into regions that are seldomly seen, hence poorly learned.
 
 \textbf{Stylized Facts} \quad [TO BE COMPLETED] Fig.\ \ref{fig:sampler_stylized_facts} compares the heavy-tail distribution, volatility clustering, and leverage effect obtained with the Heun ODE and Heun SDE samplers against the Reference/Ground Truth.
 
@@ -117,39 +117,36 @@ As shown in Tab.\ \ref{tab:sampler_experiment} and Tab.\ \ref{tab:edm_sampler_di
     \label{fig:sampler_stylized_facts}
 \end{figure}
 
-\textbf{Price Paths Samples} \quad [TO BE COMPLETED] Fig.\ \ref{fig:sampler_price_paths} illustrates sample price paths generated under the Heun ODE and Heun SDE samplers against the Ground Truth.
+\textbf{Price Paths Samples} \quad Fig.\ \ref{fig:sampler_price_paths} illustrates sample price paths generated under the Heun ODE and Heun SDE samplers against the Ground Truth were it is possible to observe that SDE carries more variability and breadth in its generated paths.
 
 \begin{figure}[htbp]
     \centering
-    \begin{subfigure}[c]{0.96\textwidth}
+    \begin{subfigure}[c]{0.32\textwidth}
         \centering
-        \includegraphics[width=\linewidth]{images/Phase3/sampling/price_paths_ground_truth.png}
+        \includegraphics[width=\linewidth]{images/extra_experiments/price_paths_aggregate_reference.png}
+        \caption*{Ground Truth}
         \label{fig:sampler_price_paths_gt}
     \end{subfigure}
-
-    \vspace{0.2em}
-
-    \begin{subfigure}[c]{0.96\textwidth}
+    \hfill
+    \begin{subfigure}[c]{0.32\textwidth}
         \centering
-        \includegraphics[width=\linewidth]{images/Phase3/sampling/price_paths_heun_ode.png}
+        \includegraphics[width=\linewidth]{images/extra_experiments/price_paths_aggregate_reference_ODE.png}
+        \caption*{Heun ODE}
         \label{fig:sampler_price_paths_ode}
     \end{subfigure}
-
-    \vspace{0.2em}
-
-    \begin{subfigure}[c]{0.96\textwidth}
+    \hfill
+    \begin{subfigure}[c]{0.32\textwidth}
         \centering
-        \includegraphics[width=\linewidth]{images/Phase3/sampling/price_paths_heun_sde.png}
+        \includegraphics[width=\linewidth]{images/extra_experiments/price_paths_aggregate_reference_SDE.png}
+        \caption*{Heun SDE}
         \label{fig:sampler_price_paths_sde}
     \end{subfigure}
-
-    \caption{Sample price paths for EDM-CSDI (Cond.). \emph{Top}: Ground Truth. \emph{Middle}: Heun ODE. \emph{Bottom}: Heun SDE.}
+    \caption{Sample price paths for EDM-CSDI (Cond.). \emph{Left}: Ground Truth. \emph{Centre}: Heun ODE. \emph{Right}: Heun SDE.}
     \label{fig:sampler_price_paths}
 \end{figure}
 
-
-
-\textbf{NFEs Variations} \quad Another set of experiments focused on sampling with EDM-CSDI (Cond.) under the Heun ODE sampler with a different number of function evaluations (NFEs), specifically \(NFEs=200\) (\(steps=100\)) and \(NFEs=600\) (\(steps=300\)), to evaluate whether any discernible difference would be observed with respect to the default configuration \(NFEs=400\) (\(steps=200\)) used in sub-Sec.\ \ref{subsec:conditiona_edm_csdi}. For computational-speed reasons given the HPC constraints, the generated set for this exploration was limited to \(10,000\) windows with \(5\) samples each, rather than the full \(20,000\)-window set used elsewhere in this chapter.
+\subsection{NFEs Variations}
+Another set of experiments focused on sampling with EDM-CSDI (Cond.) under the Heun ODE sampler with a different number of function evaluations (NFEs), specifically \(NFEs=200\) (\(steps=100\)) and \(NFEs=600\) (\(steps=300\)), to evaluate whether any discernible difference would be observed with respect to the default configuration \(NFEs=400\) (\(steps=200\)) used in sub-Sec.\ \ref{subsec:conditiona_edm_csdi}. For computational-speed reasons given the HPC constraints, the generated set for this exploration was limited to \(10,000\) windows with \(5\) samples each, rather than the full \(20,000\)-window set used elsewhere in this chapter.
 
 \begin{table}[htbp]
 \centering
@@ -199,7 +196,7 @@ Both & Heun ODE & 600 &  0.0028 & 0.9490 & -0.5280 & 39.8 & -2.5800 & 2.6300 \\
 \renewcommand{\arraystretch}{1.3}
 \setlength{\tabcolsep}{4.5pt}
 \begin{tabular}{
-  l
+  % l
   l
   l                      % NFEs
   l                      % D_KS
@@ -207,22 +204,26 @@ Both & Heun ODE & 600 &  0.0028 & 0.9490 & -0.5280 & 39.8 & -2.5800 & 2.6300 \\
   l                      % alpha
 }
 \toprule
-{\textbf{Split}}
-  & \textbf{Sampler}
+% {\textbf{Split}} &
+    \textbf{Sampler}
   & \textbf{NFEs}
   & {$D_{\mathrm{KS}}$}
   & {$W_1$}
   & {$\hat{\alpha}$} \\
+% \midrule
+% Val & Ground Truth & {---} & {---} & {---} & 4.072 \\
+% Val & Heun ODE & 200 & {---} & {---} & 4.590 \\
+% Val & Heun ODE & 400 & 0.0352 & 0.000498 & 4.278 \\
+% Val & Heun ODE & 600 & 0.0485 & 0.001489 & {---} \\
 \midrule
-Val & Ground Truth & {---} & {---} & {---} & 4.072 \\
-Val & Heun ODE & 200 & {---} & {---} & 4.590 \\
-Val & Heun ODE & 400 & 0.0352 & 0.000498 & 4.278 \\
-Val & Heun ODE & 600 & 0.0485 & 0.001489 & {---} \\
-\midrule
-Both & Reference & {---} & {---} & {---} & 4.418 \\
-Both & Heun ODE & 200 & 0.0402 & 0.000558 & {---} \\
-Both & Heun ODE & 400 & 0.0411 & 0.000569 & 4.572 \\
-Both & Heun ODE & 600 & 0.0403 & 0.000561 & {---} \\
+% Both &
+Reference & {---} & {---} & {---} & 4.418 \\
+% Both &
+Heun ODE & 200 & 0.0402 & 0.000558 & {---} \\
+% Both &
+Heun ODE & 400 & 0.0411 & 0.000569 & 4.572 \\
+% Both &
+Heun ODE & 600 & 0.0403 & 0.000561 & {---} \\
 \bottomrule
 \end{tabular}
 \caption{Distributional similarity metrics ($D_{\mathrm{KS}}$, $W_1$, $\hat{\alpha}$) for EDM-CSDI (Cond.) under the Heun ODE sampler with varying NFEs (cf.\ Tab.~\ref{tab:nfe_experiment}). $D_{\mathrm{KS}}$ and $W_1$ are computed against the unnormalized training marginal. Cells marked {---} were not computed for this exploration.}
