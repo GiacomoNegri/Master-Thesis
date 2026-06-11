@@ -326,6 +326,7 @@ returns on a log--log scale (volatility clustering) with \(\operatorname{lag}=10
 
 \newpage
 \section{Phase 2: EDM-CSDI}
+\label{sec:ch6_edm_csdi_phase2}
 In this section, we explore the results regarding the EDM-CSDI framework. The first part evaluates unconditional generation, analysing the generalization of Phase~1 models, and then training another model, EDM+CSDI (Unc.), with the parameters defined in Tab.\ \ref{tab:training_setup} (Phase~2 column), but using the \texttt{unconditional} mask instead of \texttt{predict\_close}, both seen in Sec.\ \ref{sec:masking_strategies_ch3}, and with the number of features equal to \(K=1\). For a fair comparison with Phase~1, the two most promising models, VE+Exponential and VE+Cosine, were retrained with the same settings as in Phase~1 (Tab.\ \ref{tab:training_setup}), but with \(L=512\) and \(s=100\). The second part of the section explores conditional generation.
 
 \subsection{Phase~1 Champion Models}
