@@ -211,7 +211,7 @@ The skip connection $c_{\text{skip}}(\sigma)$ has a simpler interpretation: at l
 copies the input, a sensible prior when the noisy observation is already close to 
 the data; at high $\sigma$, $c_{\text{skip}} \to 0$ and the network must 
 reconstruct the clean signal from scratch. This mechanism helps stabilizing the training 
-across the full noise range without requiring separate tuning for each noise level. 
+across the full noise range without requiring separate tuning for each noise level. Its connection with the Wiener Filter are discussed in Sec.\ \ref{app:subsec:wiener}. 
 
 \textbf{Loss weighting} \quad The EDM training objective is defined with respect to the denoiser 
 $D_\theta(x;\sigma)$. Given a clean sample $x_0 \sim p_0$ and noise 
