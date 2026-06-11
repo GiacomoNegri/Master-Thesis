@@ -191,7 +191,7 @@ Most importantly, interpreting the log-returns as cumulative did not yield any u
 
 From Tab.\ \ref{tab:phase1_aggregate}, the VE family achieves the best overall \(D_{KS}\)/\(W_1\) (VE+Exponential), and within VE the linear schedule clearly underperforms its cosine and exponential counterparts. More generally, the linear schedule is never the best-performing choice on \(D_{KS}\)/\(W_1\) in either SDE family, suggesting it is comparatively the least useful noise schedule for this architecture, even though its effect is less pronounced within VP. Regardless, there are still two distributional limitations of the VE approach: first, it undershoots tail reconstruction, as visible in the QQ-plot of Fig.\ \ref{fig:level_marginal_ve_exponantial_2048}. Secondly, it misses the 0\% returns, as shown by the generated ECDF in Fig.\ \ref{fig:level_marginal_ve_exponantial_2048}, cutting through the central vertical jump.
 
-\textbf{Stylized Facts} \quad Our estimate of the \(\alpha\) component is consistent with Kim et al., who reported \(\alpha\approx4.35\), while for us it was estimated at \(4.37\). An estimate below this benchmark indicates heavier tails in the data, and viceversa.
+\textbf{Stylized Facts} \quad The estimate of the \(\alpha\) component is consistent with Kim et al., who reported \(\alpha\approx4.35\), while here it was estimated at \(4.37\). An estimate below this benchmark indicates heavier tails in the data, and viceversa.
 
 The core advantage of Phase~1 models over the baselines is their ability to recover the stylized facts of the training windows, especially the leverage effect, even if this can be reproduced only at a lower scale than the reference as visible in Fig.\ \ref{fig:phase1_stylized_grid}.
 
@@ -326,7 +326,7 @@ returns on a log--log scale (volatility clustering) with \(\operatorname{lag}=10
 
 \section{Phase 2: EDM-CSDI}
 \label{sec:ch6_edm_csdi_phase2}
-In this section, we explore the results regarding the EDM-CSDI framework. The first part evaluates unconditional generation, analysing the generalization of Phase~1 models, and then training another model, EDM+CSDI (Unc.), with the parameters defined in Tab.\ \ref{tab:training_setup} (Phase~2 column), but using the \texttt{unconditional} mask instead of \texttt{predict\_close}, both seen in Sec.\ \ref{sec:masking_strategies_ch3}, and with the number of features equal to \(K=1\). For a fair comparison with Phase~1, the two most promising models, VE+Exponential and VE+Cosine, were retrained with the same settings as in Phase~1 (Tab.\ \ref{tab:training_setup}), but with \(L=512\) and \(s=100\). The second part of the section explores conditional generation.
+This section explores the results regarding the EDM-CSDI framework. The first part evaluates unconditional generation, analysing the generalization of Phase~1 models, and then training another model, EDM+CSDI (Unc.), with the parameters defined in Tab.\ \ref{tab:training_setup} (Phase~2 column), but using the \texttt{unconditional} mask instead of \texttt{predict\_close}, both seen in Sec.\ \ref{sec:masking_strategies_ch3}, and with the number of features equal to \(K=1\). For a fair comparison with Phase~1, the two most promising models, VE+Exponential and VE+Cosine, were retrained with the same settings as in Phase~1 (Tab.\ \ref{tab:training_setup}), but with \(L=512\) and \(s=100\). The second part of the section explores conditional generation.
 
 \subsection{Phase~1 Champion Models}
 A total of \(20,000\) windows each were generated for VE+Exponential and VE+Cosine. In this case, a second-order Heun ODE probability-flow sampler, Eq.\ \ref{eq:edm_sampler}, was used. The following aggregate statistics are reported for the \emph{Validation} split and for the entire generated set; a complete table is presented in the appendix, Tab.\ \ref{tab:phase1_512_100_full}.
@@ -757,7 +757,7 @@ indicate better-calibrated prediction intervals.}
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 \section{Summary}
-In this chapter we have explored the implementation and journey that brought us to the EDM-CSDI (Cond.) model and its ability to replicate both the distributional and dynamic (stylized-fact) properties of S\&P~500 close log-returns.
+This chapter has explored the implementation and journey that led to the EDM-CSDI (Cond.) model and its ability to replicate both the distributional and dynamic (stylized-fact) properties of S\&P~500 close log-returns.
 
 Regarding RQ1 (Phase~1), the VE and VP families partially reproduce the bulk of the return distribution --- quantiles, standard deviation, and the leverage effect at reduced amplitude --- while underestimating or destabilising higher moments and undershooting the tails; the GBM family fails outright, generating near-Gaussian samples (Tab.\ \ref{tab:phase1_aggregate}). VE+Exponential achieves the best distributional similarity (\(D_{KS}=0.037\), \(W_1=0.002\)), while VP+Cosine attains the closest tail exponent (\(\hat{\alpha}=4.368\) vs.\ reference \(4.378\)).
 
