@@ -340,7 +340,6 @@ A total of \(20,000\) windows each were generated for VE+Exponential and VE+Cosi
 \setlength{\tabcolsep}{4.5pt}
 \begin{tabular}{
   l
-  l
   S[table-format= 1.4]   % Mean:     ±0.xxxx
   S[table-format= 1.5]   % Std:      0.xxxxx
   S[table-format=-1.4]   % Skew.:   -x.xxxx
@@ -388,7 +387,7 @@ VE + Cosine      & 0.0004 & 0.0209 & -0.2368 & 16.6 & -0.0535 & 0.0553 & 0.0458 
     \label{fig:thinner_marginal_ve_exponential_512}
 \end{figure}
 
-As visible in Tab.\ \ref{tab:ve_phase1_512_100}, generalizing the Phase~1 champions to \(L=512\) does not produce a systematic improvement: \(D_{KS}\)/\(W_1\) remain in a similar range to Phase~1 (e.g., VE+Exponential 0.0436/0.0019 vs.\ 0.037/0.002 in Tab.\ \ref{tab:phase1_aggregate}), and while VE+Cosine's excess kurtosis moves away from reference (21.4 vs.\ 16.6 currently), VE+Exponential's stayed stable at 14.3. Moreover, as can be noted from Fig.\ \ref{fig:thinner_marginal_ve_exponential_512}, the central part of the distribution, quantile range \(q_{0.02}-q_{0.98}\), is still oversmoothed, with the model showing no significant ability to learn this pattern.
+As visible in Tab.\ \ref{tab:ve_phase1_512_100}, generalizing the Phase~1 champions to \(L=512\) does not produce a systematic improvement: \(D_{KS}\)/\(W_1\) remain in a similar range to Phase~1 (e.g., VE+Exponential 0.0436/0.0019 vs.\ 0.037/0.002 in Tab.\ \ref{tab:phase1_aggregate}), and the excess kurtosis of both models remains substantially below the reference (\(39.5\)): VE+Exponential reaches \(14.4\), about \(64\%\) lower, while VE+Cosine reaches \(16.6\), about \(58\%\) lower. Moreover, as can be noted from Fig.\ \ref{fig:thinner_marginal_ve_exponential_512}, the central part of the distribution, quantile range \(q_{0.02}-q_{0.98}\), is still oversmoothed, with the model showing no significant ability to learn this pattern.
 
 \textbf{Stylized Facts} \quad  The stylized facts of FTS windows are fairly captured by the model with heavy-tail prediction that is reasonably close, while volatility clustering and the leverage effect are still underestimated as illustrated in Fig.\ \ref{fig:phase1_champions_stylized_facts}.
 
@@ -496,7 +495,7 @@ Tab.\ \ref{tab:phase2_edm_unconditional_512_100} alongside Fig.\ \ref{fig:densit
 \label{subsec:conditiona_edm_csdi}
 The next step involved the introduction of conditional information, specifically the transformed OHL (Open, High, Low) values. These settings are described in Tab.\ \ref{tab:training_setup}, Phase~2, and the model will be referred to as EDM-CSDI (Cond.).
 
-A total of \(20,000\) windows of length \(L=512\) were considered, and for each conditional set of information (i.e., each window), five sample paths were generated. In this case validation windows are just the same hold-out windows, therfore date ranges. The full results are reported in the appendix, Tab.\ \ref{tab:phase2_edm_uncond_cond_full}.
+A total of \(20,000\) windows of length \(L=512\) were considered, and for each conditional set of information (i.e., each window), five sample paths were generated. In this case validation windows are just the same hold-out windows, therefore date ranges. The full results are reported in the appendix, Tab.\ \ref{tab:phase2_edm_uncond_cond_full}.
 
 \textbf{Aggregate Statistics}
 \begin{table}[htbp]
@@ -774,7 +773,7 @@ Taken together, these results indicate that the CSDI-based architecture can lear
 % \section{STAND-BY for now. Phase 3 --- EDM-CSDI Sampling exploration}
 % In this section, we discuss some of the explorations conducted to assess whether sample improvements are possible and how the model behaves when stochasticity is re-introduced during the generation phase.
 
-% This section covers three sampling explorations: the second-order Heun stochastic sampler, the \(\sigma_{\max}\) sampler prior, and an NFEs exploration. Specifically, the first evaluates whether the model can recover some peculiarities of FTS paths through the injection of stochasticity; the second explores whether a prior further from or closer to the original distribution may influence sampling quality while retaining the same computational cost; and the last checks whether the reconstruction error is already under control with the current settings (\(NFEs=400\) or \(steps=200\)), or whether there is margin for improvement or reduction, given that this was an upper bound.
+% This section covers three sampling explorations: the second-order Heun stochastic sampler (Heun SDE for brevity), the \(\sigma_{\max}\) sampler prior, and an NFEs exploration. Specifically, the first evaluates whether the model can recover some peculiarities of FTS paths through the injection of stochasticity; the second explores whether a prior further from or closer to the original distribution may influence sampling quality while retaining the same computational cost; and the last checks whether the reconstruction error is already under control with the current settings (\(NFEs=400\) or \(steps=200\)), or whether there is margin for improvement or reduction, given that this was an upper bound.
 
 % \textbf{Heun Stochastic Sampler} \quad In the first phase, we generated data under the same conditions as sub-Sec.\ \ref{subsec:conditiona_edm_csdi}, using EDM-CSDI (Cond.) with a stochastic sampler instead. Specifically, we experimented with a budget of \(S_{\text{churn}}=10\), \(S_{\text{tmin}}=0.05\), \(S_{\text{tmax}}=\infty\), and \(S_{\text{noise}}=1.0\). Over \(20,000\) windows, the distributional properties remained largely unchanged.
 
@@ -843,7 +842,7 @@ Taken together, these results indicate that the CSDI-based architecture can lear
 %   & {$W_1$}
 %   & {$\hat{\alpha}$} \\
 % \midrule
-% Val & Ground Truth & {---} & {---} &  \\
+% Val & Ground Truth & {---} & {---} & 4.072 \\
 % Val & Heun ODE & 0.0352 & 0.000498 &  \\
 % Val & Heun SDE & 0.0469 & 0.000997 & \\
 % \midrule
