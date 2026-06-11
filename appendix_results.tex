@@ -2,6 +2,146 @@
 % Required packages: booktabs, array
 % No rotating package needed — portrait orientation.
 % Metadata rows removed (all identical across configurations) and moved to caption.
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+\newpage
+\section{STAND-BY for now. Phase 3 --- EDM-CSDI Sampling exploration}
+In this section, we discuss some of the explorations conducted to assess whether sample improvements are possible and how the model behaves when stochasticity is re-introduced during the generation phase.
+
+This section covers three sampling explorations: the second-order Heun stochastic sampler (Heun SDE for brevity), the \(\sigma_{\max}\) sampler prior, and an NFEs exploration. Specifically, the first evaluates whether the model can recover some peculiarities of FTS paths through the injection of stochasticity; the second explores whether a prior further from or closer to the original distribution may influence sampling quality while retaining the same computational cost; and the last checks whether the reconstruction error is already under control with the current settings (\(NFEs=400\) or \(steps=200\)), or whether there is margin for improvement or reduction, given that this was an upper bound.
+
+\textbf{Heun Stochastic Sampler} \quad In the first phase, we generated data under the same conditions as sub-Sec.\ \ref{subsec:conditiona_edm_csdi}, using EDM-CSDI (Cond.) with a stochastic sampler instead. Specifically, we experimented with a budget of \(S_{\text{churn}}=10\), \(S_{\text{tmin}}=0.05\), \(S_{\text{tmax}}=\infty\), and \(S_{\text{noise}}=1.0\). Over \(20,000\) windows, the distributional properties remained largely unchanged.
+
+\begin{table}[htbp]
+\centering
+\footnotesize
+\renewcommand{\arraystretch}{1.3}
+\setlength{\tabcolsep}{4.5pt}
+\begin{tabular}{
+  l
+  l
+  S[table-format= 1.4]   % Mean:     ±0.xxxx
+  S[table-format= 1.5]   % Std:      0.xxxxx
+  S[table-format=-1.4]   % Skew.:   -x.xxxx
+  S[table-format= 2.1]   % Kur.: xx.x
+  S[table-format=-1.4]   % q01:     -x.xxxx
+  S[table-format= 1.4]   % q99:      x.xxxx
+}
+\toprule
+{\textbf{Split}}
+  & \textbf{Sampler}
+  & {\textbf{Mean}}
+  & {\textbf{Std}}
+  & {\textbf{Skew.}}
+  & {\textbf{Kur.}}
+  & {$\boldsymbol{q_{0.01}}$}
+  & {$\boldsymbol{q_{0.99}}$} \\
+\midrule
+Val  & Ground Truth & -0.0024 & 0.8656 & -0.4069 & 13.9 & -2.3305 & 2.3723 \\
+Val  & Heun ODE     &  0.0031 & 0.7314 & -0.3558 & 19.9 & -1.9595 & 2.0232 \\
+Val  & Heun SDE     &  0.0064 & 0.8983 & -0.8480 & 47.5 & -2.4424 & 2.4561 \\
+\midrule
+Both & Reference    &  0.0000 & 1.0000 & -0.5864 & 39.5 & -2.7188 & 2.7784 \\
+Both & Heun ODE     &  0.0029 & 0.9487 & -0.5390 & 39.0 & -2.5789 & 2.6306 \\
+Both & Heun SDE     &  0.0012 & 1.0041 & -0.6876 & 45.6 & -2.7224 & 2.7662 \\
+\bottomrule
+\end{tabular}
+\caption{Aggregate statistics for EDM-CSDI (Cond.) under the deterministic Heun ODE and stochastic Heun (SDE, $S_{\mathrm{churn}}=10$) samplers, normalized log-returns. \emph{Val}: validation windows; \emph{Both}: combined.}
+\label{tab:sampler_experiment}
+\end{table}
+
+\begin{table}[htbp]
+\centering
+\footnotesize
+\renewcommand{\arraystretch}{1.3}
+\setlength{\tabcolsep}{4.5pt}
+\begin{tabular}{
+  l
+  l
+  % S[table-format= 1.4]   % Mean:     ±0.xxxx
+  % S[table-format= 1.5]   % Std:      0.xxxxx
+  % S[table-format=-1.4]   % Skew.:   -x.xxxx
+  % S[table-format= 2.4]   % Ex.Kurt.: xx.xxxx
+  % S[table-format=-1.4]   % q01:     -x.xxxx
+  % S[table-format= 1.4]   % q99:      x.xxxx
+  l
+  l
+  % S[table-format= 2]   % KS:       x.xxx
+  % S[table-format= 2]   % W1:       x.xxx
+  l                      % alpha:    blank
+}
+\toprule
+{\textbf{Split}}
+  & \textbf{Sampler}
+  & {$D_{\mathrm{KS}}$}
+  & {$W_1$}
+  & {$\hat{\alpha}$} \\
+\midrule
+Val & Ground Truth & {---} & {---} & 4.072 \\
+Val & Heun ODE & 0.0352 & 0.000498 & 4.278 \\
+Val & Heun SDE & 0.0469 & 0.000997 & \\
+\midrule
+Both & Reference & {---} & {---} & 4.418 \\
+Both & Heun ODE &  0.0411 & 0.000569 & 4.572 \\
+Both & Heun SDE &  0.0377 & 0.000077 & \\
+\bottomrule
+\end{tabular}
+\caption{Distributional similarity metrics ($D_{\mathrm{KS}}$, $W_1$, $\hat{\alpha}$) for EDM-CSDI (Cond.) under the Heun ODE/SDE samplers (cf.\ Tab.~\ref{tab:sampler_experiment}).}
+\label{tab:edm_sampler_distributional_metrics}
+\end{table}
+
+As shown in Tab.\ \ref{tab:sampler_experiment} and Tab.\ \ref{tab:edm_sampler_distributional_metrics}, the advantage of using SDE is that the injection of noise brings new possible trajectories, increasing the standard deviation also for validation windows. While this is positive, as it brings us closer to the original distribution, it also causes kurtosis to increase and skewness to grow beyond the reference. This is probably due to the stochasticity pushing the model into regions that are poorly learned.
+
+
+
+\textbf{NFEs Variations} \quad Another set of experiments focused on sampling with different number of NFEs, specifically 100 and 300, to evaluate whether any discernable difference would've been observed.
+
+\textbf{\(\sigma_{\max}\) Value} \quad Subsequently, different \(\sigma_{\max}\) values were experimented with, whose role has been explained in Sec.\ \ref{sec:training_config}.
+
+\begin{table}[htbp]
+\centering
+\footnotesize
+\renewcommand{\arraystretch}{1.3}
+\setlength{\tabcolsep}{4.5pt}
+\begin{tabular}{
+  l
+  l
+  S[table-format=2.1]    % sigma_max: x.x or xx.x
+  S[table-format= 1.4]   % Mean:     ±0.xxxx
+  S[table-format= 1.5]   % Std:      0.xxxxx
+  S[table-format=-1.4]   % Skew.:   -x.xxxx
+  S[table-format= 2.1]   % Kur.: xx.x
+  S[table-format=-1.4]   % q01:     -x.xxxx
+  S[table-format= 1.4]   % q99:      x.xxxx
+}
+\toprule
+{\textbf{Split}}
+  & \textbf{Sampler}
+  & \textbf{\(\sigma_{\max}\)}
+  & {\textbf{Mean}}
+  & {\textbf{Std}}
+  & {\textbf{Skew.}}
+  & {\textbf{Kur.}}
+  & {$\boldsymbol{q_{0.01}}$}
+  & {$\boldsymbol{q_{0.99}}$} \\
+\midrule
+Val  & Ground Truth & {---} & -0.0024 & 0.8656 & -0.4069 & 13.9 & -2.3305 & 2.3723 \\
+Val  & Heun ODE & 8.0  &  0.0031 & 0.7314 & -0.3558 & 19.9 & -1.9595 & 2.0232 \\
+Val  & Heun ODE & 10.0 &   &  &  &  &  &  \\
+\midrule
+Both & Reference & {---} &  0.0000 & 1.0000 & -0.5864 & 39.5 & -2.7188 & 2.7784 \\
+Both & Heun ODE & 8.0  &  0.0029 & 0.9487 & -0.5390 & 39.0 & -2.5789 & 2.6306 \\
+Both & Heun ODE & 10.0 & & &  &  &  &  \\
+\bottomrule
+\end{tabular}
+\caption{Aggregate statistics for EDM-CSDI (Cond.) under varying $\sigma_{\max}$ priors with the second-order Heun ODE sampler, normalized log-returns. \emph{Val}: validation windows; \emph{Both}: combined.
+$\sigma_{\max}=8.0$ corresponds to the default EDM configuration used
+throughout this chapter ($\sigma_{\max}=P_{\text{mean}}+5P_{\text{std}}$); results
+for $\sigma_{\max}=10.0$ are pending.}
+\label{tab:sigma_max_experiment}
+\end{table}
+
+
+
 \section{Data}
 In this section, additional information regarding the data used in this work is provided.
 
@@ -65,6 +205,9 @@ OHLC log-return channels prior to training.}
     \label{fig:correlation_matrix_OHLC}
 \end{figure}
 
+\subsection{Decimalization}
+In this section it will be discussed more in depth the decimalization, specifically which are its impact and how are these 0\% log-returns distributed.
+[TO BE DONE]
 
 \section{Baseline Models --- GARCH-X and Merton-X}
 \label{sec:app_baselines}
