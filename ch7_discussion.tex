@@ -7,11 +7,11 @@
     \item Masking: one of the key advantages of CSDI is to use randmask, so that it can learn the global and local structure instead of being always conditional (like Classifier Free Guidance) -> Future work expand on this
     \item \(\sigma_{\text{data}}\) ablation
     \item exploration of other \(c_{noise}\)
-    \item We did not explore the contribution of EDM preconditioning and conditional information alone, meaning that it is impossible to discer which contributes what to improving prediction (if at all)
+    \item We did not explore the contribution of conditional information alone, meaning that it is impossible to discern what is the contribution of conditioning alone in improving prediction. We believe it does since 
     \item no ablation was done on embeddings dimensions
     \item This makes \(t\)-EDM a possible future extension of the EDM--CSDI framework considered in this thesis, since it preserves much of the EDM structure while changing the tail behaviour of the noising distribution.
     \item Baseline comparison with other Deep learning models
-    \item different type of window selection, which for generation is fine, even if it means sampling in-distribution things, but for EDM comparison we kept a different approac
+    
     \item lack of \(\rho\) exploration
 \end{itemize}
 
@@ -19,14 +19,12 @@
 here are some \textbf{Future works}
 \begin{itemize}
     \item expan into the heavy tail diffusion model with focus on that literature
-    \item learnable skip connection
-    \item testing the two components individually: conditional information and preconditioning EDM
+    \item testing the two components individually: conditional information
     \item add learnable parameter for PE (relative)
     \item sigma\_max value experimentation 5-10 range
-    \item prior, posterior dataset
-    \item differen Pmean and Pstd
-    \item trimming and executing KS again
-    \item different ohlc conditions
+    \item prior 2002, posterior 2002; decimalization date dataset
+    \item wider Pmean and Pstd
+    \item different ohlc conditions, specifically lower wick and intraday range (which are currently under exploration)
     \item constraint preserving mechanism for H>C>L
 \end{itemize}
 
@@ -49,8 +47,8 @@ For instance, some of the variables are:
 \textbf{Sampler Hyperparameters} \quad After training also generation has a significant number of parameters that could be explored:
 \begin{itemize}
      \item \(\rho\): the EDM paper sets \(\rho=7\), but it is \(\rho=3\) that equalizes the truncation error, therefore the priority to fine-grained reconstruction. For financial data the fine structure matters differently than for images, for instance volatility clustering focus errors at mid-range \(\sigma\), therefore different values should be explored.
-    \item Number of denoising steps: the overall NFEs could be tested to check if less steps yields the same quality.
-    \item Stochastic sampler: the thesis exclusively uses the deterministic Heun ODE \((S_{\text{churn}}=0)\). Karras et al. show that stochastic sampling (adding Langevin-like churn) can improve sample quality in the image domain. For FTS, stochasticity during sampling might help correct for errors in early denoising steps, specifically in high-volatility windows where the ODE might deviate significantly.
+    % \item Number of denoising steps: the overall NFEs could be tested to check if less steps yields the same quality.
+    % \item Stochastic sampler: the thesis exclusively uses the deterministic Heun ODE \((S_{\text{churn}}=0)\). Karras et al. show that stochastic sampling (adding Langevin-like churn) can improve sample quality in the image domain. For FTS, stochasticity during sampling might help correct for errors in early denoising steps, specifically in high-volatility windows where the ODE might deviate significantly.
 \end{itemize}
 
 \textbf{Architecture Ablation} \quad Specific choices, influenced by Kim et al. work, were made for architectural choices, nevertheless further exploration could be conducted regarding: embedding dimensions, number of residual layers, learnable positional encoding, which could reflect better the specific data pattern, as well as learnable skip connections.
