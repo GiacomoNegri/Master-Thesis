@@ -65,7 +65,7 @@ In order to understand Merton's model we have to introduce first the GBM. Given 
 \end{equation}
 where \(\mu\) is the constant drift, \(\nu>0\) is the constant volatility, and \(W_t\) is a standard Brownian motion (see Sec.\ \ref{app:sec:bm} for more details). The core feature of this process is the multiplicative structure of the noise term, which is scaled by price level. Applying Itô's Lemma to \(\log S_t\) it is possible to derive:
 $$S_t=S_0\exp{\left[\left(\mu-\frac12\nu^2\right)\tau+\nu W_t\right]}$$
-therefore with the GBM assumption, , Black and Scholes \cite{black1973pricing}, implied that log-returns are normally distributed over any interval, while heteroskedasticity is introduced in price space. Their model remain highly influencial even nowadays, nevertheless it has some fundamental limitations due to the inability of Gaussian's innovations to replicate the heavy tails, excess kurtosis, and sudden discontinuities exhibited by real returns. 
+therefore with the GBM assumption, , Black and Scholes \cite{black1973pricing}, implied that log-returns are normally distributed over any interval, while heteroskedasticity is introduced in price space (proof Sec.\ \ref{app:sec:ito}). Their model remain highly influencial even nowadays, nevertheless it has some fundamental limitations due to the inability of Gaussian's innovations to replicate the heavy tails, excess kurtosis, and sudden discontinuities exhibited by real returns. 
 
 Merton addressed this by imposing a compounded Poisson jump process onto the GBM \cite{merton1976option}, yielding the model that takes his name:
 $$dS_t=\mu S_tdt+\nu S_tdW_t+S_{t^-}(J-1)dP_t$$
