@@ -21,11 +21,11 @@ The chapter is organised in four sequential parts. The first part introduces two
 
 Subsequently, other, smaller experiments were carried out to compare the models' behavior under different sampling procedures.
 
-A key design difference that is worth keeping in mind between Phase~1 and Phase~2 concerns the validation split, as described in Sec.\ref{sec:sliding_window_ch4}. In Phase~1, validation windows are drawn randomly from the full sliding-window pool and are partially overlapping with others. In Phase~2, validation windows are strictly held out: 239 windows, corresponding to approximately 1.5\% of the overall windows and 10\% of the unique rows.
+A key design difference that is worth keeping in mind between Phase~1 and Phase~2 concerns the validation split, as described in Sec.\ref{sec:sliding_window_ch4}. In Phase~1, validation windows are drawn randomly from the full sliding-window pool and are partially overlapping with others. In Phase~2, validation windows are strictly held out: 239 windows, corresponding to approximately 1\% of the overall windows and 5\% of the unique rows.
 
 Moreover, because of the way the data are processed to build windows, the `Reference' values vary slightly according to the specific configuration being analyzed: raw reference, \(L=2048\) windows with \(s=400\), or \(L=512\) windows with \(s=100\).
 
-Unless stated otherwise, all power-law coefficients \(\hat{\alpha}\) are computed using the \texttt{powerlaw} Python package by Alstott et al.~\cite{alstott2014powerlaw} on a subsample of \(300,000\) observations. Similarly, \(D_{KS}\) and \(W_1\) are computed on a subsample that match the minimum number of observations available between the Reference dataset and the generated ones using a fixed seed. For `Validation` this amount to \(611,840\) \footnote{This is the product product between the number of validation windows, the sequence length \(L\), and number of samples per window. Specifically, \(512 \cdot 239\cdot5\) idependet samples from Reference.}, while for the other cases is the Reference dataset itself, \(12,303,872\)\footnote{Product between the number of training and validation windows for the sequence length \(L\). Specifically, \(512\cdot (23,792+239)\).}. Finally, excess kurtosis (Kur.) is reported relative to the Gaussian.
+Unless stated otherwise, all power-law coefficients \(\hat{\alpha}\) are computed using the \texttt{powerlaw} Python package by Alstott et al.~\cite{alstott2014powerlaw} on a subsample of \(300,000\) observations. Similarly, \(D_{KS}\) and \(W_1\) are computed on a subsample that match the minimum number of observations available between the Reference dataset and the generated ones using a fixed seed. For `Validation` this amount to \(611,840\) \footnote{This is the product between the number of validation windows, the sequence length \(L\), and number of samples per window. Specifically, \(512 \cdot 239\cdot5\) independent samples from Reference.}, while for the other cases is the Reference dataset itself, \(12,303,872\)\footnote{Product between the number of training and validation windows for the sequence length \(L\). Specifically, \(512\cdot (23,792+239)\).}. Finally, excess kurtosis (Kur.) is reported relative to the Gaussian.
 
 \section{Baseline Models: GARCH-X and Merton-X}
 GARCH-X and Merton-X models, defined in Sec.\ \ref{sec:classical_baselines_theoretical}, were trained on the log-transformed data described in Sec.\ \ref{sec:ch4_data}, following Eq.\ \ref{eq:preprocessed_data}. A GARCH-X and a Merton-X model were fit specifically for each ticker. Details about the design choices and constraints applied are available in App.\ \ref{app:baselines_constraints}.
@@ -104,7 +104,7 @@ One key feature of the distribution is the atypical spike of returns at 0\%, vis
 
 \section{Phase 1: Replication}
 \label{sec:phase1_results}
-Phase~1 aims to replicate the generative approach of Kim et al.~\cite{kim2025diffusion} as detailed in the column Phase~1 of Tab.\ \ref{tab:training_setup}. For each model, a dataset of 512 windows of length \(L=2048\) (\(1,048,576\) observations each) was generated using the probability-flow ODE, Eq.\ \ref{eq:probability_flow}, with 2000 discretization steps. The number of samples was chosen for computational feasibility. Full results are presented in the appendix Sec.\ \ref{sec:app_phase1_results}.
+Phase~1 aims to replicate the generative approach of Kim et al.~\cite{kim2025diffusion} as detailed in the column Phase~1 of Tab.\ \ref{tab:training_setup}. For each model, a dataset of 512 windows of length \(L=2048\) (\(1,048,576\) observations in total) was generated using the probability-flow ODE, Eq.\ \ref{eq:probability_flow}, with 2000 discretization steps. The number of samples was chosen for computational feasibility. Full results are presented in the appendix Sec.\ \ref{sec:app_phase1_results}.
 
 % In Phase~1 the main training bottleneck was small \(t\), this has to due with the fact that at this regimes it is a harder task for the model to distinguish between clean and corrupted data, because the added noise is minimal. Because of noise schedules progression linear reported lower training loss which was not matched by higher expressivity nor better generated distribution. 
 
@@ -155,7 +155,7 @@ Phase~1 aims to replicate the generative approach of Kim et al.~\cite{kim2025dif
   & {$\hat{\alpha}$} \\
 \midrule
 % Training reference (no KS/W1 — computed against itself; alpha from empirical data)
-Reference        & 0.0005 & 0.0208 & -0.5387 &  36.0 & -0.0562 & 0.0572 & {---} & {---} & 4.378 \\
+Reference        & 0.0005 & 0.0208 & -0.5387 &  36.0 & -0.0562 & 0.0583 & {---} & {---} & 4.378 \\
 \midrule
 % VE family
 VE + Linear      &  0.0004 & 0.0270 & -0.1712 &   7.0 & -0.0649 & 0.0659 & 0.121 & 0.007 & 5.429 \\
@@ -365,8 +365,8 @@ A total of \(20,000\) windows each were generated for VE+Exponential and VE+Cosi
   & {$\hat{\alpha}$} \\
 \midrule
 Val  & Reference        & 0.0005 & 0.0206 & -0.4962 & 26.8 & -0.0560 & 0.0572 & {---} & {---} &  4.072 \\
-Val  & VE + Exponential & 0.0003 & 0.0203 & -0.3531 & 18.3 & -0.0522 & 0.0525 & 0.0454 & 0.0019 &  4.633 \\
-Val  & VE + Cosine      & 0.0004 & 0.0211 & -0.2933 & 11.6 & -0.0545 & 0.0558 & 0.0469 & 0.0020 & 4.383 \\
+Val  & VE + Exponential & 0.0003 & 0.0203 & -0.3531 & 18.3 & -0.0522 & 0.0525 & 0.0454 & 0.0018 &  4.633 \\
+Val  & VE + Cosine      & 0.0004 & 0.0211 & -0.2933 & 11.7 & -0.0545 & 0.0558 & 0.0469 & 0.0020 & 4.383 \\
 \midrule
 Both & Reference        & 0.0005 & 0.0209 & -0.5864 & 39.5 & -0.0563 & 0.0583 & {---} & {---} & 4.418 \\
 Both & VE + Exponential & 0.0003 & 0.0199 & -0.2382 & 14.3 & -0.0508 & 0.0514 & 0.0436 & 0.0019 & 4.634 \\
@@ -384,7 +384,7 @@ Both & VE + Cosine      & 0.0004 & 0.0209 & -0.2368 & 16.6 & -0.0535 & 0.0553 & 
     \label{fig:thinner_marginal_ve_exponential_512}
 \end{figure}
 
-As visible in Tab.\ \ref{tab:ve_phase1_512_100}, generalizing the Phase~1 champions to \(L=512\) does not produce a systematic improvement: \(D_{KS}\)/\(W_1\) remain in a similar range to Phase~1 (e.g., VE+Exponential 0.0454/0.0019 vs.\ 0.037/0.002 in Tab.\ \ref{tab:phase1_aggregate}), and while VE+Cosine's excess kurtosis moves closer to its local reference (11.7 vs.\ 26.8), VE+Exponential's moves further away (18.3 vs.\ 26.8). Moreover, as can be noted from Fig.\ \ref{fig:thinner_marginal_ve_exponential_512}, the central part of the distribution, quantile range \(q_{0.02}-q_{0.98}\), is still oversmoothed, with the model showing no significant ability to learn this pattern.
+As visible in Tab.\ \ref{tab:ve_phase1_512_100}, generalizing the Phase~1 champions to \(L=512\) does not produce a systematic improvement: \(D_{KS}\)/\(W_1\) remain in a similar range to Phase~1 (e.g., VE+Exponential 0.0454/0.0018 vs.\ 0.037/0.002 in Tab.\ \ref{tab:phase1_aggregate}), and while VE+Cosine's excess kurtosis moves closer to its local reference (11.7 vs.\ 26.8), VE+Exponential's moves further away (18.3 vs.\ 26.8). Moreover, as can be noted from Fig.\ \ref{fig:thinner_marginal_ve_exponential_512}, the central part of the distribution, quantile range \(q_{0.02}-q_{0.98}\), is still oversmoothed, with the model showing no significant ability to learn this pattern.
 
 \textbf{Stylized Facts} \quad  The stylized facts of the held-out validation windows are fairly captured by the model with heavy-tail prediction that is reasonably close, while volatility clustering and the leverage effect are still underestimated as illustrated in Fig.\ \ref{fig:phase1_champions_stylized_facts}.
 
@@ -430,7 +430,7 @@ The next phase focused on understanding how the EDM formulation impacts the gene
   & {$W_1 \downarrow$}
   & {$\hat{\alpha}$} \\
 \midrule
-Both & Reference & 0.0000 & 1.0000 & -0.5864 & 39.5 & -2.7188 & 2.7784 & {---} & {---} & 4.418 \\
+Both & Reference & 0.0000 & 1.0000 & -0.5864 & 39.5 & -2.7188 & 2.7746 & {---} & {---} & 4.418 \\
 Both & EDM-CSDI (Unc.) & 0.0008 & 0.7523 & -0.2292 & 20.0 & -2.0292 & 2.0855 & 0.0418 & 0.0029 & 4.640 \\
 \bottomrule
 \end{tabular}
@@ -438,7 +438,7 @@ Both & EDM-CSDI (Unc.) & 0.0008 & 0.7523 & -0.2292 & 20.0 & -2.0292 & 2.0855 & 0
 \label{tab:phase2_edm_unconditional_512_100}
 \end{table}
 
-Tab.\ \ref{tab:phase2_edm_unconditional_512_100} alongside Fig.\ \ref{fig:density_edm_unconditional} show that while the model is still deficient in its ability to learn higher moments, it visibly recovers a sharper density peak near zero, consistent with the decimalization (0\% returns) effect. A plausible explanation is architectural: under the EDM parameterisation the network predicts \(x_0\) directly (Sec.\ \ref{sec:edm_literature}), so for observations exactly at zero (once unnormalized) the denoiser can map directly onto the observed value, whereas in Phase~1 the network predicts the injected noise \(\epsilon\sim\mathcal{N}(0,I)\), which carries no direct signal that the underlying clean value is exactly zero, particularly at small \(\sigma\). While solid, this remains an hypothesis, as the conditioning information and architecture were not varied independently of the EDM reformulation. The overestimation of the zero-return effect is visible in Fig.\ \ref{fig:density_edm_unconditional}, where the generated density peak at zero exceeds the reference's.
+Tab.\ \ref{tab:phase2_edm_unconditional_512_100} alongside Fig.\ \ref{fig:density_edm_unconditional} show that while the model is still deficient in its ability to learn higher moments, it visibly recovers a sharper density peak near zero, consistent with the decimalization (0\% returns) effect. A plausible explanation is architectural: under the EDM parameterisation the network predicts \(x_0\) directly (Sec.\ \ref{sec:edm_literature}), so for observations exactly at zero (once unnormalized) the denoiser can map directly onto the observed value, whereas in Phase~1 the network predicts the injected noise \(\epsilon\sim\mathcal{N}(0,I)\), which carries no direct signal that the underlying clean value is exactly zero, particularly at small \(\sigma\). While solid, this remains a hypothesis, as the conditioning information and architecture were not varied independently of the EDM reformulation. The overestimation of the zero-return effect is visible in Fig.\ \ref{fig:density_edm_unconditional}, where the generated density peak at zero exceeds the reference's.
 
 \begin{figure}[htbp]
     \centering
@@ -530,7 +530,7 @@ Val & Ground Truth & -0.0024 & 0.8656 & -0.4069 & 13.9 & -2.3305 & 2.3723 & {---
 Val & EDM-CSDI (Unc.) & 0.0031 & 0.7314 & -0.3558 & 19.9 & -1.9595 & 2.0232 & 0.0331 & 0.0020 & 4.768 \\
 Val & EDM-CSDI (Cond.) & 0.0033 & 0.8299 & -0.4432 & 13.9 & -2.2396 & 2.2635 & 0.0352 & 0.0005 & 4.278 \\
 \midrule
-Both & Reference & 0.0000 & 1.0000 & -0.5864 & 39.5 & -2.7188 & 2.7784 & {---} & {---} & 4.418 \\
+Both & Reference & 0.0000 & 1.0000 & -0.5864 & 39.5 & -2.7188 & 2.7746 & {---} & {---} & 4.418 \\
 Both & EDM-CSDI (Unc.) & 0.0008 & 0.7523 & -0.2292 & 20.0 & -2.0292 & 2.0855 & 0.0418 & 0.0029 & 4.640 \\
 Both & EDM-CSDI (Cond.) & 0.0029 & 0.9487 & -0.5390 & 39.0 & -2.5789 & 2.6306 &  0.0411 & 0.0006 & 4.572 \\
 \bottomrule
@@ -635,7 +635,7 @@ As reported in Tab.\ \ref{tab:phase2_edm_conditional_512_100} and illustrated in
 
 As observable in Tab.\ \ref{tab:crps_results}, the EDM-CSDI model achieve a CRPS skill score of 0.7376 (Both, \(N=50\)), meaning a 73.76\% improvement attributable to conditioning signal. This helps reduce the average MAE from approximately one standard deviation in daily log-returns to under a third, while decreasing the breadth of the prediction. This is true both for `Validation' and for combined (`Both') windows. Interestingly, the validation windows has a lower CRPS, which correlated to the lower MAE, suggest less exposure to rare events and extreme market events.
 
-Regarding the interval coverage, Tab.\ \ref{tab:coverage_results}, higher nominal levels are correlated with more overconfident model's predictions (negative bias). Increasing the number of generated samples from 25 to 50 consistently increases empirical coverage at every nominal level, shifting the model from overconfident (negative bias) toward better-calibrated or underconfident (positive bias) predictions; this shift is sufficient to flip the sign of the bias at the 50\%, 80\%, and 90\% levels, while at 95\% and 99\% it narrows but does not eliminate the overconfidence. For financial markets, where coverage of extreme events is important, more samples (which provide broader coverage of extreme events and better CRPS) seem to be a more reasonable choice.
+Regarding the interval coverage, Tab.\ \ref{tab:coverage_results}, higher nominal levels are correlated with more overconfident model's predictions (negative bias). Increasing the number of generated samples from 25 to 50 consistently increases empirical coverage at every nominal level, shifting the model from overconfident (negative bias) toward better-calibrated or underconfident (positive bias) predictions; this shift is sufficient to flip the sign of the bias at the 80\% and 90\% levels, while at 95\% and 99\% it narrows but does not eliminate the overconfidence. For financial markets, where coverage of extreme events is important, more samples (which provide broader coverage of extreme events and better CRPS) seem to be a more reasonable choice.
 
 \begin{table}[H]
 \centering
@@ -672,14 +672,14 @@ EDM-CSDI (Cond.) &  Both    & 25 & 0.19546 & 0.12602 & 0.25731 & 0.00537 & 0.262
 Climatology   &  Val & 50 & 0.60851 & 0.44900 & 0.89782 & 0.01873 & 0.89765 \\
 EDM-CSDI (Cond.)  & Val  & 50 & 0.18441 & 0.12141 & 0.24431 & 0.00510 & 0.24584 \\
 
-Climatology   &  Both  & 50 & 0.65065 & 0.48235 & 0.96461 & 0.01974 & 0.94452 \\
+Climatology   &  Both  & 50 & 0.65065 & 0.48235 & 0.96461 & 0.02013 & 0.96452 \\
 EDM-CSDI (Cond.)  & Both     & 50 & 0.19379 & 0.12659 & 0.25727 & 0.00537 & 0.26259 \\
 \bottomrule
 \end{tabular}
 \caption{CRPS decomposition for the EDM-CSDI models against the climatology
 baseline. CRPS is decomposed as
-$\mathrm{CRPS} = \mathrm{T}^{\text{norm}}_1 - \mathrm{T}^{\text{norm}}_2$, where ${\mathrm{T}}_1$
-is the spread term unnormalised by \(\sigma=0.020867\). \textbf{N.\ Samples} is to be intended for each window. Lower CRPS is better.}
+$\mathrm{CRPS} = \mathrm{T}^{\text{norm}}_1 - \tfrac{1}{2}\mathrm{T}^{\text{norm}}_2$, where ${\mathrm{T}}_1$
+is the accuracy term unnormalised by \(\sigma=0.020867\). \textbf{N.\ Samples} is to be intended for each window. Lower CRPS is better.}
 \label{tab:crps_results}
 \end{table}
 
