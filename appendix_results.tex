@@ -27,7 +27,6 @@ In the first phase, we generated data under the same conditions as sub-Sec.\ \re
   S[table-format= 1.4]   % q99:      x.xxxx
 }
 \toprule
-% {\textbf{Split}} &
     \textbf{Sampler}
   & {\textbf{Mean}}
   & {\textbf{Std}}
@@ -35,10 +34,6 @@ In the first phase, we generated data under the same conditions as sub-Sec.\ \re
   & {\textbf{Kur.}}
   & {$\boldsymbol{q_{0.01}}$}
   & {$\boldsymbol{q_{0.99}}$} \\
-% \midrule
-% Val  & Ground Truth & -0.0024 & 0.8656 & -0.4069 & 13.9 & -2.3305 & 2.3723 \\
-% Val  & Heun ODE     &  0.0031 & 0.7314 & -0.3558 & 19.9 & -1.9595 & 2.0232 \\
-% Val  & Heun SDE     &  0.0064 & 0.8983 & -0.8480 & 47.5 & -2.4424 & 2.4561 \\
 \midrule
 Both & Reference    &  0.0000 & 1.0000 & -0.5864 & 39.5 & -2.7188 & 2.7784 \\
 Both & Heun ODE     &  0.0029 & 0.9487 & -0.5390 & 39.0 & -2.5789 & 2.6306 \\
@@ -70,15 +65,10 @@ Both & Heun SDE     &  0.0012 & 1.0041 & -0.6876 & 45.6 & -2.7224 & 2.7662 \\
   l                      % alpha:    blank
 }
 \toprule
-% {\textbf{Split}} &
     \textbf{Sampler}
   & {$D_{\mathrm{KS}}$}
   & {$W_1$}
   & {$\hat{\alpha}$} \\
-% \midrule
-% Val & Ground Truth & {---} & {---} & 4.072 \\
-% Val & Heun ODE & 0.0352 & 0.000498 & 4.278 \\
-% Val & Heun SDE & 0.0469 & 0.000997 & 4.984\\
 \midrule
 Both & Reference & {---} & {---} & 4.418 \\
 Both & Heun ODE &  0.0411 & 0.000569 & 4.572 \\
@@ -155,7 +145,6 @@ Another set of experiments focused on sampling with EDM-CSDI (Cond.) under the H
 \setlength{\tabcolsep}{4.5pt}
 \begin{tabular}{
   l
-  l
   S[table-format=3]      % NFEs
   S[table-format= 1.4]   % Mean:     ±0.xxxx
   S[table-format= 1.5]   % Std:      0.xxxxx
@@ -165,8 +154,7 @@ Another set of experiments focused on sampling with EDM-CSDI (Cond.) under the H
   S[table-format= 1.4]   % q99:      x.xxxx
 }
 \toprule
-{\textbf{Split}}
-  & \textbf{Sampler}
+\textbf{Sampler}
   & \textbf{NFEs}
   & {\textbf{Mean}}
   & {\textbf{Std}}
@@ -175,18 +163,13 @@ Another set of experiments focused on sampling with EDM-CSDI (Cond.) under the H
   & {$\boldsymbol{q_{0.01}}$}
   & {$\boldsymbol{q_{0.99}}$} \\
 \midrule
-Val  & Ground Truth & {---} & -0.0024 & 0.8656 & -0.4069 & 13.9 & -2.3305 & 2.3723 \\
-Val  & Heun ODE & 200 &  0.0071 & 0.8552 & -0.7347 & 41.3 & -2.3272 & 2.3482 \\
-Val  & Heun ODE & 400 &  0.0031 & 0.7314 & -0.3558 & 19.9 & -1.9595 & 2.0232 \\
-Val  & Heun ODE & 600 &  0.0071 & 0.8551 & -0.7256 & 41.5 & -2.3267 & 2.3444 \\
-\midrule
-Both & Reference & {---} &  0.0000 & 1.0000 & -0.5864 & 39.5 & -2.7188 & 2.7784 \\
-Both & Heun ODE & 200 &  0.0028 & 0.9490 & -0.5280 & 39.8 & -2.5800 & 2.6300 \\
-Both & Heun ODE & 400 &  0.0029 & 0.9487 & -0.5390 & 39.0 & -2.5789 & 2.6306 \\
-Both & Heun ODE & 600 &  0.0028 & 0.9490 & -0.5280 & 39.8 & -2.5800 & 2.6300 \\
+Reference & {---} &  0.0000 & 1.0000 & -0.5864 & 39.5 & -2.7188 & 2.7784 \\
+Heun ODE & 200 &  0.0028 & 0.9490 & -0.5280 & 39.8 & -2.5800 & 2.6300 \\
+Heun ODE & 400 &  0.0029 & 0.9487 & -0.5390 & 39.0 & -2.5789 & 2.6306 \\
+Heun ODE & 600 &  0.0028 & 0.9490 & -0.5280 & 39.8 & -2.5800 & 2.6300 \\
 \bottomrule
 \end{tabular}
-\caption{Aggregate statistics for EDM-CSDI (Cond.) under the Heun ODE sampler with varying numbers of function evaluations (NFEs), normalized log-returns. \emph{Val}: validation windows; \emph{Both}: combined. \(NFEs=400\) (\(steps=200\)) is the default configuration used throughout this chapter and reproduces the Heun ODE row of Tab.~\ref{tab:sampler_experiment} (\(20,000\) windows, 5 samples each); \(NFEs=200\) (\(steps=100\)) and \(NFEs=600\) (\(steps=300\)) were generated on the reduced \(10,000\)-window, 5-samples-per-window set described above.}
+\caption{Aggregate statistics for EDM-CSDI (Cond.) under the Heun ODE sampler with varying numbers of function evaluations (NFEs), normalized log-returns, computed over all (training and validation) windows. \(NFEs=400\) (\(steps=200\)) is the default configuration used throughout this chapter and reproduces the Heun ODE row of Tab.~\ref{tab:sampler_experiment} (\(20,000\) windows, 5 samples each); \(NFEs=200\) (\(steps=100\)) and \(NFEs=600\) (\(steps=300\)) were generated on the reduced \(10,000\)-window, 5-samples-per-window set described above.}
 \label{tab:nfe_experiment}
 \end{table}
 
@@ -204,25 +187,15 @@ Both & Heun ODE & 600 &  0.0028 & 0.9490 & -0.5280 & 39.8 & -2.5800 & 2.6300 \\
   l                      % alpha
 }
 \toprule
-% {\textbf{Split}} &
     \textbf{Sampler}
   & \textbf{NFEs}
   & {$D_{\mathrm{KS}}$}
   & {$W_1$}
   & {$\hat{\alpha}$} \\
-% \midrule
-% Val & Ground Truth & {---} & {---} & {---} & 4.072 \\
-% Val & Heun ODE & 200 & {---} & {---} & 4.590 \\
-% Val & Heun ODE & 400 & 0.0352 & 0.000498 & 4.278 \\
-% Val & Heun ODE & 600 & 0.0485 & 0.001489 & {---} \\
 \midrule
-% Both &
 Reference & {---} & {---} & {---} & 4.418 \\
-% Both &
 Heun ODE & 200 & 0.0402 & 0.000558 & {---} \\
-% Both &
 Heun ODE & 400 & 0.0411 & 0.000569 & 4.572 \\
-% Both &
 Heun ODE & 600 & 0.0403 & 0.000561 & {---} \\
 \bottomrule
 \end{tabular}
@@ -230,9 +203,9 @@ Heun ODE & 600 & 0.0403 & 0.000561 & {---} \\
 \label{tab:nfe_distributional_metrics}
 \end{table}
 
-As shown in Tab.\ \ref{tab:nfe_experiment}, on the \emph{Both} split all three NFE configurations are nearly indistinguishable from one another and from the Reference, with standard deviation, skewness, kurtosis, and tail quantiles all within a narrow band around the \(NFEs=400\) baseline. On the \emph{Val} split, however, both \(NFEs=200\) and \(NFEs=600\) yield a noticeably higher standard deviation (\(\approx0.855\) vs.\ \(0.7314\)) and tail quantiles closer in magnitude to the Ground Truth (\(q_{0.01}\approx-2.327\), \(q_{0.99}\approx2.344\text{--}2.348\), vs.\ GT's \(-2.3305\)/\(2.3723\)) than \(NFEs=400\) (\(-1.9595\)/\(2.0232\)); at the same time, kurtosis more than doubles relative to \(NFEs=400\) (\(\approx41.3\text{--}41.5\) vs.\ \(19.9\), GT \(=13.9\)) and skewness becomes more negative (\(\approx-0.73\) vs.\ \(-0.3558\), GT \(=-0.4069\)).
+As shown in Tab.\ \ref{tab:nfe_experiment}, all three NFE configurations are nearly indistinguishable from one another and from the Reference, with standard deviation, skewness, kurtosis, and tail quantiles all within a narrow band around the \(NFEs=400\) baseline.
 
-Tab.\ \ref{tab:nfe_distributional_metrics} indicates that this trade-off is unfavourable for \(NFEs=600\) on \emph{Val}, where \(W_1\) roughly triples relative to \(NFEs=400\) (\(0.001489\) vs.\ \(0.000498\)) and \(D_{\mathrm{KS}}\) increases by about 38\% (\(0.0485\) vs.\ \(0.0352\)); on \emph{Both}, conversely, \(NFEs=200\) and \(NFEs=600\) yield marginally lower \(D_{\mathrm{KS}}\) and \(W_1\) than \(NFEs=400\). For the heavy tail, \(NFEs=200\) shifts \(\hat{\alpha}\) on \emph{Val} from \(4.278\) (\(NFEs=400\)) to \(4.590\), i.e.\ further from the Ground Truth value of \(4.072\), indicating lighter generated tails. Overall, departing from \(NFEs=400\) in either direction does not yield a clear, consistent improvement; part of the observed differences may also be attributable to the reduced \(10,000\)-window evaluation set used for \(NFEs=200\) and \(NFEs=600\) rather than to the NFE budget itself.
+Tab.\ \ref{tab:nfe_distributional_metrics} indicates that \(NFEs=200\) and \(NFEs=600\) yield marginally lower \(D_{\mathrm{KS}}\) and \(W_1\) than \(NFEs=400\). Overall, departing from \(NFEs=400\) in either direction does not yield a clear, consistent improvement; part of the observed differences may also be attributable to the reduced \(10,000\)-window evaluation set used for \(NFEs=200\) and \(NFEs=600\) rather than to the NFE budget itself.
 
 % [TO BE COMPLETED] Section commented out until the sigma_max=10.0 results are available.
 % \textbf{\(\sigma_{\max}\) Value} \quad Subsequently, different \(\sigma_{\max}\) values were experimented with, whose role has been explained in Sec.\ \ref{sec:training_config}.
@@ -244,7 +217,6 @@ Tab.\ \ref{tab:nfe_distributional_metrics} indicates that this trade-off is unfa
 % \setlength{\tabcolsep}{4.5pt}
 % \begin{tabular}{
 %   l
-%   l
 %   S[table-format=2.1]    % sigma_max: x.x or xx.x
 %   S[table-format= 1.4]   % Mean:     ±0.xxxx
 %   S[table-format= 1.5]   % Std:      0.xxxxx
@@ -254,8 +226,7 @@ Tab.\ \ref{tab:nfe_distributional_metrics} indicates that this trade-off is unfa
 %   S[table-format= 1.4]   % q99:      x.xxxx
 % }
 % \toprule
-% {\textbf{Split}}
-%   & \textbf{Sampler}
+% \textbf{Sampler}
 %   & \textbf{\(\sigma_{\max}\)}
 %   & {\textbf{Mean}}
 %   & {\textbf{Std}}
@@ -264,16 +235,12 @@ Tab.\ \ref{tab:nfe_distributional_metrics} indicates that this trade-off is unfa
 %   & {$\boldsymbol{q_{0.01}}$}
 %   & {$\boldsymbol{q_{0.99}}$} \\
 % \midrule
-% Val  & Ground Truth & {---} & -0.0024 & 0.8656 & -0.4069 & 13.9 & -2.3305 & 2.3723 \\
-% Val  & Heun ODE & 8.0  &  0.0031 & 0.7314 & -0.3558 & 19.9 & -1.9595 & 2.0232 \\
-% Val  & Heun ODE & 10.0 &   &  &  &  &  &  \\
-% \midrule
-% Both & Reference & {---} &  0.0000 & 1.0000 & -0.5864 & 39.5 & -2.7188 & 2.7784 \\
-% Both & Heun ODE & 8.0  &  0.0029 & 0.9487 & -0.5390 & 39.0 & -2.5789 & 2.6306 \\
-% Both & Heun ODE & 10.0 & & &  &  &  &  \\
+% Reference & {---} &  0.0000 & 1.0000 & -0.5864 & 39.5 & -2.7188 & 2.7784 \\
+% Heun ODE & 8.0  &  0.0029 & 0.9487 & -0.5390 & 39.0 & -2.5789 & 2.6306 \\
+% Heun ODE & 10.0 & & &  &  &  &  \\
 % \bottomrule
 % \end{tabular}
-% \caption{Aggregate statistics for EDM-CSDI (Cond.) under varying $\sigma_{\max}$ priors with the second-order Heun ODE sampler, normalized log-returns. \emph{Val}: validation windows; \emph{Both}: combined.
+% \caption{Aggregate statistics for EDM-CSDI (Cond.) under varying $\sigma_{\max}$ priors with the second-order Heun ODE sampler, normalized log-returns, computed over all (training and validation) windows.
 % $\sigma_{\max}=8.0$ corresponds to the default EDM configuration used
 % throughout this chapter ($\sigma_{\max}=P_{\text{mean}}+5P_{\text{std}}$); results
 % for $\sigma_{\max}=10.0$ are pending.}
