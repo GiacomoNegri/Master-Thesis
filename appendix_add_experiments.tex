@@ -103,6 +103,93 @@ As shown in Tab.\ \ref{tab:sampler_experiment} and Tab.\ \ref{tab:edm_sampler_di
     \label{fig:sampler_stylized_facts}
 \end{figure}
 
+\textbf{CRPS and Interval Coverage} \quad To assess whether the gains in distributional similarity reported in Tab.~\ref{tab:sampler_experiment} and Tab.~\ref{tab:edm_sampler_distributional_metrics} translate into probabilistic forecasting performance, the CRPS decomposition and coverage analysis of Sec.~\ref{subsec:conditiona_edm_csdi} were repeated for the Heun SDE sampler, using the same $N=25$ samples per window as for Heun ODE to allow a direct comparison.
+
+\begin{table}[H]
+\centering
+\footnotesize
+\renewcommand{\arraystretch}{1.3}
+\setlength{\tabcolsep}{4.5pt}
+\begin{tabular}{
+  l                        % Configuration
+  l
+  1
+  S[table-format= 3.0]     % Num. Samples
+  S[table-format= 1.5]     % MAE
+  S[table-format= 1.5]     % CRPS
+  S[table-format= 1.5]     % Term 1 (Norm.)
+  S[table-format= 1.5]     % Term 1 (Unnorm.)
+  S[table-format= 1.5]     % Term 2
+}
+\toprule
+{\textbf{Configuration}}
+  & {\textbf{Split}}
+  & {\textbf{Sampler}}
+  & {\textbf{N.\ Samples}}
+  & {\textbf{MAE $\downarrow$}}
+  & {\textbf{CRPS $\downarrow$}}
+  & {$\boldsymbol{\mathrm{T}_1^{\mathrm{norm}}}$}
+  & {$\boldsymbol{\mathrm{T}_1}$}
+  & {$\boldsymbol{\mathrm{T}_2^{\mathrm{norm}}}$} \\
+\midrule
+Climatology & Val & {---}      & 25 & 0.61913 & 0.44869 & 0.89745 & 0.01873 & 0.89753\\
+EDM-CSDI (Cond.) &  Val & Heun ODE   & 25 & 0.18600 & 0.12144 & 0.24438 & 0.00510 & 0.24588 \\
+EDM-CSDI (Cond.) &  Val & Heun SDE   & 25 & 0.18100 & 0.12040 & 0.23833 & 0.00497 & 0.23587\\
+
+Climatology &   Both & {---}        & 25 & 0.66288 & 0.48232 & 0.96466 & 0.02013 & 0.96429 \\
+EDM-CSDI (Cond.) &  Both  & Heun ODE  & 25 & 0.19546 & 0.12602 & 0.25731 & 0.00537 & 0.26258 \\
+EDM-CSDI (Cond.) & Both & Heun SDE & 25 & 0.18875 & 0.12389 & 0.24981 & 0.00521 & 0.25183\\
+
+\bottomrule
+\end{tabular}
+\caption{CRPS decomposition for the EDM-CSDI models against the climatology
+baseline. CRPS is decomposed as
+$\mathrm{CRPS} = \mathrm{T}^{\text{norm}}_1 - \tfrac{1}{2}\mathrm{T}^{\text{norm}}_2$, where ${\mathrm{T}}_1$
+is the accuracy term unnormalised by \(\sigma=0.020867\). \textbf{N.\ Samples} is to be intended for each window. Lower CRPS is better.}
+\label{tab:crps_results_sde}
+\end{table}
+
+\begin{table}[H]
+\centering
+\footnotesize
+\renewcommand{\arraystretch}{1.3}
+\setlength{\tabcolsep}{4.5pt}
+\begin{tabular}{
+  l                        % Split
+  l                        % Nominal level
+  % S[table-format=2.2]      % Climatology 25
+  S[table-format=2.2]      % EDM-CSDI 25
+  % S[table-format=2.2]      % Climatology 50
+  S[table-format=2.2]      % EDM-CSDI 50
+}
+\toprule
+{\textbf{Split}}
+  & {\textbf{Nominal (\%)}}
+  % & {\textbf{Climatology 25}}
+  & {\textbf{EDM-CSDI 25, Heun ODE}}
+  % & {\textbf{Climatology 50}}
+  & {\textbf{EDM-CSDI 25, Heun SDE}} \\
+\midrule
+Val & 50.0  & 50.59 & 50.95 \\
+Val & 80.0  & 78.41 & 78.41\\
+Val & 90.0  & 86.66 & 86.47\\
+Val & 95.0  & 91.34 & 91.06 \\
+Val & 99.0  & 93.46 & 93.23 \\
+\midrule
+Both & 50.0  & 51.57  & 51.53 \\
+Both & 80.0  & 78.95  & 78.75 \\
+Both & 90.0  & 86.87  & 86.58 \\
+Both & 95.0  & 91.46  & 91.11 \\
+Both & 99.0  & 93.60  & 93.26 \\
+\bottomrule
+\end{tabular}
+\caption{Empirical coverage at nominal levels for EDM-CSDI with 25 samples, and EDM-CSDI with 50 samples. Values closer to the nominal level
+indicate better-calibrated prediction intervals.}
+\label{tab:coverage_results_sde}
+\end{table}
+
+For the same number of samples, Heun SDE achieves a lower CRPS and MAE than Heun ODE in both splits (Both: CRPS \(0.12389\) vs.\ \(0.12602\); Val: \(0.12040\) vs.\ \(0.12144\)), consistent with the closer match to the reference standard deviation and the gain in \(W_1\) reported previously. However, Tab.~\ref{tab:coverage_results_sde} shows that coverage at the \(90\%\), \(95\%\), and \(99\%\) levels is consistently lower of \(0.2\)--\(0.35\) percentage points than Heun ODE, which is already overconfident at these levels: the extra variability injected by the SDE sampler improves the overall fit but does not widen the predictive intervals enough to fix the upper-tail miscalibration.
+
 \textbf{Price Paths Samples} \quad Fig.\ \ref{fig:sampler_price_paths} illustrates sample price paths generated under the Heun ODE and Heun SDE samplers against the Ground Truth were it is possible to observe that SDE carries more variability and breadth in its generated paths.
 
 \begin{figure}[htbp]

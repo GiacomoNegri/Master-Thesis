@@ -1,20 +1,20 @@
 \chapter{Introduction}
 
-Humans have always shown an intense desire to understand and replicate nature’s mechanisms. The barter and the merchants, were the foundation of how our knowledge and
+Humans have always shown an intense desire to understand and replicate nature’s mechanisms. The barter and the merchants were the foundation of how our knowledge and
 goods were exchanged across all the known world. With time, and the continuous pursuit
-of understanding, man were able to create a global mean of exchange and interaction:
-financial markets. These markets are not merely economic engines, that fuels our nations
+of understanding, man was able to create a global means of exchange and interaction:
+financial markets. These markets are not merely economic engines, that fuel our nations
 with much needed resources, but complex systems where governments, economic actors,
-and investors associate value to limited resources. The study of these systems lies at
+and investors associate value with limited resources. The study of these systems lies at
 the heart of Quantitative Finance, a discipline that builds on the premise that market
-dynamics can be comprehend through mathematical and statistical frameworks. 
+dynamics can be comprehended through mathematical and statistical frameworks. 
 
 However, modeling financial assets remains a central challenge in today’s world, since
 such data are characterized by complex stochastic dynamics that frequently break the
 assumptions of normality and stationarity. Indeed, these time series frequently exhibit
 ”stylized facts” \cite{cont2001empirical}, or known empirical regularities such as volatility clustering, heavy-tailed
 return distributions, leverage effects, and sudden, discontinuous jumps. Modeling these
-non-linear, high-dimensional has proven complicated. Nevertheless, with the increase of complexity within financial markets, the need for synthetic data as a source of information for scenario analysis, backtesting, stress test, and data augmentation has soared. 
+non-linear, high-dimensional dynamics has proven complicated. Nevertheless, with the increase of complexity within financial markets, the need for synthetic data as a source of information for scenario analysis, backtesting, stress test, and data augmentation has soared. 
 
 Traditionally, academics have relied on statistical tools like ARIMA \cite{box1970time} for trend analysis
 and GARCH \cite{bollerslev1986generalized} for modeling heteroskedasticity. Instead, in the continuous-time domain,
@@ -23,7 +23,7 @@ for asset price modeling and, particularly, for derivative pricing through Monte
 methods. While these models often offer high interpretability and computational efficiency, they often lack the expressivity to capture all characteristics of complex distribution of financial time series (FTS). 
 
 With the raise of Machine Learning and later Deep Learning new opportunities came.
-Two framework, in particular, were promising: Generative Adversarial Networks (GANs) \cite{goodfellow2014generative, creswell2018generative}
+Two frameworks, in particular, were promising: Generative Adversarial Networks (GANs) \cite{goodfellow2014generative, creswell2018generative}
 and Variational Autoencoders (VAEs) \cite{kingma2014auto, kingma2019introduction}. While both proved exceptional in various domains, they are bound by some core limitations, GANs are notoriously unstable to train and prone to mode collapse, while VAEs produce overly smoothed samples and suffer
 from posterior collapse, therefore failing to provide the same level of expressivity seen
 in GANs. In the meantime a diverse set of architectures and functionalities has been
@@ -33,7 +33,7 @@ for natural language tasks such as sentiment analysis, classification task, and 
 automation, the application of generative diffusion models to FTS is still limited. 
 
 To address the gap, this work proposes to combine the Conditional Score-based Diffusion Model for Imputation (CSDI) \cite{tashiro2021csdi} into the Elucidated Diffusion Model (EDM) \cite{karras2022elucidating}
-framework. The previous fusion is natural, since CSDI utilize a Transformer architecture, which was originally
+framework. The previous fusion is natural, since CSDI utilizes a Transformer architecture, which was originally
 designed to capture temporal and feature dependencies for imputation, while EDM defines a clear and malleable design environment for diffusion models. 
 
 The research is structured in two sequential phases. Phase~1 replicates the work of Kim et al.\ \cite{kim2025diffusion}, implementing their VE-, VP-, and GBM-inspired SDE variants on univariate Close log-returns, in order to establish a validated baseline and expose the design ambiguities present in the original paper. Phase~2 then extends this foundation by embedding a CSDI backbone within the EDM framework and introducing multivariate conditioning: the model learns to generate Close log-returns given the contemporaneous Open, High, and Low observations. This sequential structure is intentional, with the replication phase first and then a novel approach in the second. 
@@ -50,11 +50,11 @@ The research questions addressed in the two phases are therefore distinct:
     \item Does the introduction of conditioning information aid in understanding learning behaviors and improving the model's performance?
 \end{itemize}
 
-In asnwering the previous question, the following contributions were achieved:
+In answering the previous question, the following contributions were achieved:
 \begin{itemize}
     \item Framework integration: the CSDI architecture was adapted within the EDM to ensure mathematical clarity, replicability, and effective control over the reverse diffusion process for financial data.
     % \item Comprehensive evaluation: we test the model both on synthetic datasets and realworld observations, employing evaluation measures that include finance-specific metrics and statistical ones.
-    \item Comprehensive evaluation: models were tested on real world observations, employing extended evaluation measures.
+    \item Comprehensive evaluation: models were tested on real-world observations, employing extended evaluation measures.
     \item Stylized fact assessment: we evaluate the model’s ability to reproduce the core stylized facts of financial markets.
 \end{itemize}
 

@@ -14,7 +14,7 @@ which captures global distributional shifts, and the Kolmogorov--Smirnov (KS) te
 distributional differences. Both metrics are computed on the log-return datasets
 \(\mathcal{D}_{\text{train}}\) and \(\mathcal{D}_{\text{gen}}\).
 
-\textbf{Kolmogorov--Smirnov} The KS statistic measures the maximum distance between
+\textbf{Kolmogorov--Smirnov} \quad The KS statistic measures the maximum distance between
 the empirical cumulative distribution functions of two samples. Given two empirical
 cumulative distributions \(F(x)\) and \(G(x)\), it is defined as:
 \[
@@ -25,7 +25,7 @@ advantageously nonparametric and sensitive to both location and shape difference
 however, its maximum deviation is dominated by the bulk of the distribution and is
 relatively insensitive to tail discrepancies.
 
-\textbf{Wasserstein Distance} The Wasserstein distance measures the minimal effort
+\textbf{Wasserstein Distance} \quad The Wasserstein distance measures the minimal effort
 required to transform one distribution into another. For two cumulative distributions
 \(F(x)\) and \(G(x)\), it is defined as:
 \[
@@ -50,11 +50,11 @@ dataset, it may be infinite for the true underlying population.
 \section{Visualizations}
 Complementary with the statistics we plotted different sets of graphs.
 
-\textbf{Quantile--Quantile (QQ) Plots} Quantile comparison between pooled generated and real returns are useful to check whether a model who can match the bulk if it still misses the tails. By plotting quantiles of \(D_{\text{gen}}\)\ again the quantiles of \(D_{\text{train}}\).
+\textbf{Quantile--Quantile (QQ) Plots} \quad Quantile comparison between pooled generated and real returns are useful to check whether a model who can match the bulk if it still misses the tails. By plotting quantiles of \(D_{\text{gen}}\)\ again the quantiles of \(D_{\text{train}}\).
 
-\textbf{ECDF Plots} It is a visual complement to the KS test. Plot the Empirical Cumulative Distribution Functions \(\hat{F}_{\text{gen}}\) and \(\hat{F}_{\text{data}}\) together with the KS gap marked. This makes the KS statistic more interpretable.
+\textbf{ECDF Plots} \quad It is a visual complement to the KS test. Plot the Empirical Cumulative Distribution Functions \(\hat{F}_{\text{gen}}\) and \(\hat{F}_{\text{data}}\) together with the KS gap marked. This makes the KS statistic more interpretable.
 
-\textbf{Unnormalized Paths} Invert the normalisation to recover approximate price-level trajectories. This is primarily a sanity and plausibility check, which check the model's ability to generate price levels. In this case "unnormalize" means applying the inverse of global z-score.
+\textbf{Unnormalized Paths} \quad Invert the normalisation to recover approximate price-level trajectories. This is primarily a sanity and plausibility check, which check the model's ability to generate price levels. In this case "unnormalize" means applying the inverse of global z-score.
 
 \section{FTS evaluation}
 For financial time series, a set of tools is used to compute the tail distribution,
@@ -73,14 +73,14 @@ Following \cite{stakahashy_fingan} and Kim et al.\ \cite{kim2025diffusion}, in P
 \section{Conditional evaluation}
 When evaluating the conditional generation we are evaluating the quality of the conditional generation, specifically we will be focusing on CRPS (Continuous Rank Probability Score) and interval coverage.
 
-\textbf{CRPS} This metrics is measured as:
+\textbf{CRPS} \quad This metrics is measured as:
 \[
 \text{CRPS}(\hat{F}, y) = \mathbb{E}_{\hat{F}} \left[|X - y|\right] - \tfrac{1}{2}\,\mathbb{E}_{\hat{F}}\left[|X - X'|\right]
 \]
 
 where \(X,X'\) are independent draws from the predictive ensemble \(\hat{F}\) and \(y\) is the observed Close. CRPS \cite{matheson1976scoring} is a proper scoring rule: it rewards both accuracy (the first term) and sharpness (the second term penalises spread). It reduces to MAE when the distribution collapses to a point forecast, so you can interpret CRPS as a calibration-adjusted MAE, where lower is better. This score is also used in CSDI \cite{tashiro2021csdi}. Nevertheless, a raw CRPS value is difficult to interpret in isolation, so it was constructed a \emph{climatology} baseline whose ensemble is formed by drawing, with replacement, from the full pool of observed Close log-returns, ignoring the OHL conditioning. Relative skill is summarised by the CRPS skill score $\text{SS}_{\text{CRPS}} = 1 - \overline{\text{CRPS}}_{\text{model}} / \overline{\text{CRPS}}_{\text{clim}}$, where $1$ is perfect, $0$ means no improvement over the uninformative baseline.
 
-\textbf{Interval Coverage} This metrics is measure for nominal levels, for instance for \(\alpha \in \{0.01,0.05,0.5,0.75,0.99\}\). Then we compute the empirical coverage:
+\textbf{Interval Coverage} \quad This metrics is measure for nominal levels, for instance for \(\alpha \in \{0.01,0.05,0.5,0.75,0.99\}\). Then we compute the empirical coverage:
 \[
 coverage_{1-\alpha} = \frac{1}{N} \sum_{t=1}^{L} \sum_{n=1}^{N_t} \mathbf{1}\left[y_{n,t} \in \bigl[q_{\alpha/2}(n,t),\; q_{1-\alpha/2}(n,t)\bigr]\right]
 \]

@@ -1,13 +1,13 @@
 \chapter{Data and Training Setup}
 \label{ch:data_setup}
-This section specified the dataset characteristics and training choices. A summary table is made available at Tab.\ref{tab:training_setup}. 
+This section specifies the dataset characteristics and training choices. A summary table is made available in Tab.\ \ref{tab:training_setup}. 
 \section{Data}
 \label{sec:ch4_data}
 The dataset follows the source and structure reported by Kim et al.\ \cite{kim2025diffusion}.
 Specifically, the list of current S\&P 500 members was taken as the starting universe (as of 10th of April 2026), and
 tickers with non-standard symbols (e.g., BRK.B, BF.B) were excluded. For each remaining
 ticker, the maximum available daily price history was downloaded. The dataset was then
-filtered to retain only those stocks whose available history extends at leas 40 years back.
+filtered to retain only those stocks whose available history extends at least 40 years back.
 According to the authors:
 \begin{quote}
     \emph{This selection criterion ensures that the dataset encompasses diverse market
@@ -19,11 +19,11 @@ using the adjusted closing price on day \(t\).
 
 This selection is subject to some limitations. First, survivorship bias: only companies that remained listed for a
 period substantially longer than the average tenure in the S\&P 500 index, which is 15 years \cite{slok_apollo_longevity}, are included. The resulting universe therefore may understate the frequency of adverse market events associated with delistings
-and corporate failures. The second aspect regards the decimalization process, which was mandated by the Security and Exchange Commission in January 2000 and completed by the 9th of April 2001 \cite{furfine2003decimalization}. Before this period US stock prices were quoted in fractions, specifically 1/16th of a dollar, meaning that the minimum price movement needed to record an effective change in price was 0.0625 dollars. After decimalization this changed to 1 cent. This manifest as 7.1928\% of all returns displaying an exact 0\% daily returns.
+and corporate failures. The second aspect regards the decimalization process, which was mandated by the Securities and Exchange Commission in January 2000 and completed by the 9th of April 2001 \cite{furfine2003decimalization}. Before this period, US stock prices were quoted in fractions, specifically 1/16th of a dollar, meaning that the minimum price movement needed to record an effective change in price was 0.0625 dollars. After decimalization, this changed to 1 cent. This manifests as 7.1928\% of all returns displaying an exact 0\% daily return.
 
 \section{Preprocessing}
 
-\textbf{Phase~1} \quad Only univariate log-returns are used, as defined in Eq.~\ref{eq:log_returns}, and no preprocessing is applied to them since no mention of it is made by Kim et al. \cite{kim2025diffusion}, and the average log-return \(\mu=0.0005\) is not conflictual with prior sampling assumptions.
+\textbf{Phase~1} \quad Only univariate log-returns are used, as defined in Eq.~\ref{eq:log_returns}, and no preprocessing is applied to them since no mention of it is made by Kim et al. \cite{kim2025diffusion}, and the average log-return \(\mu=0.0005\) does not conflict with prior sampling assumptions.
 
 \textbf{Phase~2} \quad \All four OHLC channels are required, the Open, High,
 and Low prices are each expressed as log-returns relative to the previous closing price:
@@ -36,8 +36,8 @@ and Low prices are each expressed as log-returns relative to the previous closin
 This formulation is consistent with the Close log-return defined in Eq.~\ref{eq:log_returns},
 expressing all channels relative to the same reference price \(C_{t-1}\).
 
-\(\textbf{Phase~2}\quad\) A per-channel z-score normalisation is then applied independently to each of the four
-distribution while standardising it to zero mean and unit variance, so that
+\textbf{Phase~2} \quad A per-channel z-score normalisation is then applied independently to each of the four
+distributions while standardising it to zero mean and unit variance, so that
 \(\sigma_{\text{data}} = 1\) holds by construction and network inputs remain numerically
 stable across channels. However, because each channel is scaled by its own standard
 deviation, the ordering constraint \(L_t \leq \min(O_t, C_t) \leq \max(O_t, C_t) \leq H_t\),
@@ -64,16 +64,16 @@ configurations are used across the two experimental phases:
     \item \textbf{Phase 1, replication:} window length \(L = 2048\) and stride \(s = 400\),
     yielding approximately 5,500 training windows over the full dataset.
     \item \textbf{Phase 2, EDM-CSDI:} window length \(L = 512\) and stride \(s = 100\), yielding approximately 23,000
-    training windows cosistent with what described in Ch.~\ref{ch:theoretical_framework}.
+    training windows consistent with what is described in Ch.~\ref{ch:theoretical_framework}.
 \end{itemize}
 
 A window of length \(L = 2048\) spans approximately ten years of daily returns and is
 therefore well-suited to capturing long-term trends. However, the temporal Transformer
 incurs an \(\mathcal{O}(L^2)\) cost in sequence length, making it computationally
 expensive. The shorter \(L = 512\) setting was adopted for Phase 2 due to hardware
-constraints imposed by MIG partitioning of the A100 GPU by the High--Performance Computing's university policy. The full memory analysis is given in App.~\ref{app:sec:attention_memory}.
+constraints imposed by MIG partitioning of the A100 GPU by the university's High-Performance Computing policy. The full memory analysis is given in App.~\ref{app:sec:attention_memory}.
 
-\(\textbf{Phase 1} \quad\) Given the window length the number of non-overlapping windows per ticker is small, making a strict 
+\textbf{Phase 1} \quad Given the window length, the number of non-overlapping windows per ticker is small, making a strict 
 train--validation split undesirable. Validation windows were therefore extracted 
 by random holdout, consistent with the supposed implementation of Kim 
 et al.~\cite{kim2025diffusion}, who are assumed to have either applied a similar random selection or foregone a validation set entirely. Due to the stride, partial overlap between training and validation windows exists.
@@ -81,7 +81,7 @@ et al.~\cite{kim2025diffusion}, who are assumed to have either applied a similar
 For the GBM-inspired SDE variant, each window was additionally mean-centred prior 
 to training by subtracting the sample mean of the window. This transformation does not conflict with the generative setting, because no forecasting is performed. In addition, any daily log-returns can be easily recovered by \(r_{\tau+k}=C_{\tau+k}-C_{\tau+k-1}\), except for the first element.
 
-\(\textbf{Phase 2}\ \quad \) In order to assess the discriminative power of the conditioning information, validation windows were fully held out: for any ticker whose window was selected for validation, no other window covering the same time range appeared in the training set. This reduces the number of training samples available for learning, since for every additional validation window used 6 training windows must be suppressed, however this effect is mitigated by the larger number of windows available.
+\textbf{Phase 2} \quad In order to assess the discriminative power of the conditioning information, validation windows were fully held out: for any ticker whose window was selected for validation, no other window covering the same time range appeared in the training set. This reduces the number of training samples available for learning, since for every additional validation window used 6 training windows must be suppressed; however, this effect is mitigated by the larger number of windows available.
 
 % Overlapping windows introduce correlation between adjacent training samples, violating
 % the i.i.d.\ batch assumption. This is a standard and accepted approximation in
@@ -143,15 +143,15 @@ substantially higher compute cost.
 In Phase~1, they define the range of the forward-process noise: VE-style diffusion
 uses $\sigma_{\max} = 1$ and $\sigma_{\min} = 0.01$; GBM-style diffusion, operating
 on cumulative log-returns, uses $\sigma_{\max} = 10$ and $\sigma_{\min} = 0.1$; and
-the VP formulation is parameterised by $\beta_{\max} = 8$ and $\beta_{\min} = 0.01$. The choice was reached after testing the forward process and reaching prior matching while retaining as much as possible signal, with focus on the first.
+the VP formulation is parameterised by $\beta_{\max} = 8$ and $\beta_{\min} = 0.01$. The choice was reached after testing the forward process and reaching prior matching while retaining as much signal as possible, with focus on the first.
 In Phase~2, the EDM log-normal sampling distribution
 $\ln\sigma \sim \mathcal{N}(P_{\text{mean}}, P_{\text{std}}^2)$ replaces the
 forward-process schedule entirely. The values $P_{\text{mean}} = -1.4$ and
 $P_{\text{std}} = 1.8$ were selected via grid search over
 $P_{\text{mean}} \in \{-0.8,\,-1.0,\,-1.2,\,-1.4,\,-1.6\}$ and
-$P_{\text{std}} \in \{1.0,\,1.2,\,1.4,\,1.6,\,1.8,\,2.0\}$ based on validation loss at first and generative samples later. This was influenced by Phase~1, where small \(t-\)regimes were identified as the hardest to predict. Lower \(P_{\text{mean}}\) concentrate more training samples on low-sigmas and higher \(P_{\text{std}}\) helps cover the tails. Above \(P_{\text{std}}=1.8\) no significant generation gains were observed.
+$P_{\text{std}} \in \{1.0,\,1.2,\,1.4,\,1.6,\,1.8,\,2.0\}$ based first on validation loss and later on generative samples. This was influenced by Phase~1, where small \(t-\)regimes were identified as the hardest to predict. Lower \(P_{\text{mean}}\) concentrates more training samples on low-\(\sigma\) regions and higher \(P_{\text{std}}\) helps cover the tails. Above \(P_{\text{std}}=1.8\), no significant generation gains were observed.
 
-\textbf{Training parameters.} The batch size is 64 across both phases. Phase~1 trains for \(1000\) epochs, as Kim et al.~\cite{kim2025diffusion}, while Phase~2 uses half that budget, which reflects the hardware constraints and the larger number of available training windows, which increases the number of gradient steps per epoch.
+\textbf{Training parameters} \quad The batch size is 64 across both phases. Phase~1 trains for \(1000\) epochs, as in Kim et al.~\cite{kim2025diffusion}, while Phase~2 uses half that budget, which reflects the hardware constraints and the larger number of available training windows, which increases the number of gradient steps per epoch.
 
 \textbf{Sampling parameters} \quad For Phase~2, $\sigma_{\max}$ and $\sigma_{\min}$ were
 selected to cover the support of $\ln\sigma \sim \mathcal{N}(P_{\text{mean}}, P_{\text{std}}^2)$,
