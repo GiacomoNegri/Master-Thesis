@@ -1,178 +1,161 @@
 \begin{figure}[h]
     \centering
 \begin{adjustbox}{max width=\textwidth, max height=0.92\textheight, keepaspectratio}
-% Requires: \usetikzlibrary{positioning, calc, fit, arrows.meta}
 \begin{tikzpicture}[
     font=\small,
     >=Latex,
-    inputblock/.style={draw=black, fill=red!12, rounded corners=2pt,
-        minimum width=2.4cm, minimum height=0.9cm, align=center},
-    convblock/.style={draw=blue!70!black, fill=blue!15, rounded corners=2pt,
-        minimum width=3.3cm, minimum height=1.0cm, align=center, thick},
-    resblock/.style={draw=black!70, fill=gray!15, rounded corners=3pt,
-        minimum width=3.6cm, minimum height=1.6cm, align=center, thick},
-    skipblock/.style={draw=black!70, fill=green!12, rounded corners=2pt,
-        minimum width=2.6cm, minimum height=0.8cm, align=center},
-    edmblock/.style={draw=orange!80!black, fill=orange!15, rounded corners=2pt,
-        minimum width=3.2cm, minimum height=1.1cm, align=center, thick},
-    embedblock/.style={draw=teal!60!black, fill=teal!12, rounded corners=2pt,
-        minimum width=3.4cm, minimum height=1.1cm, align=center, thick},
-    combineblock/.style={draw=black!75, fill=yellow!25, rounded corners=2pt,
-        minimum width=4.6cm, minimum height=0.95cm, align=center, thick},
-    opcircle/.style={draw=black!75, circle, fill=white, inner sep=1pt,
-        minimum size=0.62cm, font=\small},
-    shapetext/.style={font=\scriptsize, align=center},
+    node distance=0.7cm and 1.0cm,
+    inputblock/.style={
+        draw=black,
+        fill=red!12,
+        rounded corners=2pt,
+        minimum width=2.8cm,
+        minimum height=0.9cm,
+        align=center
+    },
+    convblock/.style={
+        draw=blue!70!black,
+        fill=blue!15,
+        rounded corners=2pt,
+        minimum width=4.0cm,
+        minimum height=1.0cm,
+        align=center,
+        thick
+    },
+    resblock/.style={
+        draw=black!70,
+        fill=gray!15,
+        rounded corners=3pt,
+        minimum width=4.3cm,
+        minimum height=1.3cm,
+        align=center,
+        thick
+    },
+    opblock/.style={
+        draw=black!70,
+        fill=yellow!20,
+        rounded corners=2pt,
+        minimum width=3.5cm,
+        minimum height=0.8cm,
+        align=center
+    },
+    skipblock/.style={
+        draw=black!70,
+        fill=green!12,
+        rounded corners=2pt,
+        minimum width=3.5cm,
+        minimum height=0.8cm,
+        align=center
+    },
+    shapetext/.style={
+        font=\scriptsize,
+        align=center
+    },
     mainarrow/.style={->, thick},
     skiparrow/.style={->, thick, dashed},
+    projblock/.style={
+        draw=purple!70!black,
+        fill=purple!12,
+        rounded corners=2pt,
+        minimum width=3.7cm,
+        minimum height=0.8cm,
+        align=center
+    },
     sidearrow/.style={->, thick, dashed}
 ]
-
 % ============================================================
-% SCOPE TITLE
+% MAIN ROW -- left-to-right data flow
 % ============================================================
-\node[anchor=south west, font=\small\itshape]
-    at ($(0,0)+(-1.4,0.95)$)
-    {CSDIModel --- EDM denoiser wrapper};
-
+\node[inputblock] (input) {
+    \textbf{Input}
+};
+% Moved slightly left by reducing distance from Input
+\node[convblock, right=0.55cm of input] (inputproj) {
+    \textbf{input\_projection}\\
+    Conv1d, kernel size $1$
+};
+% Increased distance from input_projection so ResidualBlock remains visually separated
+\node[resblock, right=2.75cm of inputproj] (residual) {
+    \textbf{ResidualBlock}\\
+    with skip taps
+};
+% Moved skip aggregation slightly to the right
+\node[skipblock, right=1.75cm of residual] (sumskip) {
+    $\displaystyle \sum \mathrm{skips}/\sqrt{n}$
+};
+\node[convblock, right=0.9cm of sumskip] (outputproj) {
+    \textbf{output\_projection}\\
+    Conv1d, kernel size $1$
+};
+\node[opblock, right=0.9cm of outputproj] (reshape) {
+    $D_x = c_{\mathrm{skip}}\,x_t \;+\; c_{\mathrm{out}}\,F_x$
+};
+\node[inputblock, right=0.9cm of reshape] (output) {
+    \textbf{Output}
+};
 % ============================================================
-% INPUTS
+% DIMENSION LABELS -- upper-right corner of every block
+% (input label removed per request)
 % ============================================================
-\node[inputblock] (xt)       at (0.0, 0)   {$x_t$};
-\node[inputblock] (sigma)    at (3.0, 0)   {$\sigma$};
-\node[inputblock] (obsdata)  at (6.5, 0)   {\textbf{observed\_data}};
-\node[inputblock] (condmask) at (9.7, 0)   {\textbf{cond\_mask}};
-\node[inputblock] (obstp)    at (12.9,0)   {\textbf{observed\_tp}};
-
-\node[shapetext, anchor=south] at (xt.north)       {$(B,K,L)$};
-\node[shapetext, anchor=south] at (sigma.north)    {$(B,)$};
-\node[shapetext, anchor=south] at (obsdata.north)  {$(B,K,L)$};
-\node[shapetext, anchor=south] at (condmask.north) {$(B,K,L)$};
-\node[shapetext, anchor=south] at (obstp.north)    {$(B,L)$};
-
+\node[shapetext, anchor=south west]
+    at ($(inputproj.north east)+(-1.0,0.01)$)
+    {$(B,\mathrm{ch},K,L)$};
+\node[shapetext, anchor=south west]
+    at ($(residual.north east)+(-1.0,0.01)$)
+    {$(B,\mathrm{ch},K{\times}L)$};
+\node[shapetext, anchor=south west]
+    at ($(sumskip.north east)+(-1.0,0.01)$)
+    {$(B,\mathrm{ch},K{\times}L)$};
+\node[shapetext, anchor=south west]
+    at ($(outputproj.north east)+(-1.5,0.01)$)
+    {$(B,1,K{\times}L)$};
+\node[shapetext, anchor=south west]
+    at ($(reshape.north east)+(-1.0,0.01)$)
+    {$(B,K,L)$};
+\node[shapetext, anchor=south west]
+    at ($(output.north east)+(-1.0,0.01)$)
+    {$(B,K,L)$};
 % ============================================================
-% EDM PRECONDITIONING + input scaling
+% MAIN FLOW ARROWS -- left to right
 % ============================================================
-\node[opcircle]  (cinmul)  at (0.0, -2.3) {$\times$};
-\node[edmblock]  (precond) at (3.0, -2.3) {\textbf{\_edm\_precond}$(\sigma)$};
-
+\draw[mainarrow] (input)      -- (inputproj);
+\draw[mainarrow] (inputproj)  -- (residual);
+\draw[mainarrow] (residual)   -- (sumskip);
+\draw[mainarrow] (sumskip)    -- (outputproj);
+\draw[mainarrow] (outputproj) -- (reshape);
+\draw[mainarrow] (reshape)    -- (output);
 % ============================================================
-% DiffusionEmbedding / make_diff_input / get_side_info
+% EXTRA ARROWS FROM INPUT
+% Arrow from top-center of input to top-center of ResidualBlock
 % ============================================================
-\node[embedblock] (diffemb) at (3.0, -4.6)
-    {\textbf{DiffusionEmbedding}\\[-1pt]{\scriptsize sinusoidal $+\ 2\times$(Linear$+$SiLU)}};
-\node[edmblock]   (makediff) at (6.5, -4.6)
-    {\textbf{make\_diff\_input}\\[-1pt]{\scriptsize cond\_obs $+$ noisy\_tgt}};
-\node[edmblock]   (getside)  at (10.2,-4.6)
-    {\textbf{get\_side\_info}\\[-1pt]{\scriptsize time\_embed\_proj $+$ embed\_layer}};
-
+\draw[mainarrow]
+    (input.north)
+    -- ++(0, 1.4cm)
+    -| (residual.north);
+% Arrow from bottom-center of input to bottom-center of Reshape
+\draw[mainarrow]
+    (input.south)
+    -- ++(0, -1.4cm)
+    -| (reshape.south);
 % ============================================================
-% diff_CSDI BACKBONE
+% REPEATED-BLOCK ANNOTATION
 % ============================================================
-\node[convblock] (inputproj)  at (4.8, -7.6)
-    {\textbf{input\_projection}\\ Conv1d$(2\!\to\!\mathrm{ch})$, $k{=}1$};
-\node[resblock]  (residual)   at (8.5, -7.6)
-    {\textbf{ResidualBlock}\\ with skip taps\\[-1pt]
-     \scriptsize (PE, diffusion\_projection,\\ cond\_projection --- internal)};
-\node[skipblock] (sumskip)    at (12.0,-7.6)
-    {$\displaystyle\sum \mathrm{skips}/\sqrt{n}$};
-\node[convblock] (outputproj) at (15.2,-7.6)
-    {\textbf{output\_projection1}\\ Conv1d$(\mathrm{ch}\!\to\!1)$, $k{=}1$};
-
-\node[shapetext, anchor=south west] at ($(inputproj.north west)+(0,0.05)$) {$(B,\mathrm{ch},K,L)$};
-\node[shapetext, anchor=south]      at ($(residual.north)+(0,0.05)$)       {$(B,\mathrm{ch},K{\times}L)$};
-\node[shapetext, anchor=south west] at ($(sumskip.north west)+(0,0.05)$)   {$(B,\mathrm{ch},K{\times}L)$};
-\node[shapetext, anchor=south west] at ($(outputproj.north west)+(0,0.05)$){$(B,1,K{\times}L)$};
-
+\node[anchor=west, font=\large]
+    at ($(residual.east)+(10.0cm,1.5cm)$)
+    {$\times n$};
 % ============================================================
-% EDM COMBINE + OUTPUT
+% DASHED CONTAINER -- enlarged to include input_projection,
+% ResidualBlock, sumskip (skips), and output_projection.
 % ============================================================
-\node[combineblock] (combine) at (6.5, -10.0)
-    {$D_x = c_{\mathrm{skip}}\,x_t + c_{\mathrm{out}}\,F_x$};
-\node[inputblock]   (output)  at (6.5, -11.4) {$\mathbf{D_x}$ \textbf{(output)}};
-\node[shapetext, anchor=west] at (output.east) {$(B,K,L)$};
-
-% ============================================================
-% ARROWS -- EDM wrapper
-% ============================================================
-\draw[mainarrow] (sigma) -- (precond);
-\draw[mainarrow] (xt)    -- (cinmul);
-
-\draw[mainarrow] (precond.west)  -- node[above,shapetext]{$c_{\mathrm{in}}$} (cinmul.east);
-\draw[mainarrow] (precond.south) -- node[right,shapetext]{$c_{\mathrm{noise}}\,(B,)$} (diffemb.north);
-\draw[mainarrow] (cinmul.east)   -- node[above,shapetext,pos=0.35]{$c_{\mathrm{in}}\,x_t$} (makediff.west);
-
-\draw[mainarrow] (obsdata.south)  -- (makediff.north);
-\draw[mainarrow] (condmask.south) -- (makediff.north east);
-\draw[mainarrow] (condmask.south) -- (getside.north);
-\draw[mainarrow] (obstp.south)    -- (getside.north east);
-
-% intermediate tensors into the backbone
-\draw[mainarrow] (makediff.south) --
-    node[left,shapetext,pos=0.55]{$\mathrm{diff\_in}\ (B,2,K,L)$} (inputproj.north);
-\draw[mainarrow] (getside.south) --
-    node[right,shapetext,pos=0.45]{$\mathrm{side\_info}\ (B,\,d_{\mathrm{temb}}{+}d_{\mathrm{femb}}{+}1,\,K,L)$}
-    (residual.north east);
-\draw[mainarrow] (diffemb.south) --
-    node[below,shapetext,pos=0.82]{$\mathrm{diffusion\_emb}\ (B,\mathrm{demb\_dim})$}
-    (residual.north west);
-
-% ============================================================
-% ARROWS -- backbone internal
-% ============================================================
-\draw[mainarrow] (inputproj) -- (residual);
-\draw[mainarrow] (residual)  -- (sumskip);
-\draw[mainarrow] (sumskip)   -- (outputproj);
-
-% skip tap
-\coordinate (skipstart) at (residual.north east);
-\coordinate (skipup)    at ($(skipstart)+(0,0.8)$);
-\coordinate (skipright) at (skipup -| sumskip.north);
-\draw[skiparrow] (skipstart) -- (skipup)
-    -- node[above,shapetext]{skip outputs} (skipright) -- (sumskip.north);
-
-% ============================================================
-% ARROWS -- EDM combine
-% ============================================================
-\draw[mainarrow] (outputproj.south) |-
-    node[above,shapetext,pos=0.72]{$F_x\ (B,K,L)$} (combine.east);
-
-% clean x_t routed to the skip term c_skip * x_t
-\draw[mainarrow] (xt.west) -| (-1.4,-10.0) --
-    node[below,shapetext,pos=0.8]{$x_t\ (B,K,L)$} (combine.west);
-
-% c_skip, c_out routed to the combine
-\draw[mainarrow] (precond.west) -- (0.7,-2.3) -- (0.7,-9.4) --
-    node[above,shapetext,pos=0.6]{$c_{\mathrm{skip}},\,c_{\mathrm{out}}$} (combine.north west);
-
-\draw[mainarrow] (combine) -- (output);
-
-% ============================================================
-% REPEATED-BLOCK ANNOTATION + inner container
-% ============================================================
-\node[anchor=south east, font=\small] at ($(residual.south east)+(-0.08,0.06)$) {$\times n$};
-\node[draw=black, dashed, rounded corners=3pt, inner sep=0.12cm, fit=(residual)] {};
-
-% ============================================================
-% diff_CSDI CONTAINER
-% ============================================================
-\node[draw=black!60, dashed, rounded corners=5pt, inner sep=0.30cm,
-      fit=(inputproj)(residual)(sumskip)(outputproj)] (csdibox) {};
-\node[anchor=south west, font=\small\bfseries] at (csdibox.north west) {diff\_CSDI};
-
+\node[
+    draw=black,
+    dashed,
+    rounded corners=3.8pt,
+    inner sep=0.55cm,
+    fit=(inputproj)(residual)(sumskip)(outputproj)
+] (rescontainer) {};
 \end{tikzpicture}
-\end{adjustbox}
-
-    \caption{High-level overview of the CSDI--EDM denoiser ($\texttt{CSDIModel}$).
-    From the noise level $\sigma$, \texttt{\_edm\_precond} yields the preconditioning
-    scalars $c_{\mathrm{skip}}, c_{\mathrm{out}}, c_{\mathrm{in}}, c_{\mathrm{noise}}$.
-    The $c_{\mathrm{in}}$-scaled target is assembled with the clean conditioning
-    channels by \texttt{make\_diff\_input}, side information is built by
-    \texttt{get\_side\_info}, and $c_{\mathrm{noise}}\,(B,)$ is mapped to
-    $(B,\mathrm{demb\_dim})$ by \texttt{DiffusionEmbedding}. The \texttt{diff\_CSDI}
-    backbone projects the two-channel input, processes it through $n$ stacked
-    residual blocks with skip connections (positional encodings,
-    \texttt{diffusion\_projection} and \texttt{cond\_projection} are internal to each
-    block), and reduces to $F_x$. The denoised estimate is
-    $D_x = c_{\mathrm{skip}}\,x_t + c_{\mathrm{out}}\,F_x$.}
+\end{adjustbox} % end adjustbox
+    \caption{High-level overview of the CSDI denoising network. The two-channel input (details in Fig.\ \ref{fig:model_input}) is projected into a latent space, processed by $n$ stacked residual blocks with skip connections, and decoded back to the predicted clean signal.}
     \label{fig:csdi_overview}
 \end{figure}

@@ -1,0 +1,188 @@
+\begin{figure}[h]
+    \centering
+\begin{adjustbox}{max width=\textwidth, max height=0.92\textheight, keepaspectratio}
+\begin{tikzpicture}[
+    font=\small,
+    >=Latex,
+    % ---- block styles ----
+    inputblock/.style={
+        draw=black, fill=red!12, rounded corners=3pt,
+        minimum width=2.8cm, minimum height=0.85cm, align=center},
+    edmblock/.style={
+        draw=orange!80!black, fill=orange!15, rounded corners=3pt,
+        minimum width=3.6cm, minimum height=1.05cm, align=center, thick},
+    embedblock/.style={
+        draw=teal!60!black, fill=teal!12, rounded corners=3pt,
+        minimum width=3.8cm, minimum height=1.05cm, align=center, thick},
+    procblock/.style={
+        draw=blue!70!black, fill=blue!12, rounded corners=3pt,
+        minimum width=3.6cm, minimum height=1.05cm, align=center, thick},
+    convblock/.style={
+        draw=blue!70!black, fill=blue!15, rounded corners=3pt,
+        minimum width=3.8cm, minimum height=1.05cm, align=center, thick},
+    resblock/.style={
+        draw=black!70, fill=gray!15, rounded corners=4pt,
+        minimum width=4.5cm, minimum height=2.5cm, align=center, thick},
+    opcircle/.style={
+        draw=black!75, circle, fill=white, inner sep=1pt,
+        minimum size=0.65cm, font=\small, thick},
+    shapetext/.style={font=\scriptsize, align=center},
+    mainarrow/.style={->, thick},
+    % half-block: invisible node used only for anchor geometry
+    halfnode/.style={
+        draw=none, fill=none,
+        minimum width=2.2cm, minimum height=0.95cm, align=center},
+    halfnoderes/.style={
+        draw=none, fill=none,
+        minimum width=2.2cm, minimum height=1.8cm, align=center},
+]
+
+% ============================================================
+%  LEVEL 1 — inputs
+% ============================================================
+\node[inputblock] (sigma)    at (0,  0.0) {$\boldsymbol{\sigma}$};
+\node[inputblock] (xt)       at (0, -2.0) {$\mathbf{x_t}$};
+\node[inputblock] (obsdata)  at (0, -4.0) {\textbf{observed\_data}};
+\node[inputblock] (condmask) at (0, -6.0) {\textbf{cond\_mask}};
+\node[inputblock] (obstp)    at (0, -8.0) {\textbf{observed\_tp}};
+
+\node[shapetext, left=0.15cm of sigma]    {$(B,)$};
+\node[shapetext, left=0.15cm of xt]       {$(B,K,L)$};
+\node[shapetext, left=0.15cm of obsdata]  {$(B,K,L)$};
+\node[shapetext, left=0.15cm of condmask] {$(B,K,L)$};
+\node[shapetext, left=0.15cm of obstp]    {$(B,L)$};
+
+% ============================================================
+%  LEVEL 2 — processing blocks
+% ============================================================
+\node[edmblock]  (precond)  at (5.5,  0.0) {
+    \textbf{\_edm\_precond}$(\sigma)$\\[-2pt]
+    \scriptsize$\to c_{\mathrm{skip}},c_{\mathrm{out}},c_{\mathrm{in}},c_{\mathrm{noise}}$
+};
+\node[opcircle]  (cinmul)   at (5.5, -2.0) {$\times$};
+\node[procblock] (makediff) at (5.5, -5.0) {
+    \textbf{make\_diff\_input}\\[-2pt]
+    \scriptsize cond\_obs $+$ noisy\_tgt
+};
+\node[procblock] (getside)  at (5.5, -8.0) {
+    \textbf{get\_side\_info}\\[-2pt]
+    \scriptsize time\_embed $+$ feat\_emb\\[-2pt]
+    \scriptsize $+$ cond\_mask
+};
+
+% ============================================================
+%  LEVEL 3 — DiffusionEmbedding (full block, stays in this graph)
+% ============================================================
+\node[embedblock] (diffemb) at (11.5, 0.0) {
+    \textbf{DiffusionEmbedding}\\[-2pt]
+    \scriptsize sinusoidal $+$ $2{\times}$(Linear$+$SiLU)\\[-2pt]
+    \scriptsize $(B,)\!\to\!(B,256)$
+};
+
+% ============================================================
+%  LEVEL 3 — input_projection  HALF-BLOCK
+%  Invisible anchor node at (11.5, -2.0); block drawn manually.
+%  Half-width = 1.9cm, half-height = 0.6cm  (matching convblock dims)
+%  Left edge solid+rounded, right edge dashed (open/continuation side)
+% ============================================================
+\node[halfnode] (inputproj) at (11.5, -2.0) {};
+
+% Geometry helpers for inputproj
+\coordinate (ip_nw) at ($(inputproj.north west) + ( 0.10,  0)$);
+\coordinate (ip_ne) at ($(inputproj.north east) + (-0.10,  0)$);
+\coordinate (ip_se) at ($(inputproj.south east) + (-0.10,  0)$);
+\coordinate (ip_sw) at ($(inputproj.south west) + ( 0.10,  0)$);
+
+% Fill first (background), then draw three solid sides + dashed right
+\begin{scope}[on background layer]
+  \fill[blue!15, rounded corners=3pt]
+      (ip_nw) -- (ip_ne) -- (ip_se) -- (ip_sw) -- cycle;
+\end{scope}
+% bottom edge
+\draw[blue!70!black, thick] (ip_sw) -- (ip_se);
+% top edge
+\draw[blue!70!black, thick] (ip_nw) -- (ip_ne);
+% left edge (solid — the entry side)
+\draw[blue!70!black, thick, rounded corners=3pt]
+    (ip_ne) -- (ip_nw) -- (ip_sw) -- (ip_se);
+% right edge dashed — signals continuation into next diagram
+\draw[blue!70!black, thick, dashed] (ip_ne) -- (ip_se);
+
+% Label
+\node[align=center, font=\small] at (inputproj.center) {
+    \textbf{input}\\
+    \textbf{projection}
+};
+
+% ============================================================
+%  LEVEL 3 — ResidualBlock  HALF-BLOCK
+%  half-height = 0.9cm, same x=11.5, y=-6.5
+% ============================================================
+\node[halfnoderes] (residual) at (11.5, -6.5) {};
+
+\coordinate (rb_nw) at ($(residual.north west) + ( 0.10,  0)$);
+\coordinate (rb_ne) at ($(residual.north east) + (-0.10,  0)$);
+\coordinate (rb_se) at ($(residual.south east) + (-0.10,  0)$);
+\coordinate (rb_sw) at ($(residual.south west) + ( 0.10,  0)$);
+
+\begin{scope}[on background layer]
+  \fill[gray!15, rounded corners=4pt]
+      (rb_nw) -- (rb_ne) -- (rb_se) -- (rb_sw) -- cycle;
+\end{scope}
+\draw[black!70, thick] (rb_sw) -- (rb_se);
+\draw[black!70, thick] (rb_nw) -- (rb_ne);
+\draw[black!70, thick, rounded corners=4pt]
+    (rb_ne) -- (rb_nw) -- (rb_sw) -- (rb_se);
+\draw[black!70, thick, dashed] (rb_ne) -- (rb_se);
+
+\node[align=center, font=\small] at (residual.center) {
+    \textbf{Residual}\\
+    \textbf{Block}
+};
+
+% ============================================================
+%  ARROWS
+% ============================================================
+
+\draw[mainarrow] (sigma.east)    -- (precond.west);
+\draw[mainarrow] (precond.south) -- (cinmul.north);
+\draw[mainarrow] (xt.east)       -- (cinmul.west);
+\draw[mainarrow] (obsdata.east)  -- (makediff.west);
+\draw[mainarrow] (condmask.east) -- (makediff.west);
+\draw[mainarrow] (obstp.east)    -- (getside.west);
+\draw[mainarrow] (precond.east)  -- (diffemb.west);
+\draw[mainarrow] (makediff.east) -- (residual.west);
+\draw[mainarrow] (getside.east)  -- (residual.west);
+\draw[mainarrow] (cinmul.east)   -- (inputproj.west);
+\draw[mainarrow] (inputproj.south) -- (residual.north);
+
+% DiffusionEmbedding -> ResidualBlock
+% Exits diffemb.south, steps left to clear inputproj, descends,
+% re-aligns and enters residual.west — rendered behind all nodes.
+\begin{scope}[on background layer]
+    \draw[mainarrow] (diffemb.south)
+        -- ++(0,   -0.2)
+        -- ++(-2.5,  0)
+        -- ++(0,   -5.5)
+        -- ++(0.1,   0)
+        -- (residual.west);
+\end{scope}
+
+\end{tikzpicture}
+\end{adjustbox}
+    \caption{%
+    Structured layout of the \texttt{CSDIModel} forward pass.
+    \textbf{Level~1} (inputs): $\sigma$, $x_t$, \texttt{observed\_data},
+    \texttt{cond\_mask}, and \texttt{observed\_tp}.
+    \textbf{Level~2} (processing): \texttt{\_edm\_precond} derives the four
+    EDM scalars and passes $c_{\mathrm{noise}}$ downward to the $\times$ node;
+    the $\times$ node scales $x_t$ by $c_{\mathrm{in}}$;
+    \texttt{make\_diff\_input} assembles the two-channel backbone input;
+    \texttt{get\_side\_info} builds the side-information tensor.
+    \textbf{Level~3} (backbone): \texttt{DiffusionEmbedding} maps
+    $c_{\mathrm{noise}}$ to a 256-d vector; \texttt{input\_projection}
+    and \texttt{ResidualBlock}$\times n$ are shown truncated (dashed right
+    edge) to indicate they continue into the companion architecture diagram.%
+    }
+    \label{fig:csdi_overview_v5}
+\end{figure}

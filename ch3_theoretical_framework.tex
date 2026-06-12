@@ -206,24 +206,37 @@ potentially trickier to optimise.
 
 % % THE GRAPHS ARCHITECTURES ARE HERE
 
+%DO NOT PRINT \input{graphs/overview_flow}
+
 \input{graphs/overview_flow_draft}
+
+% DO NOT PRINT \input{graphs/overview}
 
 \input{graphs/architecture_draft}
 
-% \input{graphs/architecture}
+% DO NOT PRINT\input{graphs/architecture}
    
 \textbf{Input projection} \quad A pointwise \(1 \times 1\) convolution projects the two-channel input ( signal and mask channels) into a \(d\)-dimensional 
 latent space, where \(d\) is a free hyperparameter, lifting the two input channels into a richer representation.
 
-\begin{figure}[htbp]          % placement: here, top, bottom, page
+\begin{figure}[htbp]
   \centering
-  \includegraphics[width=0.5\textwidth]{images/Transformer_architecture.png}
-  \caption{Transformer model architecture. Source: Vaswani et al.\ \cite{vaswani2017attention}.}
-  \label{fig:transformer_architecture}
+  \begin{minipage}[t]{0.63\textwidth}
+    \centering
+    \includegraphics[width=\textwidth]{images/input_drawings.png}
+    \caption{Representation of model inputs and how they are feeded into the Denoiser. Input projection and ResidualBlock are those represented in Fig.\ \ref{fig:csdi_overview}.}
+    \label{fig:model_input}
+  \end{minipage}
+  \hfill
+  \begin{minipage}[t]{0.33\textwidth}
+    \centering
+    \includegraphics[width=\textwidth]{images/Transformer_architecture.png}
+    \caption{Transformer model architecture. Source: Vaswani et al.\ \cite{vaswani2017attention}.}
+    \label{fig:transformer_architecture}
+  \end{minipage}
 \end{figure}
 
-\textbf{Temporal and feature Transformer layers} \quad A new temporal 
-\((K, L, d)\) and feature \((L, K, d)\) Transformer is initialised per 
+\textbf{Temporal and feature Transformer layers} \quad A new temporal \((K, L, d)\) and feature \((L, K, d)\) Transformer is initialised per 
 residual layer rather than shared across them. Weight sharing would 
 constrain all layers to operate at the same level of abstraction, 
 limiting the model's ability to build hierarchical representations; 
