@@ -204,9 +204,7 @@ product space would mix these two distinct dependency
 types, making the learned representations harder to interpret and 
 potentially trickier to optimise. 
 
-A general functioning approach is illustrated in Fig.\ \ref{fig:csdi_overview}. Were inputs, specifically \(\sigma\), noised data \(x_t\), observed_data or data that does not need inputation,
-cond_mask which defines which data are conditional, and observed_tp or indices (time) available are passed to the denoiser at different stages, as described in Fig.\ \ref{fig:model_input}. Then inputs pass through a series of \(n\) \texttt{ResidualBlock} and finally the Denoiser output \(F_\theta(c_{\text{in}}(\sigma)x; c_{\text{noise}(\sigma)}), \).
-It follows a more detailed explanations about the components, specifically those that constitute the \texttt{ResidualBlock} represented in Fig.\ \ref{fig:csdi_residual_block}.
+Fig.~\ref{fig:csdi_overview} illustrates the overall flow of the denoiser. The noise level \(\sigma\), the noised data \(x_t\), the observed (conditioning) data, the \texttt{cond\_mask} marking which entries are conditional, and the \texttt{observed\_tp} time indices are fed into the network at the stages shown in Fig.~\ref{fig:model_input}. These inputs are processed by a stack of \(n\) \texttt{ResidualBlock} layers, yielding the preconditioned output \(F_\theta\bigl(c_{\text{in}}(\sigma)x;\, c_{\text{noise}}(\sigma)\bigr)\). The internal structure of each \texttt{ResidualBlock}, shown in Fig.~\ref{fig:csdi_residual_block}, is detailed below.
 
 % % THE GRAPHS ARCHITECTURES ARE HERE
 
@@ -241,14 +239,14 @@ latent space, where \(d\) is a free hyperparameter, lifting the two input channe
 \end{figure}
 
 \textbf{Temporal and feature Transformer layers} \quad A new temporal \((K, L, d)\) and feature \((L, K, d)\) Transformer is initialised per 
-residual layer rather than shared across them. Weight sharing would 
+residual layer rather than shared across them, Fig.\ \ref{fig:csdi_residual_block}. Weight sharing would 
 constrain all layers to operate at the same level of abstraction, 
 limiting the model's ability to build hierarchical representations; 
 independent weights allow each layer to specialise. This is consistent 
 with the CSDI implementation \cite{tashiro2021csdi}. Multi-head attention 
 \cite{vaswani2017attention} allows the model to attend to multiple 
 dependency patterns simultaneously within each axis, for instance it could modeled 
-short-range trend and longer-range volatility clustering along the temporal axis, or spread relationships along the feature axis. The detailed structure is represented in Fig.\ \ref{fig:transformer_architecture}. 
+short-range trend and longer-range volatility clustering along the temporal axis, or spread relationships along the feature axis. The detailed structure is represented in Fig.\ \ref{fig:transformer_architecture_encoder}. 
 
 \textbf{Gated residual blocks} \quad Following the WaveNet structure 
 \cite{oord2016wavenet}, each block applies \(\sigma(\cdot) \odot 
@@ -262,10 +260,10 @@ while preserving significant features. This could be useful for FTS, since Signa
 
 \textbf{Embeddings} \quad Three embedding mechanisms operate at distinct 
 levels of the architecture, each with a well-defined scope. The 
-\emph{diffusion-step embedding} (sinusoidal basis projected through two 
+\emph{diffusion-step embedding} (\texttt{diffusion\_emb}: sinusoidal basis projected through two 
 linear layers with SiLU activations) encodes \(c_{\text{noise}}(\sigma)\) 
 in the EDM phase and the discrete step index \(t\) in the replication 
-phase, telling the network the current noise level. The \emph{side information embeddings} 
+phase, telling the network the current noise level. The \emph{side information embeddings} (\texttt{side\_info})
 carry two complementary signals: a time embedding (sinusoidal basis 
 followed by a learnable linear projection) encodes the absolute calendar 
 position of each time step, allowing the model to associate positions 
@@ -273,10 +271,12 @@ with recurring temporal patterns such as month-end or seasonal effects
 that are persistent in the training data; a feature 
 embedding is a learned lookup table over channel indices \(\{O, H, L, 
 C\}\), giving the model an explicit representation of each channel, enabling channel-specific denoising. Finally, the 
-\emph{sinusoidal positional encoding}, following \cite{kim2025diffusion}, 
+\emph{sinusoidal positional encoding} (\texttt{Sinusoidal PE}), following \cite{kim2025diffusion}, 
 encodes the relative position of each element within the sequence and is 
 injected immediately before each Transformer call, both along the 
 temporal and feature axes. Without this the Transformer would be permutation-invariant, which would destroy the temporal order, which is essential for financial return sequences.
+
+\textbf{Residuals and skip connections} \quad Each \texttt{ResidualBlock} produces two outputs: a residual branch, added back to the block's input, and a skip branch, collected and pooled across all \(n\) blocks before the final output projection. Following WaveNet \cite{oord2016wavenet} and CSDI \cite{tashiro2021csdi}, this lets every block contribute directly to the prediction regardless of its depth in the stack, while the residual sum and the skip pooling are rescaled by \(1/\sqrt{2}\) and \(1/\sqrt{n}\) respectively to keep the signal variance stable as blocks accumulate. The \texttt{mid\_projection} is a pointwise convolution that doubles the channel dimension immediately before the side-information conditioning is added; this provides the extra capacity needed to later split the combined representation into the gate and filter branches of the gated activation unit.
 
 \section{Masking strategies}
 \label{sec:masking_strategies_ch3} \quad
