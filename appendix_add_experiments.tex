@@ -68,7 +68,7 @@ Heun SDE     &  0.0012 & 1.0041 & -0.6876 & 45.6 & -2.7224 & 2.7662 \\
 \midrule
 Reference & {---} & {---} & 4.418 \\
 Heun ODE &  0.0411 & 0.000569 & 4.572 \\
-Heun SDE &  0.0377 & 0.000077 & \\
+Heun SDE &  0.0377 & 0.000077 & 4.599 \\
 \bottomrule
 \end{tabular}
 \caption{Distributional similarity metrics ($D_{\mathrm{KS}}$, $W_1$, $\hat{\alpha}$) for EDM-CSDI (Cond.) under the Heun ODE/SDE samplers (cf.\ Tab.~\ref{tab:sampler_experiment}).}
@@ -190,9 +190,9 @@ Heun ODE & 600 &  0.0028 & 0.9490 & -0.5280 & 39.8 & -2.5800 & 2.6300 \\
   & {$\hat{\alpha}$} \\
 \midrule
 Reference & {---} & {---} & {---} & 4.418 \\
-Heun ODE & 200 & 0.0402 & 0.000558 & {---} \\
+Heun ODE & 200 & 0.0402 & 0.000558 & 4.554 \\
 Heun ODE & 400 & 0.0411 & 0.000569 & 4.572 \\
-Heun ODE & 600 & 0.0403 & 0.000561 & {---} \\
+Heun ODE & 600 & 0.0403 & 0.000561 & 5.00 \\
 \bottomrule
 \end{tabular}
 \caption{Distributional similarity metrics ($D_{\mathrm{KS}}$, $W_1$, $\hat{\alpha}$) for EDM-CSDI (Cond.) under the Heun ODE sampler with varying NFEs (cf.\ Tab.~\ref{tab:nfe_experiment}). $D_{\mathrm{KS}}$ and $W_1$ are computed against the unnormalized training marginal. Cells marked {---} were not computed for this exploration.}
