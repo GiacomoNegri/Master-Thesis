@@ -202,7 +202,7 @@ occur within each channel, while feature attention captures \emph{how}
 channels covary contemporaneously. Attending jointly over the time-feature 
 product space would mix these two distinct dependency 
 types, making the learned representations harder to interpret and 
-potentially trickier to optimise. 
+potentially trickier to optimise.
 
 Fig.~\ref{fig:csdi_overview} illustrates the overall flow of the denoiser. The noise level \(\sigma\), the noised data \(x_t\), the observed (conditioning) data, the \texttt{cond\_mask} marking which entries are conditional, and the \texttt{observed\_tp} time indices are fed into the network at the stages shown in Fig.~\ref{fig:model_input}. These inputs are processed by a stack of \(n\) \texttt{ResidualBlock} layers, yielding the preconditioned output \(F_\theta\bigl(c_{\text{in}}(\sigma)x;\, c_{\text{noise}}(\sigma)\bigr)\). The internal structure of each \texttt{ResidualBlock}, shown in Fig.~\ref{fig:csdi_residual_block}, is detailed below.
 

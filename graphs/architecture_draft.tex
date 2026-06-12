@@ -1,6 +1,6 @@
 \begin{figure}[p]
     \centering
-\begin{adjustbox}{max width=\textwidth  , keepaspectratio}
+\begin{adjustbox}{max width=0.95\textwidth  , keepaspectratio}
 \begin{tikzpicture}[
     font=\small,
     >=Latex,
@@ -214,7 +214,7 @@
 % ADD — sinpe2 (feature PE): x from sideinfo column, y from feature row
 \node[inputblock] at ($(sideinfo |- feature)+(1.0cm,0)$) (sinpe2) {
     \textbf{Sinusoidal PE}\\
-    $(\cdot,\mathrm{ch},K)$
+    $(1,\mathrm{ch},K)$
 };
 
 % ------------------------------------------------------------
@@ -291,5 +291,5 @@
 \end{tikzpicture}
 \end{adjustbox} %end adjustbox
     \caption{\texttt{ResidualBlock} architecture, CSDI--inspired. Each block emits a skip connection aggregated across all $n_{\mathrm{layers}}$ blocks (see Fig.~\ref{fig:csdi_overview}).}
-    \label{fig:csdi_residual_block}
+        \label{fig:csdi_residual_block}
 \end{figure}
