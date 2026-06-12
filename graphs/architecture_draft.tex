@@ -1,93 +1,295 @@
-\documentclass[tikz,border=6pt]{standalone}
-\usetikzlibrary{positioning, arrows.meta, fit, calc}
-
-\begin{document}
+\begin{figure}[p]
+    \centering
+\begin{adjustbox}{max width=\textwidth  , keepaspectratio}
 \begin{tikzpicture}[
-    block/.style={
-        draw,
-        rounded corners,
+    font=\small,
+    >=Latex,
+    node distance=0.95cm and 1.25cm,
+    inputblock/.style={
+        draw=black,
+        fill=red!12,
+        rounded corners=2pt,
+        minimum width=2.9cm,
+        minimum height=0.85cm,
+        align=center
+    },
+    convblock/.style={
+        draw=blue!70!black,
+        fill=blue!15,
+        rounded corners=2pt,
+        minimum width=4.4cm,
+        minimum height=0.95cm,
         align=center,
-        minimum width=3.1cm,
+        thick
+    },
+    transblock/.style={
+        draw=black!70,
+        fill=gray!18,
+        rounded corners=3pt,
+        minimum width=5.3cm,
+        minimum height=1.25cm,
+        align=center,
+        thick
+    },
+    opblock/.style={
+        draw=black!70,
+        fill=yellow!18,
+        rounded corners=2pt,
+        minimum width=3.3cm,
+        minimum height=0.75cm,
+        align=center
+    },
+    smallop/.style={
+        circle,
+        draw=black!75,
+        fill=white,
+        minimum size=0.58cm,
+        inner sep=0pt,
+        align=center,
+        thick
+    },
+    branchblock/.style={
+        draw=black!70,
+        fill=orange!15,
+        rounded corners=2pt,
+        minimum width=2.7cm,
+        minimum height=0.78cm,
+        align=center
+    },
+    projblock/.style={
+        draw=purple!70!black,
+        fill=purple!12,
+        rounded corners=2pt,
+        minimum width=3.7cm,
         minimum height=0.8cm,
-        font=\small
+        align=center
     },
-    smallblock/.style={
-        draw,
-        rounded corners,
-        align=center,
-        minimum width=2.6cm,
-        minimum height=0.65cm,
-        font=\scriptsize
+    sideout/.style={
+        draw=black,
+        fill=green!12,
+        rounded corners=2pt,
+        minimum width=3.2cm,
+        minimum height=0.85cm,
+        align=center
     },
-    arrow/.style={-{Latex[length=2mm]}, thick},
-    dashedbox/.style={draw, dashed, rounded corners, inner sep=8pt}
+    shapetext/.style={
+        font=\scriptsize,
+        align=center
+    },
+    note/.style={
+        font=\scriptsize,
+        align=center
+    },
+    mainarrow/.style={
+        ->,
+        thick
+    },
+    sidearrow/.style={
+        ->,
+        thick,
+        dashed
+    },
+    skiparrow/.style={
+        ->,
+        thick,
+        dashed
+    },
+    container/.style={
+        draw=black!75,
+        fill=gray!6,
+        rounded corners=5pt,
+        thick,
+        inner sep=0.45cm
+    }
 ]
 
-% Inputs
-\node[block] (xt) {$x_t$\\noisy input\\$(B,K,L)$};
-\node[block, below=0.55cm of xt] (sigma) {$\sigma$\\noise level};
-\node[block, below=0.55cm of sigma] (obs) {observed data\\$(B,K,L)$};
-\node[block, below=0.55cm of obs] (mask) {conditional mask\\$(B,K,L)$};
-\node[block, below=0.55cm of mask] (time) {time positions\\$(B,L)$};
+% ------------------------------------------------------------
+% Main vertical flow
+% ------------------------------------------------------------
 
-% EDM
-\node[block, right=1.8cm of sigma] (edm) {EDM preconditioning\\
-$c_{\rm skip}, c_{\rm out}, c_{\rm in}, c_{\rm noise}$};
+\node[inputblock] (xin) {
+    \textbf{$x_{\mathrm{in}}$}\\
+    $(B,\mathrm{ch},K,L)$
+};
 
-% Side info
-\node[block, right=1.8cm of mask] (side) {side information\\
-time emb. + feature emb.\\
-+ optional mask\\
-$(B,\mathrm{side\_dim},K,L)$};
+\node[opblock, below=of xin] (flatten) {
+    \textbf{Flatten}\\
+    $(B,\mathrm{ch},K,L) \to (B,\mathrm{ch},K{\times}L)$
+};
 
-% Diff input
-\node[block, right=1.8cm of edm] (diffinput) {diffusion input\\
-conditional: $[\mathrm{cond\_obs}, \mathrm{noisy\_target}]$\\
-unconditional: $x_t$};
+\node[smallop, below=of flatten] (diffadd) {$\oplus$};
 
-% Backbone
-\node[block, right=1.7cm of diffinput] (inconv) {Conv1d\\inputdim $\rightarrow C$\\kernel 1};
-\node[block, above=1.1cm of inconv] (diffemb) {diffusion embedding\\sin/cos + MLP + SiLU};
+\node[transblock, below=of diffadd] (temporal) {
+    \textbf{Temporal Transformer}\\
+    TransformerEncoder over temporal axis $L$\\[-1pt]
+    \scriptsize $(B,\mathrm{ch},K,L) \to (B\!\cdot\!K,\mathrm{ch},L)$\\[-1pt]
+    \scriptsize batch dim $B\!\cdot\!K$, $n_{\mathrm{heads}}=4$ heads
+};
 
-\node[block, right=1.5cm of inconv] (res) {$N \times$ ResidualBlock\\
-time Transformer\\
-feature Transformer\\
-side projection\\
-gated activation};
+\node[transblock, below=of temporal] (feature) {
+    \textbf{Feature Transformer}\\
+    TransformerEncoder over feature axis $K$\\[-1pt]
+    \scriptsize $(B,\mathrm{ch},K,L) \to (B\!\cdot\!L,\mathrm{ch},K)$\\[-1pt]
+    \scriptsize batch dim $B\!\cdot\!L$, $n_{\mathrm{heads}}=4$ heads
+};
 
-\node[block, right=1.5cm of res] (skip) {sum skip connections\\$/\sqrt{N}$};
-\node[block, right=1.5cm of skip] (outconv) {Conv1d\\$C \rightarrow 1$\\kernel 1};
-\node[block, right=1.5cm of outconv] (fx) {$F_x$\\backbone output\\$(B,K,L)$};
+% ADD — Sinusoidal PE nodes: x aligned with sideinfo column, y aligned with diffadd / feature rows
 
-% Output
-\node[block, right=1.7cm of fx] (dx) {EDM output\\
-$D_x = c_{\rm skip}x_t + c_{\rm out}F_x$\\
-$(B,K,L)$};
 
-% Arrows
-\draw[arrow] (xt) -- (edm);
-\draw[arrow] (sigma) -- (edm);
-\draw[arrow] (edm) -- node[above, font=\scriptsize] {$c_{\rm in}x_t$} (diffinput);
+\node[convblock, below=of feature] (midproj) {
+    \textbf{mid\_projection}\\
+    Conv1d, kernel size $1$, $\mathrm{ch}\to 2\mathrm{ch}$
+};
 
-\draw[arrow] (obs.east) -| (diffinput.south);
-\draw[arrow] (mask.east) -- (side.west);
-\draw[arrow] (time.east) -| (side.south);
+\node[smallop, below=of midproj] (condadd) {$\oplus$};
 
-\draw[arrow] (diffinput) -- (inconv);
-\draw[arrow] (edm.north) |- node[pos=0.25, above, font=\scriptsize] {$c_{\rm noise}$} (diffemb.west);
-\draw[arrow] (diffemb) -- (res);
-\draw[arrow] (side.east) -| node[pos=0.25, below, font=\scriptsize] {cond info} (res.south);
+% Gated activation unit: split into filter/gate and merge
+\node[branchblock, below left=0.95cm and 0.45cm of condadd] (gate) {
+    gate\\
+    $\sigma(\cdot)$
+};
 
-\draw[arrow] (inconv) -- (res);
-\draw[arrow] (res) -- (skip);
-\draw[arrow] (skip) -- (outconv);
-\draw[arrow] (outconv) -- (fx);
-\draw[arrow] (fx) -- (dx);
-\draw[arrow] (xt.north) .. controls +(0,3) and +(0,3) .. node[above, font=\scriptsize] {skip path} (dx.north);
-\draw[arrow] (edm.north) .. controls +(1,3.2) and +(-1,3.2) .. node[above, font=\scriptsize] {$c_{\rm skip},c_{\rm out}$} (dx.north);
+\node[branchblock, below right=0.95cm and 0.45cm of condadd] (filter) {
+    filter\\
+    $\tanh(\cdot)$
+};
 
-\node[dashedbox, fit=(inconv)(diffemb)(res)(skip)(outconv)(fx),
-      label=below:{\small diff\_CSDI backbone}] {};
+\node[smallop, below=1.75cm of condadd] (multiply) {$\odot$};
+
+\node[convblock, below=of multiply] (outproj) {
+    \textbf{output\_projection}\\
+    Conv1d, kernel size $1$, $\mathrm{ch}\to 2\mathrm{ch}$
+};
+
+\node[smallop, below=of outproj, minimum size=0.78cm] (resskipsplit) {split};
+
+\node[opblock, below=of resskipsplit] (reshaperes) {
+    \textbf{Reshape residual}\\
+    $(B,\mathrm{ch},K{\times}L) \to (B,\mathrm{ch},K,L)$
+};
+
+\node[smallop, below=of reshaperes] (resadd) {$\oplus$};
+
+\node[inputblock, below=of resadd] (xout) {
+    \textbf{$x_{\mathrm{out}}/\sqrt{2}$}\\
+    $(B,\mathrm{ch},K,L)$
+};
+
+% ------------------------------------------------------------
+% Conditioning side branches
+% ------------------------------------------------------------
+
+% diffusion_projection stays at its current position, aligned with the addition node
+\node[projblock, left=2.4cm of diffadd] (diffproj) {
+    \textbf{diffusion\_projection}\\
+    Linear $(\mathrm{demb\_dim}\to \mathrm{ch})$
+};
+
+% diffusion_emb is centered above diffusion_projection
+% (relabelled from c_noise: inside the block the incoming tensor is the
+%  DiffusionEmbedding output, not the scalar/c_noise input one level up)
+\node[inputblock, above=0.35cm of diffproj] (diffemb) {
+    \textbf{diffusion\_emb}\\
+    $(B,\mathrm{demb\_dim})$
+};
+
+% cond_projection stays at its current position, aligned with the addition node
+\node[projblock, right=2.5cm of condadd] (condproj) {
+    \textbf{cond\_projection}\\
+    Conv1d $(193\to2\mathrm{ch})$, $k=1$
+};
+
+% side_info is centered above cond_projection
+\node[inputblock, above=0.35cm of condproj] (sideinfo) {
+    \textbf{side\_info}\\
+    $(B,\mathrm{d_{temb}} + \mathrm{d_{femb}+1})$
+};
+
+% ADD — sinpe (temporal PE): x from sideinfo column, y from diffadd row
+\node[inputblock] at (sideinfo |- diffproj) (sinpe) {
+    \textbf{Sinusoidal PE}\\
+    $(B,\mathrm{ch},L)$
+};
+
+% ADD — sinpe2 (feature PE): x from sideinfo column, y from feature row
+\node[inputblock] at (sideinfo |- feature) (sinpe2) {
+    \textbf{Sinusoidal PE}\\
+    $(\cdot,\mathrm{ch},K)$
+};
+
+% ------------------------------------------------------------
+% Skip output branch
+% ------------------------------------------------------------
+
+\node[sideout, right=2.65cm of resskipsplit] (skipout) {
+    \textbf{skip output}\\
+    $(B,\mathrm{ch},K,L)$
+};
+% skip_pool is centered below skip output
+\node[sideout] at (skipout |- xout) (skippool) {
+    \textbf{skip pool}\\
+    $\displaystyle \sum \mathrm{skips}/\sqrt{n}$
+};
+
+% ------------------------------------------------------------
+% Main arrows
+% ------------------------------------------------------------
+
+\draw[mainarrow] (xin) -- (flatten);
+\draw[mainarrow] (flatten) -- node[right, shapetext] {$(B,\mathrm{ch},K{\times}L)$} (diffadd);
+\draw[mainarrow] (diffadd) -- node[right, shapetext] {$(B,\mathrm{ch},K{\times}L)$} (temporal);
+\draw[mainarrow] (temporal) -- node[right, shapetext] {$(B,\mathrm{ch},K{\times}L)$} (feature);
+\draw[mainarrow] (feature) -- node[right, shapetext] {$(B,\mathrm{ch},K{\times}L)$} (midproj);
+\draw[mainarrow] (midproj) -- node[right, shapetext] {$(B,2\mathrm{ch},K{\times}L)$} (condadd);
+
+\draw[mainarrow] (condadd) -- ++(0,-0.45) -| (gate.north);
+\draw[mainarrow] (condadd) -- ++(0,-0.45) -| (filter.north);
+\draw[mainarrow] (gate.south) |- (multiply.west);
+\draw[mainarrow] (filter.south) |- (multiply.east);
+
+\draw[mainarrow] (multiply) -- node[right, shapetext] {$(B,\mathrm{ch},K{\times}L)$} (outproj);
+\draw[mainarrow] (outproj) -- node[right, shapetext] {$(B,2\mathrm{ch},K{\times}L)$} (resskipsplit);
+\draw[mainarrow] (resskipsplit) -- node[right, shapetext] {residual $(B,\mathrm{ch},K{\times}L)$} (reshaperes);
+\draw[mainarrow] (reshaperes) -- (resadd);
+\draw[mainarrow] (resadd) -- node[pos=0.75, right, shapetext] {$(\mathrm{residual}+x_{\mathrm{in}})/\sqrt{2}$} (xout);
+
+% ------------------------------------------------------------
+% Side arrows
+% ------------------------------------------------------------
+
+\draw[sidearrow] (diffemb) -- (diffproj);
+\draw[sidearrow] (diffproj.east) -- node[above, shapetext] {$(B,\mathrm{ch},1)$\\[-2pt]\scriptsize(broadcast over $K{\cdot}L$)} (diffadd.west);
+
+\draw[sidearrow] (sideinfo) -- (condproj);
+\draw[sidearrow] (condproj.west) -- node[above, shapetext] {$(B,2\mathrm{ch},K{\times}L)$} (condadd.east);
+
+\draw[skiparrow] (resskipsplit.east) -- node[above, shapetext] {skip $(B,\mathrm{ch},K{\times}L) \to (B,\mathrm{ch},K,L)$} (skipout.west);
+\draw[skiparrow] (skipout.south) -- (skippool.north);
+
+% Long residual connection from original x_in to residual addition
+\draw[sidearrow]
+    (xin.east)
+    -- ++(6.7,0)
+    |- node[pos=0.88, above, shapetext] {$x_{\mathrm{in}}$} (resadd.east);
+
+% ADD — arrows from sinpe (temporal PE) to Temporal Transformer,
+%        and from sinpe2 (feature PE) to Feature Transformer
+\draw[sidearrow] (sinpe.south) |- (temporal.east);
+\draw[sidearrow] (sinpe2.west) -- (feature.east);
+
+% ------------------------------------------------------------
+% Large residual-block container
+% ------------------------------------------------------------
+
+\begin{scope}[on background layer]
+\node[container,
+    fit=(flatten)(diffadd)(temporal)(feature)(midproj)(condadd)(gate)(filter)(multiply)(outproj)(resskipsplit)(reshaperes)(resadd)(diffemb)(diffproj)(sideinfo)(condproj)(skipout)(sinpe)(sinpe2),
+    label={[font=\large, anchor=west, yshift=0.35cm]north west:\textbf{ResidualBlock $\times n$}}
+] (rescontainer) {};
+\end{scope}
 
 \end{tikzpicture}
-\end{document}
+\end{adjustbox} %end adjustbox
+    \caption{\texttt{ResidualBlock} architecture, CSDI--inspired. Each block emits a skip connection aggregated across all $n_{\mathrm{layers}}$ blocks (see Fig.~\ref{fig:csdi_overview}).}
+    \label{fig:csdi_residual_block}
+\end{figure}
