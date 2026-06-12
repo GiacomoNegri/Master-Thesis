@@ -206,13 +206,13 @@
 };
 
 % ADD — sinpe (temporal PE): x from sideinfo column, y from diffadd row
-\node[inputblock] at (sideinfo |- diffproj) (sinpe) {
+\node[inputblock] at ($(sideinfo |- diffproj)+(1.0cm,0)$) (sinpe) {
     \textbf{Sinusoidal PE}\\
     $(B,\mathrm{ch},L)$
 };
 
 % ADD — sinpe2 (feature PE): x from sideinfo column, y from feature row
-\node[inputblock] at (sideinfo |- feature) (sinpe2) {
+\node[inputblock] at ($(sideinfo |- feature)+(1.0cm,0)$) (sinpe2) {
     \textbf{Sinusoidal PE}\\
     $(\cdot,\mathrm{ch},K)$
 };
@@ -221,7 +221,7 @@
 % Skip output branch
 % ------------------------------------------------------------
 
-\node[sideout, right=2.65cm of resskipsplit] (skipout) {
+\node[sideout, right=4.2cm of resskipsplit] (skipout) {
     \textbf{skip output}\\
     $(B,\mathrm{ch},K,L)$
 };
@@ -258,12 +258,12 @@
 % ------------------------------------------------------------
 
 \draw[sidearrow] (diffemb) -- (diffproj);
-\draw[sidearrow] (diffproj.east) -- node[above, shapetext] {$(B,\mathrm{ch},1)$\\[-2pt]\scriptsize(broadcast over $K{\cdot}L$)} (diffadd.west);
+\draw[sidearrow] (diffproj.east) -- node[above, shapetext, yshift=2pt]{(broad. over $K{\cdot}L$)\\ [-2pt]$(B,\mathrm{ch},1)$} (diffadd.west);
 
 \draw[sidearrow] (sideinfo) -- (condproj);
 \draw[sidearrow] (condproj.west) -- node[above, shapetext] {$(B,2\mathrm{ch},K{\times}L)$} (condadd.east);
 
-\draw[skiparrow] (resskipsplit.east) -- node[above, shapetext] {skip $(B,\mathrm{ch},K{\times}L) \to (B,\mathrm{ch},K,L)$} (skipout.west);
+\draw[skiparrow] (resskipsplit.east) -- node[above, shapetext] {skip\\ $(B,\mathrm{ch},K{\times}L) \to (B,\mathrm{ch},K,L)$} (skipout.west);
 \draw[skiparrow] (skipout.south) -- (skippool.north);
 
 % Long residual connection from original x_in to residual addition
