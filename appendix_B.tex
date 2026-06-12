@@ -249,3 +249,37 @@ $F_\theta$ must reconstruct $x_0$ almost entirely from scratch. The non-linear
 residual $c_{\text{out}}(\sigma)\cdot F_\theta(\cdot)$ accounts for what the
 Wiener filter cannot: the non-Gaussian, non-linear structure of the data
 distribution beyond its second-order statistics.
+
+\section{Bounds on the CRPS}
+\label{app:sec:crps_bounds}
+
+Section~\ref{sec:fts_literature} introduced the CRPS as a calibration-adjusted
+MAE. Here it is shown that, for $X,X'$ i.i.d.\ draws from $\hat{F}$ and
+observation $y$,
+\[
+    0 \;\le\; \text{CRPS}(\hat{F}, y) \;\le\; \mathbb{E}_{\hat{F}}\!\left[|X-y|\right]
+    = \text{MAE}.
+\]
+
+\textit{Upper bound.} Since $|X-X'|\ge 0$, its expectation is non-negative, so
+\[
+    \text{CRPS}(\hat{F}, y)
+    = \mathbb{E}\!\left[|X-y|\right] - \tfrac{1}{2}\mathbb{E}\!\left[|X-X'|\right]
+    \;\le\; \mathbb{E}\!\left[|X-y|\right] = \text{MAE}.
+\]
+
+\textit{Lower bound.} By the triangle inequality, $|X-X'| \le |X-y| +
+|X'-y|$. Taking expectations and using that $X$ and $X'$ are identically
+distributed, so $\mathbb{E}[|X-y|] = \mathbb{E}[|X'-y|]$:
+\[
+    \mathbb{E}\!\left[|X-X'|\right]
+    \le \mathbb{E}\!\left[|X-y|\right] + \mathbb{E}\!\left[|X'-y|\right]
+    = 2\,\mathbb{E}\!\left[|X-y|\right].
+\]
+Dividing by two and rearranging gives $\mathbb{E}[|X-y|] - \tfrac{1}{2}
+\mathbb{E}[|X-X'|] \ge 0$, i.e. $\text{CRPS}(\hat{F}, y) \ge 0$.
+
+Together, the two bounds confirm that CRPS is non-negative and never exceeds
+the MAE of the ensemble mean prediction error, with equality in the upper
+bound when $\hat{F}$ collapses to a point mass (so $X=X'$ almost surely and
+the sharpness term vanishes).
