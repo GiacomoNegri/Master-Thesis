@@ -204,6 +204,10 @@ product space would mix these two distinct dependency
 types, making the learned representations harder to interpret and 
 potentially trickier to optimise. 
 
+A general functioning approach is illustrated in Fig.\ \ref{fig:csdi_overview}. Were inputs, specifically \(\sigma\), noised data \(x_t\), observed_data or data that does not need inputation,
+cond_mask which defines which data are conditional, and observed_tp or indices (time) available are passed to the denoiser at different stages, as described in Fig.\ \ref{fig:model_input}. Then inputs pass through a series of \(n\) \texttt{ResidualBlock} and finally the Denoiser output \(F_\theta(c_{\text{in}}(\sigma)x; c_{\text{noise}(\sigma)}), \).
+It follows a more detailed explanations about the components, specifically those that constitute the \texttt{ResidualBlock} represented in Fig.\ \ref{fig:csdi_residual_block}.
+
 % % THE GRAPHS ARCHITECTURES ARE HERE
 
 %DO NOT PRINT \input{graphs/overview_flow}
