@@ -32,7 +32,7 @@
 % ============================================================
 \node[anchor=south west, font=\small\itshape]
     at ($(0,0)+(-1.4,0.95)$)
-    {CSDIModel — EDM denoiser wrapper};
+    {CSDIModel --- EDM denoiser wrapper};
 
 % ============================================================
 % INPUTS
@@ -72,7 +72,7 @@
     {\textbf{input\_projection}\\ Conv1d$(2\!\to\!\mathrm{ch})$, $k{=}1$};
 \node[resblock]  (residual)   at (8.5, -7.6)
     {\textbf{ResidualBlock}\\ with skip taps\\[-1pt]
-     {\scriptsize (PE, diffusion\_projection,\\ cond\_projection — internal)}};
+     {\scriptsize (PE, diffusion\_projection,\\ cond\_projection --- internal)}};
 \node[skipblock] (sumskip)    at (12.0,-7.6)
     {$\displaystyle\sum \mathrm{skips}/\sqrt{n}$};
 \node[convblock] (outputproj) at (15.2,-7.6)
