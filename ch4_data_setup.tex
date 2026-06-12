@@ -118,6 +118,8 @@ This configuration was selected empirically: a 64-channel variant was less expre
 while a 256-channel variant offered no measurable improvement in generation quality at
 substantially higher compute cost.
 
+The number of input/output channels (K) also varies across configurations: (K=1) for the unconditional models (Close log-returns only), and (K=4) for the conditional EDM-CSDI model, which jointly processes Open, High, Low, and Close log-returns with \texttt{predict\_close} masks. This increase is reflected in the total parameter count, which grows from approximately 2.2 million in the unconditional configuration to approximately 3.4 million in the conditional configuration (Sec.\ \ref{app:model-parameter-count}).
+
 \begin{figure}[htbp]
     \centering
 
