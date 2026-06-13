@@ -70,7 +70,7 @@ A window of length \(L = 2048\) spans approximately ten years of daily returns a
 therefore well-suited to capturing long-term trends. However, the temporal Transformer
 incurs an \(\mathcal{O}(L^2)\) cost in sequence length, making it computationally
 expensive. The shorter \(L = 512\) setting was adopted for Phase 2 due to hardware
-constraints imposed by MIG partitioning of the A100 GPU by the university's High-Performance Computing policy. The full memory analysis is given in App.~\ref{app:sec:attention_memory}.
+constraints imposed by MIG partitioning of the A100 GPU by the university's High-Performance Computing policy. The full memory analysis is given in Sec.~\ref{app:sec:attention_memory}.
 
 \textbf{Phase 1} \quad Given the window length, the number of non-overlapping windows per ticker is small, making a strict 
 train--validation split undesirable. Validation windows were therefore extracted 
@@ -94,7 +94,7 @@ to training by subtracting the sample mean of the window. This transformation do
 
 This section summarises the most relevant training configuration and design choices;
 explicit formulations for the optimiser and learning rate schedule are given in
-App.~\ref{app:sec:optim}, and full hyperparameter details in App.~\ref{app:sec:training_config}.
+Sec.~\ref{app:sec:optim}, and full hyperparameter details in App.~\ref{app:training_config}.
 
 \textbf{Optimizer} \quad The optimiser used throughout is \texttt{AdamW}~\cite{loshchilov2019decoupled},
 following the choice of CSDI~\cite{tashiro2021csdi}. It applies weight decay directly

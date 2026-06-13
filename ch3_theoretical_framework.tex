@@ -63,7 +63,7 @@ constraints on $(\omega,\alpha,\beta)$. The Student-$t$ innovations is used to b
 \]
 where $o_t^2$ is the squared overnight log-return and the second term is
 the Parkinson~\cite{parkinson1980extreme} realised variance estimator
-(App.~\ref{app:baselines} for more details).
+(Sec.~\ref{app:baselines} for more details).
 
 \textbf{Merton-X} \quad The close log-return is decomposed into a diffusive and a compound Poisson
 component:
@@ -82,7 +82,7 @@ where the diffusive volatility $\nu_t$ is driven by observations:
 Unlike GARCH-X, there is no sequential recursion: $\nu_t$ depends only on
 same-day observables, making the inference structure directly analogous to the
 diffusion model's use of $\{O_t, H_t, L_t\}$ to generate $C_t$.
-It is well established that marginalising over Poisson counts results in a Gaussian mixture likelihood (App.~\ref{app:baselines}). 
+It is well established that marginalising over Poisson counts results in a Gaussian mixture likelihood (Sec.~\ref{app:baselines}). 
 
 Both baselines are parametric and trained globally per each ticker's full
 history, therefore they are ticker specific. Moreover, capture complementary stylized facts — volatility clustering and
