@@ -1,0 +1,91 @@
+\begin{tikzpicture}[
+    every node/.style={font=\sffamily},
+    box/.style={draw=black, line width=1.2pt, fill=white, minimum width=3.2cm},
+    redbox/.style={draw=red!80!black, line width=2pt, fill=white, minimum width=3.2cm},
+    bluebox/.style={draw=cyan!60!blue, line width=2pt, fill=white, minimum width=3.2cm},
+    legend/.style={minimum width=0.6cm, minimum height=0.45cm},
+    arrow/.style={-{Stealth[length=6pt]}, thick},
+]
+
+%% --- Stack of overlapping windows (bottom to top) ---
+% Each window is slightly offset up and to the left to simulate depth.
+% We draw from back to front.
+
+\def\xshift{0.25}
+\def\yshift{0.35}
+\def\boxW{3.2cm}
+\def\boxH{4.2cm}
+
+% Base coordinates (bottom-most window = index 0)
+\coordinate (base) at (0,0);
+
+% Number of windows in stack (background layers)
+% Drawn back-to-front: index 5 (back) to index 0 (front)
+
+% Window 5 (backmost black)
+\node[box, minimum width=\boxW, minimum height=\boxH]
+    (w5) at ($(base) + 5*\xshift cm, 5*\yshift cm$) {};
+
+% Window 4
+\node[box, minimum width=\boxW, minimum height=\boxH]
+    (w4) at ($(base) + 4*\xshift cm, 4*\yshift cm$) {};
+
+% Window 3
+\node[box, minimum width=\boxW, minimum height=\boxH]
+    (w3) at ($(base) + 3*\xshift cm, 3*\yshift cm$) {};
+
+% Window 2
+\node[box, minimum width=\boxW, minimum height=\boxH]
+    (w2) at ($(base) + 2*\xshift cm, 2*\yshift cm$) {};
+
+% Window 1 — RED (selected validation window), drawn on top of blacks
+\node[redbox, minimum width=\boxW, minimum height=\boxH]
+    (w1) at ($(base) + 1*\xshift cm, 1*\yshift cm$) {};
+
+% Window 0 — BLUE (non-overlapping, kept as validation), frontmost
+\node[bluebox, minimum width=\boxW, minimum height=\boxH]
+    (w0) at ($(base) + 0*\xshift cm, 0*\yshift cm$) {};
+
+%% --- Red dashed lines indicating validation block boundaries ---
+% Top boundary: at the top of the red window
+\draw[red!80!black, dashed, line width=1.2pt]
+    ($(w1.north west) + (-1.8cm, 0)$) -- ($(w1.north east) + (0.6cm, 0)$);
+
+% Bottom boundary: at the bottom of the red window
+\draw[red!80!black, dashed, line width=1.2pt]
+    ($(w1.south west) + (-1.8cm, 0)$) -- ($(w1.south east) + (0.6cm, 0)$);
+
+%% --- Dashed arrow: overlapping windows excluded from training ---
+\draw[black, dashed, line width=1.2pt, -{Stealth[length=7pt]}]
+    ($(w1.south west) + (-0.7cm, 0.5cm)$)
+    .. controls ($(w1.south west) + (-1.0cm, -0.3cm)$) ..
+    ($(w0.south west) + (-0.7cm, -0.7cm)$);
+
+%% --- Label: overlapping windows excluded ---
+\node[align=left, font=\sffamily\small, anchor=east]
+    at ($(w1.south west) + (-0.85cm, 0.3cm)$)
+    {\underline{Overlapping}\\windows are\\\underline{excluded} from\\training};
+
+%% --- Right-side legend: red ---
+\node[draw=red!80!black, line width=2pt, fill=red!80!black,
+      legend, anchor=west]
+    (rleg) at ($(w1.east) + (1.2cm, 1.0cm)$) {};
+
+\node[align=left, anchor=west, font=\sffamily\small]
+    at ($(rleg.east) + (0.15cm, 0)$)
+    {\underline{Selected validation}\\\underline{window}};
+
+\draw[arrow] ($(w1.east) + (0.15cm, 1.0cm)$) -- (rleg.west);
+
+%% --- Right-side legend: blue ---
+\node[draw=cyan!60!blue, line width=2pt, fill=cyan!50!blue!60,
+      legend, anchor=west]
+    (bleg) at ($(w0.east) + (1.2cm, -0.8cm)$) {};
+
+\node[align=left, anchor=west, font=\sffamily\small]
+    at ($(bleg.east) + (0.15cm, 0)$)
+    {Non-overlapping\\window};
+
+\draw[arrow] ($(w0.east) + (0.15cm, -0.8cm)$) -- (bleg.west);
+
+\end{tikzpicture}
