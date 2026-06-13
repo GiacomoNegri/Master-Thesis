@@ -49,11 +49,12 @@ $\mathcal{C}=\{O,H,L\}$. Each model is fitted per ticker by maximum likelihood
 via L-BFGS-B.
 
 \textbf{Log-GARCH-X with Student-$t$ Innovations} \quad The close log-return follows an AR(1) mean with log-GARCH variance: \(r_t = \mu + \phi\, r_{t-1} + \varepsilon_t\) with \(\varepsilon_t = \sigma_t z_t\) and \(z_t \sim t_\nu\), therefore we are modeling:
-\[
+\begin{equation}
+\label{eq:garch_x_var}
 \log \sigma_t^2 = \omega + \alpha \log(\varepsilon_{t-1}^2 + c)
         + \beta \log \sigma_{t-1}^2 + \boldsymbol{\delta}^\top \mathbf{q}_t
-\]
-with $|\phi|<0.5$, $\alpha+\beta<0.98$, and $\nu>2$. The log-GARCH
+\end{equation}
+with $|\phi|<0.5$, $\alpha+\beta<0.98$, and $\nu>2.01$. The log-GARCH
 formulation keeps $\sigma_t^2$ positive by construction without any sign
 constraints on $(\omega,\alpha,\beta)$. The Student-$t$ innovations is used to better capture fat tails. The OHLC conditioning vector is:
 \[
@@ -95,7 +96,7 @@ As discussed in Sec.~\ref{sec:scorediffmodels}, diffusion models were
 originally developed in distinct formulations before being unified under 
 the EDM framework. These structures are relevant for Phase~1, which aims to replicate the results of Kim et al.\cite{kim2025diffusion}. Meanwhile, for Phase~2 we will move towards the EDM framework.
 
-\textbf{Phase 1} \quad Phase~1 is identical in its implementation to Song et al. in \cite{song2021score}, but in a simplified version [CITE REPOSITORY].
+\textbf{Phase 1} \quad Phase~1 is identical in its implementation to Song et al. in \cite{song2021score}, but in a simplified version.
 
 \textbf{Phase 2} \quad For Phase~2, we can look at the forward VE formulation, Eq.\ref{eq:reverse_sde}, the corresponding reverse SDE for VE case is \[dx=-\sigma\nabla_x \log p_\sigma(x)\] when defined in \(\sigma\)-space (with \(\sigma\) decreasing) instead of \(t\)-space, due to EDM conditioning modeling choices. With the deterministic counterparts, the probability flow ODE is:
 \[
