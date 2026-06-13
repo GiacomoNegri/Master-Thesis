@@ -80,7 +80,7 @@ et al.~\cite{kim2025diffusion}, who are assumed to have either applied a similar
 For the GBM-inspired SDE variant, each window was additionally mean-centred prior 
 to training by subtracting the sample mean of the window. This transformation does not conflict with the generative setting, because no forecasting is performed. In addition, any daily log-returns can be easily recovered by \(r_{\tau+k}=C_{\tau+k}-C_{\tau+k-1}\), except for the first element.
 
-% \input{graphs/windows}
+% \input{graphs/windows}    
 
 \textbf{Phase 2} \quad In order to assess the discriminative power of the conditioning information, validation windows were fully held out: for each ticker a contiguous block of records amounting to a \texttt{val\_split\_ratio} fraction was reserved starting at a random index, and every window straddling this interval was excluded from the subsequent training. This per-ticker approach enables our model to see diverse market conditions across all stocks without concentrating only on the longer-lasting tickers. The validation split ratio was set to 5\% (239 windows), because, since windows overlap due to the stride, each additional validation window required roughly 10 training windows to be discarded. For 5\% validation split \(2,129\) windows are discarded, leaving \(22,858\) for training. For instance windows that fell entirely within the validation block, by contrast, were retained and used in full as validation.
 
