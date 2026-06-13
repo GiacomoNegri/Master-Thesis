@@ -25,7 +25,7 @@ probability space $(\Omega, \mathcal{F}, \mathbb{P})$ is called a
     continuous.
 \end{enumerate}
 
-These four axioms are minimal and mutually consistent: any two of them imply the others \cite{oksendal2003stochastic}.
+These four axioms are minimal and mutually consistent. \cite{oksendal2003stochastic}.
 
 \subsection{Key Statistical Properties}
 
@@ -257,7 +257,7 @@ Section \ref{sec:classical_models_literature} identifies the core limitation sha
 
 \subsection{Log-GARCH-X Likelihood}
 
-Given the variance recursion~(\ref{eq:garchx_var}), the standardised residual
+Given the variance recursion~(\ref{eq:garch_x_var}), the standardised residual
 is $z_t = \varepsilon_t / \sigma_t$. The negative log-likelihood is:
 \begin{equation}
     \label{eq:garchx_nll_app}
@@ -281,7 +281,7 @@ Conditional on $P_t = k$ jumps, $r_t \sim \mathcal{N}(\mu + k\mu_J,\,
         \nu_t^2 + k\sigma_J^2\right),
 \end{equation}
 evaluated via the log-sum-exp identity for numerical stability. The
-truncation $K_{\max} = 30$ covers all relevant probability mass for
+truncation $K_{\max} = 20$ covers all relevant probability mass for
 $\lambda \lesssim 15$; at that intensity, $P(P_t > 30) < 10^{-6}$.
 The full-series log-likelihood is a sum of $T$ independent terms (no
 sequential dependency).

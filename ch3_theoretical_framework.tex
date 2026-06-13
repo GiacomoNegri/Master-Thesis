@@ -49,11 +49,12 @@ $\mathcal{C}=\{O,H,L\}$. Each model is fitted per ticker by maximum likelihood
 via L-BFGS-B.
 
 \textbf{Log-GARCH-X with Student-$t$ Innovations} \quad The close log-return follows an AR(1) mean with log-GARCH variance: \(r_t = \mu + \phi\, r_{t-1} + \varepsilon_t\) with \(\varepsilon_t = \sigma_t z_t\) and \(z_t \sim t_\nu\), therefore we are modeling:
-\[
+\begin{equation}
+\label{eq:garch_x_var}
 \log \sigma_t^2 = \omega + \alpha \log(\varepsilon_{t-1}^2 + c)
         + \beta \log \sigma_{t-1}^2 + \boldsymbol{\delta}^\top \mathbf{q}_t
-\]
-with $|\phi|<0.5$, $\alpha+\beta<0.98$, and $\nu>2$. The log-GARCH
+\end{equation}
+with $|\phi|<0.5$, $\alpha+\beta<0.98$, and $\nu>2.01$. The log-GARCH
 formulation keeps $\sigma_t^2$ positive by construction without any sign
 constraints on $(\omega,\alpha,\beta)$. The Student-$t$ innovations is used to better capture fat tails. The OHLC conditioning vector is:
 \[
