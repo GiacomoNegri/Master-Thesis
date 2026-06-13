@@ -287,6 +287,7 @@ The full-series log-likelihood is a sum of $T$ independent terms (no
 sequential dependency).
 
 \subsection{Estimation Procedure}
+\label{app:subsec:garch_merton_constraints}
 
 Both models are fitted per ticker by minimising the negative
 log-likelihood with L-BFGS-B \cite{byrd1995limited}. To reduce
@@ -299,8 +300,7 @@ for Merton-X, $(\lambda_0, \sigma_{J,0}) \in \{(0.10, 0.01),\,
 \subsection{Implementation Constraints and Design Choices}
 \label{app:baselines_constraints}
 
-The following model-specific choices were made to ensure numerical
-stability and physical plausibility during fitting and simulation.
+The following model-specific choices were made to ensure numerical stability and physical plausibility during fitting and simulation. Their value were adjusted iteratively to ensure the best possible outcome and distribution fidelity. 
 
 \textbf{GARCH-X.} \quad
 The model is formulated in log-variance space: the recursion propagates

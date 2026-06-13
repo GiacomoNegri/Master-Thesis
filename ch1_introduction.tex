@@ -29,13 +29,10 @@ designed to capture temporal and feature dependencies for imputation, while EDM 
 The research is structured in two sequential phases. Phase~1 replicates the work of Kim et al.\ \cite{kim2025diffusion}, implementing their VE-, VP-, and GBM-inspired SDE variants on univariate Close (prices) log-returns, in order to establish a validated baseline and expose the design ambiguities present in the original paper. Phase~2 then extends this foundation by embedding a CSDI backbone within the EDM framework and introducing multivariate conditioning: the model learns to generate Close log-returns given the contemporaneous Open, High, and Low observations. This sequential structure is intentional, with the replication phase first and then a novel approach in the second. 
 
 The research questions addressed in the two phases are therefore distinct:
-\begin{itemize}
+\begin{enumerate}
     \item \textbf{RQ1. Phase 1 \textemdash{} Replication} \quad Can a CSDI-based diffusion architecture, trained under the SDE families proposed by Kim et al.\ \cite{kim2025diffusion}, learn the distributional properties of S\&P~500 log-returns and reproduce their core stylized facts, including heavy tails, volatility clustering, and the leverage effect?
-\end{itemize}
-
-\begin{itemize}
     \item \textbf{RQ2. Phase 2 \textemdash{} EDM-CSDI} \quad Does embedding the CSDI backbone within the EDM framework of Karras et al.\ \cite{karras2022elucidating} improve the distributional fidelity of unconditional Close log-return samples over the Phase~1 SDE baseline? And does the further introduction of same-day Open, High, and Low log-returns as conditioning variables yield additional improvements in sample quality and probabilistic sharpness?
-\end{itemize}
+\end{enumerate}
 
 In answering the previous question, the following contributions were achieved:
 \begin{itemize}
