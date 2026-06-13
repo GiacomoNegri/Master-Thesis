@@ -9,7 +9,7 @@ __pycache__/
 
 .ipynb_checkpoints/
 */.ipynb_checkpoints/
-
+results/
 dist/
 
 # Stop tracking the specific folders of images
