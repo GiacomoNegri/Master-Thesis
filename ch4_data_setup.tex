@@ -62,9 +62,8 @@ Training sequences are constructed via a sliding window over the full dataset. T
 configurations are used across the two experimental phases:
 \begin{itemize}
     \item \textbf{Phase 1, replication:} window length \(L = 2048\) and stride \(s = 400\),
-    yielding approximately 5,500 training windows over the full dataset.
-    \item \textbf{Phase 2, EDM-CSDI:} window length \(L = 512\) and stride \(s = 100\), yielding approximately 23,000
-    training windows consistent with what is described in Ch.~\ref{ch:theoretical_framework}.
+    yielding 5,568 training windows over the full dataset.
+    \item \textbf{Phase 2, EDM-CSDI:} window length \(L = 512\) and stride \(s = 100\), yielding \(25,226\) maximum possible windows with no validation \(\texttt{val_split_ratio}=0\).
 \end{itemize}
 
 A window of length \(L = 2048\) spans approximately ten years of daily returns and is
@@ -81,14 +80,14 @@ et al.~\cite{kim2025diffusion}, who are assumed to have either applied a similar
 For the GBM-inspired SDE variant, each window was additionally mean-centred prior 
 to training by subtracting the sample mean of the window. This transformation does not conflict with the generative setting, because no forecasting is performed. In addition, any daily log-returns can be easily recovered by \(r_{\tau+k}=C_{\tau+k}-C_{\tau+k-1}\), except for the first element.
 
-\textbf{Phase 2} \quad In order to assess the discriminative power of the conditioning information, validation windows were fully held out: for any ticker whose window was selected for validation, no other window covering the same time range appeared in the training set. This reduces the number of training samples available for learning, since for every additional validation window used 6 training windows must be suppressed; however, this effect is mitigated by the larger number of windows available.
+\textbf{Phase 2} \quad In order to assess the discriminative power of the conditioning information, validation windows were fully held out: for each ticker a contiguous block of records amounting to a \texttt{val\_split\_ratio} fraction was reserved starting at a random index, and every window straddling this interval was excluded from the subsequent training. This per-ticker approach enables our model to see diverse market conditions across all stocks without concentrating only on the longer-lasting tickers. The validation split ratio was set to 5\% (239 windows), because, since windows overlap due to the stride, each additional validation window required roughly 10 training windows to be discarded. For 5\% validation split \(2,129\) windows are discarded, leaving \(22,858\) for training. For instance windows that fell entirely within the validation block, by contrast, were retained and used in full as validation.
+
+% \textbf{Phase 2} \quad In order to assess the discriminative power of the conditioning information, validation windows were fully held out: for any ticker whose window was selected for validation, no other window covering the same time range appeared in the training set. This reduces the number of training samples available for learning, since for every additional validation window used 6 training windows must be suppressed; however, this effect is mitigated by the larger number of windows available.
 
 % Overlapping windows introduce correlation between adjacent training samples, violating
 % the i.i.d.\ batch assumption. This is a standard and accepted approximation in
 % deep learning on time series, analogous to patch sampling in image models, but it should
 % be noted as a limitation when interpreting training dynamics.
-
-[INTRODUCE WINDOW'S CREATION DIFFERENCE AND include this also in the TABLE for set up; include also sampler for fair comparison]
 
 \section{Training Configuration}
 \label{sec:training_config}

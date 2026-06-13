@@ -96,7 +96,7 @@ As discussed in Sec.~\ref{sec:scorediffmodels}, diffusion models were
 originally developed in distinct formulations before being unified under 
 the EDM framework. These structures are relevant for Phase~1, which aims to replicate the results of Kim et al.\cite{kim2025diffusion}. Meanwhile, for Phase~2 we will move towards the EDM framework.
 
-\textbf{Phase 1} \quad Phase~1 is identical in its implementation to Song et al. in \cite{song2021score}, but in a simplified version [CITE REPOSITORY].
+\textbf{Phase 1} \quad Phase~1 is identical in its implementation to Song et al. in \cite{song2021score}, but in a simplified version.
 
 \textbf{Phase 2} \quad For Phase~2, we can look at the forward VE formulation, Eq.\ref{eq:reverse_sde}, the corresponding reverse SDE for VE case is \[dx=-\sigma\nabla_x \log p_\sigma(x)\] when defined in \(\sigma\)-space (with \(\sigma\) decreasing) instead of \(t\)-space, due to EDM conditioning modeling choices. With the deterministic counterparts, the probability flow ODE is:
 \[
