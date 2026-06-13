@@ -289,6 +289,8 @@ mask is \(m^{\text{co}}=0\) everywhere, and the target mask is
 \(m^{\text{ta}}=1\) everywhere, so the loss reduces to the
 standard denoising objective evaluated on all entries without any side information.
 
+\textbf{Remark on the \texttt{unconditional} label} \quad It is worth stressing that the \texttt{unconditional} mask eliminates value-level conditioning, since the OHL channels are zeroed in the model input, but it does not eliminate temporal conditioning. The time embedding (\texttt{observed\_tp}), encoding the absolute calendar position of each time step as described in Sec.~\ref{sec:model_architecture}, is passed to the model regardless of mask mode and contributes a form of conditioning on calendar time. In this sense, both training modes model a temporally conditioned distribution \(p_\theta(x \mid \tau)\), where \(\tau\) denotes \texttt{observed\_tp}; the \texttt{unconditional} mask differs from \texttt{predict\_close} only in not providing observed OHLC values.
+
 \textbf{Phase 2} \quad When \(K>1\) we use the \texttt{predict\_close} strategy which is a fixed deterministic mask:
 \[
     m^{\text{co}}_{k,l} = 1 \quad \text{for } k \in \{O,H,L\}, 
