@@ -25,7 +25,7 @@ and corporate failures. The second aspect regards the pre-decimalization process
 
 \textbf{Phase~1} \quad Only univariate log-returns are used, as defined in Eq.~\ref{eq:log_returns}, and no preprocessing is applied to them since no mention of it is made by Kim et al. \cite{kim2025diffusion}, and the average log-return \(\mu=0.0005\) does not conflict with prior sampling assumptions.
 
-\textbf{Phase~2} \quad \All four OHLC channels are required, the Open, High,
+\textbf{Phase~2} \quad All four OHLC channels are required, the Open, High,
 and Low prices are each expressed as log-returns relative to the previous closing price:
 \begin{equation}
 \label{eq:preprocessed_data}
@@ -63,7 +63,7 @@ configurations are used across the two experimental phases:
 \begin{itemize}
     \item \textbf{Phase 1, replication:} window length \(L = 2048\) and stride \(s = 400\),
     yielding 5,568 training windows over the full dataset.
-    \item \textbf{Phase 2, EDM-CSDI:} window length \(L = 512\) and stride \(s = 100\), yielding \(25,226\) maximum possible windows with no validation \(\texttt{val_split_ratio}=0\).
+    \item \textbf{Phase 2, EDM-CSDI:} window length \(L = 512\) and stride \(s = 100\), yielding \(25,226\) maximum possible windows with no validation \(\texttt{val\_split\_ratio}=0\).
 \end{itemize}
 
 A window of length \(L = 2048\) spans approximately ten years of daily returns and is

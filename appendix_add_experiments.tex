@@ -113,7 +113,7 @@ As shown in Tab.\ \ref{tab:sampler_experiment} and Tab.\ \ref{tab:edm_sampler_di
 \begin{tabular}{
   l                        % Configuration
   l
-  1
+  l
   S[table-format= 3.0]     % Num. Samples
   S[table-format= 1.5]     % MAE
   S[table-format= 1.5]     % CRPS
@@ -279,7 +279,7 @@ Heun ODE & 600 &  0.0028 & 0.9490 & -0.5280 & 39.8 & -2.5800 & 2.6300 \\
 Reference & {---} & {---} & {---} & 4.418 \\
 Heun ODE & 200 & 0.0402 & 0.000558 & 4.554 \\
 Heun ODE & 400 & 0.0411 & 0.000569 & 4.572 \\
-Heun ODE & 600 & 0.0403 & 0.000561 & 5.00 \\
+Heun ODE & 600 & 0.0403 & 0.000561 & 5.001 \\
 \bottomrule
 \end{tabular}
 \caption{Distributional similarity metrics ($D_{\mathrm{KS}}$, $W_1$, $\hat{\alpha}$) for EDM-CSDI (Cond.) under the Heun ODE sampler with varying NFEs (cf.\ Tab.~\ref{tab:nfe_experiment}). $D_{\mathrm{KS}}$ and $W_1$ are computed against the unnormalized training marginal. Cells marked {---} were not computed for this exploration.}
@@ -338,23 +338,22 @@ Tab.\ \ref{tab:nfe_distributional_metrics} indicates that \(NFEs=200\) and \(NFE
 % ts_overlay_roll_ci_rep_Pm-1.4_Ps1.8_{COND,UNCO}_vol_regime_both.png
 % Suggested location: images/extra_experiments/volatility_regime/
 % ======================================================================
-\subsection{Volatility-Regime Analysis}
+\section{Volatility-Regime Analysis}
 \label{app:sec:vol_regime}
 
-Sec.~\ref{sec:discussion_results} hypothesised that same-day OHL conditioning acts as a ``missing regime indicator'', allowing EDM-CSDI~(Cond.) to avoid the regime-averaging behaviour of the unconditional model. This experiment, which also addresses the regime-stratified evaluation called for in Sec.~\ref{sec:future_work}, tests this hypothesis directly: do EDM-CSDI~(Cond.) and EDM-CSDI~(Unc.) reproduce the \emph{period-specific} level of volatility associated with historical episodes (the dot-com unwind, the 2008 GFC, the 2020 COVID shock), or only the unconditional return distribution?
+In Sec.~\ref{sec:discussion_results} it was hypothesised that same-day OHL conditioning acts as a ``missing regime indicator'', allowing EDM-CSDI~(Cond.) to avoid the regime-averaging behaviour of the unconditional model. This analysis address this statement and test it directly for EDM-CSDI~(Cond.) and EDM-CSDI~(Unc.). It is shown that the models can reproduce to a different extent the  period-specific level of volatility associated with historical episodes (the dot-com unwind, the 2008 Global Financial Crisis, the 2020 COVID shock).
 
-\textbf{Method} \quad The standard deviation of the \(L=512\) Close log-returns of a window is used as a volatility proxy. Over the \(25{,}226\) reference windows (210 tickers, stride \(100\)), overlapping windows covering the same calendar date are averaged into a date-level signal spanning the \(16{,}175\) trading dates of the dataset (\(1962\)--\(2026\), Fig.~\ref{fig:app_vol_ref_ts}); its peaks align with the GFC and COVID shocks, confirming that it tracks genuine market dynamics rather than artefacts. Reference windows are split into \textsc{Low}/\textsc{Medium}/\textsc{High} regimes by the tertiles of this proxy (\(q_{1/3}=0.0145\), \(q_{2/3}=0.0203\), unnormalised log-return units), with thresholds computed only on reference data to avoid leakage. Each of the \(20{,}000\) generated windows (5 samples each, Sec.~\ref{subsec:conditiona_edm_csdi}) is matched, via its \texttt{(file, window\_start)} key, to its reference period and inherits that period's regime label. The generated proxy (std of the 512 steps, averaged over the 5 samples) is tested for monotonic ordering across regimes with a Kruskal--Wallis omnibus test, Bonferroni-corrected pairwise Mann--Whitney \(U\) tests, and an OLS correlation against the reference proxy. A \(20\)-day rolling-std variant repeats the analysis at finer time resolution, exposing short-lived crisis bursts that the window-level statistic dilutes.
+\textbf{Method} \quad The standard deviation of the \(L=512\) Close log-returns of a window is used as a volatility proxy. Over the \(25{,}226\) reference windows (210 tickers, stride \(100\)), overlapping windows covering the same calendar date are averaged into a date-level signal spanning the \(16{,}175\) trading dates of the dataset (\(1962\)--\(2026\), Fig.~\ref{fig:app_vol_ref_ts}). Its peaks align with real market shocks, such as the GFC and COVID. Reference windows are split into \textsc{Low}/\textsc{Medium}/\textsc{High} regimes by the tertiles of this proxy (\(q_{1/3}=0.0145\), \(q_{2/3}=0.0203\), unnormalised log-return units), with thresholds computed only on reference data to avoid leakage. Each of the \(20{,}000\) generated windows (5 samples each, Sec.~\ref{subsec:conditiona_edm_csdi}) is matched via the tracked \texttt{(file, window\_start)} keys, to its reference period. The generated proxy (std of the 512 steps, averaged over the 5 samples) is tested for monotonic ordering across regimes with a Kruskal--Wallis omnibus test, Bonferroni-corrected pairwise Mann--Whitney \(U\) tests, and an OLS correlation against the reference proxy. A \(20\)-day rolling-std variant repeats the analysis at finer time resolution, exposing short-lived crisis bursts that the window-level statistic dilutes.
 
 \begin{figure}[t]
     \centering
-    % \includegraphics[width=\linewidth]{images/extra_experiments/volatility_regime/ref_volatility_timeseries.png}
-    \fbox{\parbox[c][3.2cm][c]{0.92\linewidth}{\centering\itshape
-    [PLACEHOLDER] Reference date-level mean-volatility signal, 1962--2026, peaking at the 2008 GFC and 2020 COVID shock.}}
-    \caption{Reference volatility proxy, validating the date-level signal against known crisis episodes.}
+    \includegraphics[width=\linewidth]{images/extra_experiments/Reference_20_day_moving_average.png}
+    \fbox{\parbox[c][3.2cm][c]{0.92\linewidth}
+    \caption{Reference volatility proxy .}
     \label{fig:app_vol_ref_ts}
 \end{figure}
 
-\textbf{Results} \quad For both models the Kruskal--Wallis test rejects equal distributions across regimes (\(H=5204\) for EDM-CSDI (Cond.), \(H=7408\) for EDM-CSDI (Unc.); both \(p\approx0\)), and every pairwise Mann--Whitney comparison orders the regimes correctly (\textsc{High}~\(>\)~\textsc{Medium}~\(>\)~\textsc{Low}): both variants encode period-specific volatility. They differ in how well they reproduce its \emph{magnitude} (Tab.~\ref{tab:app_vol_regime}). The reference \textsc{High}/\textsc{Low} ratio is \(1.70\). EDM-CSDI (Cond.) reproduces it almost exactly (\(1.77\), \(\approx104\%\)), with near-unity Gen/Ref ratios across all regimes and individual windows reaching crisis-level dispersion above \(0.10\). EDM-CSDI (Unc.) compresses the range to \(1.45\) (\(\approx85\%\)), with Gen/Ref ratios decreasing monotonically from \(0.87\) to \(0.74\) and generated dispersion capped near \(0.033\) -- yet its regime ordering correlates more tightly with the reference (\(r=0.69\) vs.\ \(r=0.50\) for Cond.).
+\textbf{Results} \quad For both models the Kruskal--Wallis test rejects equal distributions across regimes (\(H=5204\) for EDM-CSDI (Cond.), \(H=7408\) for EDM-CSDI (Unc.); both \(p\approx0\)), and every pairwise Mann--Whitney comparison\footnote{Scipy's functions (\texttt{scipy.stats}) were used to compute Kruskal--Wallis (\texttt{kruskal}) test and Mann--Whitney (\texttt{mannwhitneyu}) comparison.} orders the regimes correctly (\textsc{High}~\(>\)~\textsc{Medium}~\(>\)~\textsc{Low}): both variants encode period-specific volatility. They differ in how well they reproduce its \emph{magnitude} (Tab.~\ref{tab:app_vol_regime}). The reference \textsc{High}/\textsc{Low} ratio is \(1.70\). EDM-CSDI (Cond.) reproduces it almost exactly (\(1.77\), \(\approx104\%\)), with near-unity Gen/Ref ratios across all regimes and individual windows reaching crisis-level dispersion above \(0.10\). EDM-CSDI (Unc.) compresses the range to \(1.45\) (\(\approx85\%\)), with Gen/Ref ratios decreasing monotonically from \(0.87\) to \(0.74\) and generated dispersion capped near \(0.033\), nevertheless its regime ordering correlates more tightly with the reference (\(r=0.69\) vs.\ \(r=0.50\) for Cond.).
 
 \begin{table}[htbp]
 \centering
@@ -371,11 +370,11 @@ Sec.~\ref{sec:discussion_results} hypothesised that same-day OHL conditioning ac
 \textbf{Mean volatility proxy} & {\textsc{Low}} & {\textsc{Medium}} & {\textsc{High}} \\
 \midrule
 Reference        & 0.0138 & 0.0177 & 0.0235 \\
-EDM-CSDI (Cond.) & 0.0131 & 0.0166 & 0.0232 \\
 EDM-CSDI (Unc.)  & 0.0120 & 0.0143 & 0.0173 \\
+EDM-CSDI (Cond.) & 0.0131 & 0.0166 & 0.0232 \\
 \midrule
-Gen/Ref (Cond.) & 0.95 & 0.94 & 0.99 \\
 Gen/Ref (Unc.)  & 0.87 & 0.81 & 0.74 \\
+Gen/Ref (Cond.) & 0.95 & 0.94 & 0.99 \\
 \bottomrule
 \end{tabular}
 \caption{Mean volatility proxy (flat \(512\)-step std, unnormalised log-return units) by reference regime, and the corresponding generated/reference ratios for EDM-CSDI (Cond.) and (Unc.).}
@@ -394,9 +393,9 @@ Gen/Ref (Unc.)  & 0.87 & 0.81 & 0.74 \\
     \label{fig:app_vol_regime_cmp}
 \end{figure}
 
-\textbf{Temporal Embedding as an Implicit Regime Indicator} \quad That EDM-CSDI (Unc.) recovers the regime ordering at all is notable, since an unconditional model should in principle be blind to \emph{when} a window occurs. As noted in Sec.~\ref{sec:masking_strategies_ch3}, the \texttt{unconditional} mask removes only the OHLC conditioning channel: the absolute temporal embedding of each window's calendar position is retained, so the model still learns \(p_\theta(x\mid\tau)\) rather than the fully marginal \(p(x)\). This embedding alone suffices to recover the historical \emph{ordering} of volatility regimes, while OHL conditioning is what additionally restores their \emph{magnitude} and crisis-scale extremes, consistent with the excess-kurtosis gap of Tab.~\ref{tab:phase2_edm_conditional_512_100}.
+\textbf{Temporal Embedding as an Implicit Regime Indicator} \quad EDM-CSDI (Unc.) recovers the regime ordering because as discussed in Sec.~\ref{sec:masking_strategies_ch3} the \texttt{unconditional} mask retain the absolute temporal embedding of each window's calendar date, so the model still learns \(p_\theta(x\mid\tau)\) rather than the fully marginal \(p(x)\). This embedding alone is sufficient to recover the historical ordering of volatility regimes, while OHL conditioning is what enable the model to match the magnitude and crisis-scale of extremes, consistent with the excess-kurtosis gap of Tab.~\ref{tab:phase2_edm_conditional_512_100}.
 
-\textbf{Time-Resolved View} \quad The \(20\)-day rolling-std overlay (Fig.~\ref{fig:app_vol_roll}) sharpens this contrast: EDM-CSDI (Cond.) produces rolling-volatility bursts co-located with the 2008 and 2020 reference spikes, while EDM-CSDI (Unc.) remains within \(0.02\)--\(0.03\) and misses the \(\sim0.08\) peaks. Consistently, the across-sample spread per window is small for (Cond.) (\(\approx2.5\%\) of the mean) but large for (Unc.) (\(\approx25\%\)): OHL conditioning pins the conditional samples to the realised window, whereas the unconditional samples, driven only by the temporal embedding, revert toward the regime average.
+\textbf{Time-Resolved View} \quad The \(20\)-day rolling-std overlay (Fig.~\ref{fig:app_vol_roll}) sharpens this contrast: EDM-CSDI (Cond.) produces rolling-volatility bursts located with the 2008 and 2020 reference spikes, while EDM-CSDI (Unc.) remains within \(0.02\)--\(0.03\) and misses the \(\sim0.08\) peaks. Consistently, the across-sample spread per window is small for (Cond.) (\(\approx2.5\%\) of the mean) but large for (Unc.) (\(\approx25\%\)). Therefore, the OHL conditioning binds the conditional samples to the realized window, while the unconditional samples, driven only by the temporal embedding, revert toward the regime average.
 
 \begin{figure}[t]
     \centering
@@ -410,4 +409,4 @@ Gen/Ref (Unc.)  & 0.87 & 0.81 & 0.74 \\
     \label{fig:app_vol_roll}
 \end{figure}
 
-\textbf{Summary} \quad This leakage-free, label-free test confirms the regime-indicator hypothesis of Sec.~\ref{sec:discussion_results}: EDM-CSDI (Cond.) reproduces both the ordering and the magnitude of historical volatility regimes, including crisis-scale extremes, while EDM-CSDI (Unc.) recovers only the ordering, via its retained temporal embedding. As a caveat, the proxy summarises the volatility \emph{level} of a window rather than its persistence (the autocorrelation structure already examined via the stylized facts of Sec.~\ref{sec:ch6_edm_csdi_phase2}), and the rolling-std comparison contrasts a per-window \emph{maximum} against a period-\emph{mean} reference, so ratios above unity should be read as relative rather than absolute over-estimation. The EDM-CSDI (Unc.) regime signal is, by construction, contingent on the temporal embedding supplied at generation; a fully time-blind model would show no such ordering.
+\textbf{Summary} \quad These tests confirms that the regime-indicator hypothesis of Sec.~\ref{sec:discussion_results}: EDM-CSDI (Cond.) reproduces both the ordering and the magnitude of historical volatility regimes, including crisis-scale extremes, while EDM-CSDI (Unc.) recovers only the ordering, via its retained temporal embedding. As a caveat, the proxy summarises the volatility level of a window rather than its persistence (the autocorrelation structure was already examined via the stylized facts of Sec.~\ref{sec:ch6_edm_csdi_phase2}).
