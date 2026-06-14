@@ -115,8 +115,7 @@ implying that rather than learn the score field directly, which is hard and ill-
 
 \section{GBM--style SDE and CSDI}
 \label{sec:gbm_sde_ch3}
-In Sec.\ref{sec:gbm_sde_ch2} we mentioned the 
-cumulative interpretation of log-returns, which stands from the fact that training diffusion models on raw log-prices $X_t = \log S_t$ is inadvisable 
+In Sec.\ref{sec:gbm_sde_ch2} we highlighted that the GBM derivation operates on log-prices $X_t=\log S_t$ in theory, while training is performed on log-returns. The cumulative interpretation of log-returns bridges this gap, since summing returns recovers the log-price path the GBM dynamics act upon. This stands from the fact that training diffusion models on raw log-prices is inadvisable
 for two reasons. First, log-prices are non-stationary, therefore their mean grows approximately linearly and with different scales across tickers and time periods. Second, the sampling process relies on a Gaussian prior 
 $\mathcal{N}(0, \sigma_{\max}^2 I)$ that should be well-matched to the training distribution, which in this case means only if the data input is approximately centered at zero with a scale commensurate with $\sigma_{\max}$. 
 Raw log-prices violate both conditions significantly. Daily log-returns 
