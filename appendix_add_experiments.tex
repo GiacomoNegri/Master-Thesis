@@ -3,7 +3,7 @@
 % \section{WIP --- EDM-CSDI Sampling exploration}
 In this chapter, we discuss some of the explorations conducted to assess whether sample improvements are possible and how the model behaves when stochasticity is re-introduced during the generation phase.
 
- Three sampling explorations were covered: the second-order Heun stochastic sampler (Heun SDE for brevity), the \(\sigma_{\max}\) sampler prior, and an NFEs exploration. Specifically, the first evaluates whether the model can recover some peculiarities of FTS paths through the injection of stochasticity; the second explores whether a prior further from or closer to the original distribution may influence sampling quality while retaining the same computational cost; and the last checks whether the reconstruction error is already under control with the current settings (\(NFEs=400\) or \(steps=200\)), or whether there is margin for improvement or reduction, given that this was an upper bound. Finally, Sec.~\ref{app:sec:vol_regime} revisits the conditioning hypothesis of Sec.~\ref{sec:discussion_results} (Ch.~\ref{ch:discussion}) through a regime-stratified analysis of generated volatility.
+ Three sampling explorations were covered: the second-order Heun stochastic sampler (Heun SDE for brevity), the \(\sigma_{\max}\) sampler prior, and an NFEs exploration. Specifically, the first evaluates whether the model can recover some peculiarities of FTS paths through the injection of stochasticity; the second explores whether a prior further from or closer to the original distribution may influence sampling quality while retaining the same computational cost; and the last checks whether the reconstruction error is already under control with the current settings (\(NFEs=400\) or \(steps=200\)), or whether there is margin for improvement or reduction, given that this was an upper bound. Sec.~\ref{app:sec:vol_regime} then revisits the conditioning hypothesis of Sec.~\ref{sec:discussion_results} (Ch.~\ref{ch:discussion}) through a regime-stratified analysis of generated volatility. Finally, Sec.~\ref{app:sec:capacity_ablation} reports a capacity ablation that halves the model's channel width to probe the capacity-to-data concern raised in Sec.~\ref{sec:limitations}.
 \subsection{Heun Stochastic Sampler}
 In the first phase, we generated data under the same conditions as sub-Sec.\ \ref{subsec:conditiona_edm_csdi}, using EDM-CSDI (Cond.) with a stochastic sampler instead. Specifically, we experimented with a budget of \(S_{\text{churn}}=10\), \(S_{\text{tmin}}=0.05\), \(S_{\text{tmax}}=\infty\), and \(S_{\text{noise}}=1.0\). Over \(20,000\) windows, the distributional properties remained largely unchanged.
 
@@ -393,3 +393,143 @@ Gen/Ref (Cond.) & 0.95 & 0.94 & 0.99 \\
 \textbf{Time-Resolved View} \quad The \(20\)-day rolling-std overlay (Fig.~\ref{fig:app_vol_ref_ts}) sharpens this contrast: EDM-CSDI (Cond.) produces rolling-volatility bursts located with the 2008 and 2020 reference spikes, while EDM-CSDI (Unc.) remains within \(0.02\)--\(0.03\) and misses the \(\sim0.08\) peaks. Consistently, the across-sample spread per window is small for (Cond.) (\(\approx2.5\%\) of the mean) but large for (Unc.) (\(\approx25\%\)). Therefore, the OHL conditioning binds the conditional samples to the realized window, while the unconditional samples, driven only by the temporal embedding, revert toward the regime average.
 
 \textbf{Summary} \quad These tests confirms that the regime-indicator hypothesis of Sec.~\ref{sec:discussion_results}: EDM-CSDI (Cond.) reproduces both the ordering and the magnitude of historical volatility regimes, including crisis-scale extremes, while EDM-CSDI (Unc.) recovers only the ordering, via its retained temporal embedding. As a caveat, the proxy summarises the volatility level of a window rather than its persistence (the autocorrelation structure was already examined via the stylized facts of Sec.~\ref{sec:ch6_edm_csdi_phase2}).
+
+% ======================================================================
+% Capacity Ablation (64-channel model)
+% Notebooks: reference_vs_generated_analysis copy.ipynb (validation),
+%            reference_vs_generated_analysis.ipynb (both)
+% Appendix keys: repl_Pm-1.4_Ps_1.8_64_channels_validation / _both
+% Image folder: images/final/edm/reference_vs_generated/
+% ======================================================================
+\section{Capacity Ablation: 64-Channel Model}
+\label{app:sec:capacity_ablation}
+
+In Sec.~\ref{sec:limitations} it was noted that EDM-CSDI (Cond.) carries \(\approx3.4\)M parameters against only \(\approx2.7\)M unique observations, which raises the question of whether its accuracy reflects genuine generalisation or partial memorisation of the training windows. This analysis address this concern directly by retraining the model with the number of channels halved from \(128\) to \(64\). The change lowers the parameters of each ResidualBlock from \(545{,}152\) to \(182{,}592\), and the total from \(3{,}419{,}777\) to \(1{,}244{,}417\), bringing the capacity-to-data ratio below one half; the number of residual layers (six) and every other setting of sub-Sec.~\ref{subsec:conditiona_edm_csdi} were left unchanged, so that capacity is the only varying factor. The rationale is that a model relying on memorisation should lose the most when capacity is removed, and primarily on the held-out windows, whereas a model that has learned a generalisable conditional law should degrade gracefully and not asymmetrically across splits.
+
+\textbf{Marginal Distribution} \quad As shown in Tab.~\ref{tab:app_capacity}, the bulk of the distribution is robust to the capacity reduction: on the \emph{Both} split \(D_{KS}\) and \(W_1\) are essentially unchanged with respect to the \(128\)-channel model (\(0.0390\) vs.\ \(0.0411\), and \(\approx0.0006\) for both), and the central quantiles remain close to the reference. The degradation concentrates instead in the higher moments, where capacity matters most. On \emph{Both}, skewness collapses towards zero (\(-0.0024\) against a reference \(-0.5864\)) and excess kurtosis inflates to \(114.4\); this is however driven by a handful of unstable windows (normalised min/max of \(-70.5/123.4\)), analogous to the VP+Linear behaviour of Sec.~\ref{sec:phase1_results}, rather than by a genuinely heavier tail. Consistently, the power-law exponent rises to \(\hat{\alpha}=4.94\) (against \(4.42\)), i.e.\ a \emph{lighter} bulk-tail accompanied by sparse extreme outliers. The held-out \emph{Validation} split is by contrast well behaved, with a moderate kurtosis of \(21.4\) and a tail exponent (\(\hat{\alpha}=4.11\)) that is actually closer to its ground truth (\(4.07\)) than the \(128\)-channel model (\(4.28\)), indicating that the smaller model still generalises the tail shape on unseen conditioning windows. The zero-return spike, as in every other configuration, is not recovered, and is in fact slightly more oversmoothed than at \(128\) channels, more markedly on \emph{Validation} than on \emph{Both}, while the QQ-plot confirms that despite the high kurtosis the tails remain underestimated (Fig.~\ref{fig:app_capacity_marginal}).
+
+\begin{table}[htbp]
+\centering
+\footnotesize
+\renewcommand{\arraystretch}{1.3}
+\setlength{\tabcolsep}{4.5pt}
+\begin{tabular}{
+  l
+  l
+  S[table-format= 1.4]   % Mean
+  S[table-format= 1.5]   % Std
+  S[table-format=-1.4]   % Skew.
+  S[table-format= 3.1]   % Kur.
+  S[table-format=-1.4]   % q01
+  S[table-format= 1.4]   % q99
+  S[table-format= 1.4]   % KS
+  S[table-format= 1.4]   % W1
+  l                      % alpha
+}
+\toprule
+{\textbf{Split}}
+  & \textbf{Configuration}
+  & {\textbf{Mean}}
+  & {\textbf{Std}}
+  & {\textbf{Skew.}}
+  & {\textbf{Kur.}}
+  & {$\boldsymbol{q_{0.01}}$}
+  & {$\boldsymbol{q_{0.99}}$}
+  & {$D_{\mathrm{KS}} \downarrow$}
+  & {$W_1 \downarrow$}
+  & {$\hat{\alpha}$} \\
+\midrule
+Val  & Ground Truth              & -0.0024 & 0.8656 & -0.4069 &  13.9 & -2.3305 & 2.3723 & {---}  & {---}  & 4.072 \\
+Val  & EDM-CSDI (Cond.), 128\,ch &  0.0033 & 0.8299 & -0.4432 &  13.9 & -2.2396 & 2.2635 & 0.0352 & 0.0005 & 4.278 \\
+Val  & EDM-CSDI (Cond.), 64\,ch  &  0.0071 & 0.9190 & -0.1553 &  21.4 & -2.5076 & 2.5359 & 0.0425 & 0.0007 & 4.110 \\
+\midrule
+Both & Reference                 &  0.0000 & 1.0000 & -0.5864 &  39.5 & -2.7188 & 2.7746 & {---}  & {---}  & 4.418 \\
+Both & EDM-CSDI (Cond.), 128\,ch &  0.0029 & 0.9487 & -0.5390 &  39.0 & -2.5789 & 2.6306 & 0.0411 & 0.0006 & 4.572 \\
+Both & EDM-CSDI (Cond.), 64\,ch  &  0.0056 & 0.9394 & -0.0024 & 114.4 & -2.5408 & 2.5999 & 0.0390 & 0.0006 & 4.936 \\
+\bottomrule
+\end{tabular}
+\caption{Aggregate statistics for normalized log-returns of EDM-CSDI (Cond.) at \(128\) and \(64\) channels. \emph{Val}: validation windows vs.\ Ground Truth (GT); \emph{Both}: validation and training combined vs.\ the full Reference. $D_{\mathrm{KS}}$ and $W_1$ are computed against the unnormalized training marginal. The \(128\)-channel rows reproduce Tab.~\ref{tab:phase2_edm_conditional_512_100}.}
+\label{tab:app_capacity}
+\end{table}
+
+\begin{figure}[htbp]
+    \centering
+    % Row 1: Both (training + validation)
+    \begin{subfigure}{0.4\textwidth}
+        \centering
+        \includegraphics[width=\textwidth]{images/final/edm/reference_vs_generated/marginal_distribution_repl_Pm-1.4_Ps_1.8_64_channels_both.png}
+        \label{fig:app_cap_marg_both_large}
+    \end{subfigure}
+    \hfill
+    \begin{subfigure}{0.4\textwidth}
+        \centering
+        \includegraphics[width=\textwidth]{images/final/edm/reference_vs_generated/marginal_thinner_repl_Pm-1.4_Ps_1.8_64_channels_both.png}
+        \label{fig:app_cap_marg_both_thin}
+    \end{subfigure}
+
+    \vspace{0.05em}
+
+    % Row 2: Validation only
+    \begin{subfigure}{0.4\textwidth}
+        \centering
+        \includegraphics[width=\textwidth]{images/final/edm/reference_vs_generated/marginal_distribution_repl_Pm-1.4_Ps_1.8_64_channels_validation.png}
+        \label{fig:app_cap_marg_val_large}
+    \end{subfigure}
+    \hfill
+    \begin{subfigure}{0.4\textwidth}
+        \centering
+        \includegraphics[width=\textwidth]{images/final/edm/reference_vs_generated/marginal_thinner_repl_Pm-1.4_Ps_1.8_64_channels_validation.png}
+        \label{fig:app_cap_marg_val_thin}
+    \end{subfigure}
+
+    \caption{Marginal distribution against the empirical reference (blue) for the \(64\)-channel EDM-CSDI (Cond.) model. \textit{Top row}: combined validation and training windows; \textit{bottom row}: validation windows only (GT). \textit{Left column}: full density range \(q_{0.001}\text{--}q_{0.999}\); \textit{right column}: central range \(q_{0.02}\text{--}q_{0.98}\).}
+    \label{fig:app_capacity_marginal}
+\end{figure}
+
+\textbf{Stylized Facts} \quad The stylized facts remain fairly well reproduced, although visibly less sharply than at \(128\) channels (Fig.~\ref{fig:app_capacity_stylized}). The heavy-tail distribution and volatility clustering stay reasonably close to the reference on both splits, while the leverage effect and the magnitude of the tails are matched less accurately, consistent with the reduced capacity available to encode the higher-order dependence structure of the windows.
+
+\begin{figure}[htbp]
+    \centering
+    % Row 1: Validation
+    \begin{subfigure}{0.32\textwidth}
+        \centering
+        \includegraphics[width=\linewidth]{images/final/edm/reference_vs_generated/overlap_distribution_pos_repl_Pm-1.4_Ps_1.8_64_channels_validation.png}
+        \label{fig:app_cap_sf_val_tail}
+    \end{subfigure}
+    \hfill
+    \begin{subfigure}{0.32\textwidth}
+        \centering
+        \includegraphics[width=\linewidth]{images/final/edm/reference_vs_generated/overlap_acf_repl_Pm-1.4_Ps_1.8_64_channels_validation.png}
+        \label{fig:app_cap_sf_val_vol}
+    \end{subfigure}
+    \hfill
+    \begin{subfigure}{0.32\textwidth}
+        \centering
+        \includegraphics[width=\linewidth]{images/final/edm/reference_vs_generated/overlap_leverage_repl_Pm-1.4_Ps_1.8_64_channels_validation.png}
+        \label{fig:app_cap_sf_val_lev}
+    \end{subfigure}
+
+    \vspace{0.2em}
+
+    % Row 2: Both
+    \begin{subfigure}{0.32\textwidth}
+        \centering
+        \includegraphics[width=\linewidth]{images/final/edm/reference_vs_generated/overlap_distribution_pos_repl_Pm-1.4_Ps_1.8_64_channels_both.png}
+        \label{fig:app_cap_sf_both_tail}
+    \end{subfigure}
+    \hfill
+    \begin{subfigure}{0.32\textwidth}
+        \centering
+        \includegraphics[width=\linewidth]{images/final/edm/reference_vs_generated/overlap_acf_repl_Pm-1.4_Ps_1.8_64_channels_both.png}
+        \label{fig:app_cap_sf_both_vol}
+    \end{subfigure}
+    \hfill
+    \begin{subfigure}{0.32\textwidth}
+        \centering
+        \includegraphics[width=\linewidth]{images/final/edm/reference_vs_generated/overlap_leverage_repl_Pm-1.4_Ps_1.8_64_channels_both.png}
+        \label{fig:app_cap_sf_both_lev}
+    \end{subfigure}
+
+    \caption{Stylized facts for the \(64\)-channel EDM-CSDI (Cond.) model against the Reference or Ground Truth (blue). \textit{Top row}: validation windows only; \textit{bottom row}: combined validation and training windows. From left to right: heavy-tail distribution, volatility clustering, leverage effect.}
+    \label{fig:app_capacity_stylized}
+\end{figure}
