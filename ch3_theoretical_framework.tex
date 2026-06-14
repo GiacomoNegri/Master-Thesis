@@ -18,12 +18,13 @@ overnight return \(O_t / C_{t-1}\), which captures the opening gap with
 respect to the previous close, and the intraday range \(H_t - L_t\), a 
 well-established realised volatility proxy \cite{parkinson1980extreme}. In addition, log-returns are often preferred to nominal prices because of their stationarity \cite{cont2001empirical}, which makes them comparable across time and assets, removing underlying price trends.
 
-The data are therefore partitioned into observed conditioning variables 
-$X^{\text{co}} = \{O, H, L\}$ and a generation target $X^{\text{ta}} = \{C\}$, 
+The data are therefore partitioned into observed conditioning variables
+$X^{\text{co}} = \{O, H, L\}$ and a generation target $X^{\text{ta}} = \{C\}$,
 and the model is trained to learn the conditional distribution:
 \[
-    p\!\left(X^{\text{ta}} \mid X^{\text{co}} = x^{\text{co}}\right)
+    p\!\left(X^{\text{ta}} \mid X^{\text{co}} = x^{\text{co}}, \tau\right)
 \]
+where \(\tau\) denotes the temporal conditioning provided by \texttt{observed\_tp}. Unlike \(X^{\text{co}}\), which is masking-strategy dependent, \(\tau\) is always present (Sec.\ \ref{sec:masking_strategies_ch3}).
 
 Daily prices are constrained by the ordering relationship:
 \[L_t \leq \min(O_t, C_t) \leq \max(O_t, C_t) \leq H_t\] 
