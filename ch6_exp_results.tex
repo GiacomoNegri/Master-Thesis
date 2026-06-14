@@ -633,7 +633,7 @@ As reported in Tab.\ \ref{tab:phase2_edm_conditional_512_100} and illustrated in
 
 \textbf{CRPS and Interval Coverage} \quad For this analysis the EDM-CSDI (Con.) was used to generate two datasets. One with 50 samples for each 2,000 windows, while the other only with 25 samples. Both with \(L=512\) and \(s=100\). Generating these samples for each of the \(20,000\) windows was computationally unfeasible given the HPC constraints.
 
-As observable in Tab.\ \ref{tab:crps_results}, the EDM-CSDI model achieve a CRPS skill score of 0.7376 (Both, \(N=50\)), meaning a 73.76\% improvement attributable to conditioning signal. This helps reduce the average MAE from approximately one standard deviation in daily log-returns to under a third, while decreasing the breadth of the prediction. This is true both for Validation and for combined (Both) windows. Interestingly, the validation windows has a lower CRPS, which correlated to the lower MAE, suggest less exposure to rare events and extreme market events, which is expected given the smaller number of windows.
+As observable in Tab.\ \ref{tab:crps_results}, the EDM-CSDI model achieve a CRPS skill score of 0.7376 (Both, \(N=50\)), meaning a 73.76\% improvement attributable to conditioning signal. This helps reduce the average MAE from approximately one standard deviation in daily log-returns to under a third, while decreasing the breadth of the prediction. This is true both for Validation and for combined (Both) windows. An OLS regression of Close on the same OHL conditioning already captures most of this signal, yet EDM-CSDI (Cond.) still improves on it with a CRPS skill score of 0.4073 (Both, $N=50$), indicating the conditional density carries information beyond a linear point forecast. Interestingly, validation windows show a lower CRPS and MAE, consistent with less exposure to rare and extreme market events, as expected given their smaller number.
 
 Regarding the interval coverage, Tab.\ \ref{tab:coverage_results}, higher nominal levels are correlated with more overconfident model's predictions (negative bias). Increasing the number of generated samples from 25 to 50 consistently increases empirical coverage at every nominal level, shifting the model from overconfident (negative bias) toward better-calibrated or underconfident (positive bias) predictions; this shift is sufficient to flip the sign of the bias at the 80\% and 90\% levels, while at 95\% and 99\% it narrows but does not eliminate the overconfidence. For financial markets, where coverage of extreme events is important, more samples (which provide broader coverage of extreme events and better CRPS) seem to be a more reasonable choice.
 
@@ -663,21 +663,25 @@ Regarding the interval coverage, Tab.\ \ref{tab:coverage_results}, higher nomina
   & {$\boldsymbol{\mathrm{T}_2^{\mathrm{norm}}}$} \\
 \midrule
 Climatology & Val       & 25 & 0.61913 & 0.44869 & 0.89745 & 0.01873 & 0.89753\\
+OLS & Val & 25 & 0.25362 & 0.18692 & 0.37385 & 0.00780 & 0.37386 \\
 EDM-CSDI (Cond.) &  Val    & 25 & 0.18600 & 0.12144 & 0.24438 & 0.00510 & 0.24588 \\
 
 Climatology &   Both        & 25 & 0.66288 & 0.48232 & 0.96466 & 0.02013 & 0.96429 \\
+OLS & Both & 25 & 0.28520 & 0.21252 & 0.42507 & 0.00887 & 0.42510 \\
 EDM-CSDI (Cond.) &  Both    & 25 & 0.19546 & 0.12602 & 0.25731 & 0.00537 & 0.26258 \\
 
 \midrule
 Climatology   &  Val & 50 & 0.60851 & 0.44900 & 0.89782 & 0.01873 & 0.89765 \\
+OLS & Val & 50 & 0.25362 & 0.18690 & 0.37385 & 0.00780 & 0.37390 \\
 EDM-CSDI (Cond.)  & Val  & 50 & 0.18441 & 0.12141 & 0.24431 & 0.00510 & 0.24584 \\
 
 Climatology   &  Both  & 50 & 0.65065 & 0.48235 & 0.96461 & 0.02013 & 0.96452 \\
+OLS & Both & 50 & 0.28520 & 0.21255 & 0.42515 & 0.00887 & 0.42520 \\
 EDM-CSDI (Cond.)  & Both     & 50 & 0.19379 & 0.12659 & 0.25727 & 0.00537 & 0.26259 \\
 \bottomrule
 \end{tabular}
 \caption{CRPS decomposition for the EDM-CSDI models against the climatology
-baseline. CRPS is decomposed as
+and OLS baselines. CRPS is decomposed as
 $\mathrm{CRPS} = \mathrm{T}^{\text{norm}}_1 - \tfrac{1}{2}\mathrm{T}^{\text{norm}}_2$, where ${\mathrm{T}}_1$
 is the accuracy term unnormalised by \(\sigma=0.020867\). \textbf{N.\ Samples} is to be intended for each window. Lower CRPS is better.}
 \label{tab:crps_results}
