@@ -11,13 +11,13 @@ One of the core focus of FTS analysis are log-returns, expressed as:
 \end{equation}
 where $C_t$ is the closing price on any given day $t$. Alongside this, it is useful to consider opening price $\left(O_t\right)$, highest price $\left(H_t\right)$, and lowest price $\left(L_t\right)$, for brevity OHLC values. 
 
-It is standard in the literature to consider \textit{adjusted} versions of prices, where given a nominal price $S_t$, the adjusted price is $\widetilde{S}=A_tS_t$.
-Adjustments correct for mechanical price changes caused by corporate actions, such as stock split, dividends payments, and others. This is done in order to retain comparability over time. For instance, a 2-for-1 stock split, cause the stock price to be divided by two, while each investor's total economic holding remains unchanged. Without adjustment, this artificial price drop would appear as a large negative return. These adjustments are cumulative. 
+In the literature, it is standard to consider \textit{adjusted} versions of prices, where given a nominal price $S_t$, the adjusted price is $\widetilde{S}=A_tS_t$.
+Adjustments correct for mechanical price changes caused by corporate actions, such as stock splits, dividend payments, and other. This is done in order to retain price comparability over time. For instance, a 2-for-1 stock split, cause the stock price to be divided by two, while each investor's total economic holding remains unchanged. Without adjustment, this artificial price drop would appear as a large negative return. Adjustments cumulate through time. 
 
-FTS log-returns exhibit four core characteristics:
+FTS log-returns exhibit four main characteristics:
 \begin{itemize}
     \item Not Gaussian IID: returns do not follow a random walk.
-    \item Fat Tails: returns distribution decay according to the power law, $P(|r|>x)\sim x^{-\alpha}$, with the typical exponent $\alpha\in[3,5]$ for many class of assets.
+    \item Fat Tails: returns distribution decay according to the power law, $P(|r|>x)\sim x^{-\alpha}$, with the typical exponent $\alpha\in[3,5]$ for many classes of assets.
     \item Volatility Clustering: autocorrelation of absolute returns, $|r_t|$, and square returns, \(r^2_t\), decays hyperbolically, respecting \(\operatorname{Corr}(|r_t|, |r_{t+k}|)\sim k^{-\beta} \quad \beta\in [0.1,0.5]\).
     \item Leverage Effect: negative returns are followed by higher future volatility asymmetrically \cite{black1976studies}. This is measure through lead-lag correlation \(L(k)=\mathbb{E}\left[r_tr_{t+k}^2 \right]/\mathbb{E}\left[r_t^2\right]^2<0\).
 \end{itemize}
@@ -54,7 +54,7 @@ It is important to state that financial returns do not follow a Gaussian behavio
 
 \section{Classical Models}
 \label{sec:classical_models_literature}
-Classical FTS models often address the non-Gaussian behavior by extending upon the basic Brownian motion framework because of its favourable framework. In particular, GARCH-like models \cite{bollerslev1986generalized} focus on time-varying volatility, where by construction the model is conditionally heteroskedastic, meaning that large shocks are followed by higher volatility and period of calm by lower ones. Merton's jump diffusion \cite{merton1976option} instead build on the continuous Geometric Brownian Motion (GBM) by adding a Poisson jump component, the jumps. These are two common model to capture stylized facts about financial data, which is why they would work as baseline. 
+Classical FTS models often address non-Gaussian behaviour by building upon the Brownian motion framework, owing to its mathematical tractability. In particular, GARCH-like models \cite{bollerslev1986generalized} focus on time-varying volatility, where by construction the model is conditionally heteroskedastic, meaning that large shocks are followed by higher volatility and period of calm by lower ones. Merton's jump diffusion \cite{merton1976option} instead build on the continuous Geometric Brownian Motion (GBM) by adding a Poisson jump component. These models are frequently used to capture stylized facts, which is why they would serve as baseline. 
 
 In a GARCH(1,1) we have that the conditional variance behaves accordingly to: \(\sigma_t^2=\omega+\alpha\epsilon_{t-1}^2+\beta \sigma_{t-1}^2\), where \(\omega>0\) and \(\alpha, \beta \ge 0\), with a persistent condition \(\alpha+\beta<1\). Despite their parsimony, GARCH models remain a competitive benchmark in financial time-series modelling due to their interpretability, tractable likelihood, and well-known statistical properties. 
 
