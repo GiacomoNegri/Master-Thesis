@@ -71,10 +71,10 @@ Merton addressed this by imposing a compounded Poisson jump process onto the GBM
 $$dS_t=\mu S_tdt+\nu S_tdW_t+S_{t^-}(J-1)dP_t$$
 where \(P_t\) is the Poisson process with intensity \(\lambda\) and J is a random jump multiplier \(J\sim \mathcal{N}(\mu_j, \sigma_J^2)\). This result in log-returns distribution that is a Poisson's weighted mixture of Gaussians. 
 
-Both of these models impose parametric distributions, while this enable easier interpretation and a well understood behavior that makes them valuable baselines, it is also their limiting factor, since it does not enable them to learn complex, highly dimensional joint distribution, which is also why they require re-fitting whenever their estimation regime changes. Limitations are dicussed in 
+Both of these models impose parametric distributions, while this enable easier interpretation and a well understood behavior that makes them valuable baselines, it is also their limiting factor, since it does not enable them to learn complex, highly dimensional joint distribution, which is also why they require re-fitting whenever their estimation regime changes. Limitations are discussed in Sec.\ \ref{app:sec:garch_limitations} and Sec.\ \ref{app:sec:merton_limitation}.
 
 \section{Deep Generative Models}
-Deep generative models are non-parametric, therefore they learn implicitly the data distribution, \(p_{\text{data}}(x)\), and can theoretically learn all the stylized facts simultaneously, including temporal and feature dependencies. Before diffusion models, two families of models mostly dominated the FTS modeling and generation scene: GANs \cite{goodfellow2014generative, creswell2018generative,yoon2019time,vuletic2024fingan} and VAEs \cite{kingma2014auto, kingma2019introduction}. GANs, Generative Adversarial Networks, consist of a non-cooperative minmax game between a Generator \(G_\theta(z)\) and a Discriminator \(D_\phi(x)\): by learning implicitly the distribution without explicit likelihood constraints they are able to avoid over-smoothing and generate more sharp and diverse samples. On the other hand, GANs often suffer of mode collapse, when the Generator fail to capture fully the target distribution \(p_{\text{data}}(x)\), mapping only to few modes. Moreover, GANs suffer from training instability due to the non-convex nature of the minmax problem, which makes the optimization difficult.
+Deep generative models are non-parametric, therefore they learn implicitly the data distribution, \(p_{\text{data}}(x)\), and can theoretically learn all the stylized facts simultaneously, including temporal and feature dependencies. Before diffusion models, two families of models mostly dominated the FTS modeling and generation scene: GANs \cite{goodfellow2014generative, creswell2018generative,yoon2019time,vuletic2024fingan} and VAEs \cite{kingma2014auto, kingma2019introduction}. GANs, Generative Adversarial Networks, consist of a non-cooperative minmax game between a Generator \(G_\theta(z)\) and a Discriminator \(D_\phi(x)\): by learning implicitly the distribution without explicit likelihood constraints they are able to avoid over-smoothing and generate more sharp and diverse samples. On the other hand, GANs often suffer of mode collapse, when the Generator fail to capture fully the target distribution \(p_{\text{data}}(x)\) and it maps only to few modes. Moreover, GANs suffer from training instability due to the non-convex nature of the minmax problem, which makes the optimization difficult.
 
 VAEs, Variational Autoencoders, provide a probabilistic framework where input data \(x\) are mapped into a latent space through an encoder and reconstructed via a decoder \(p_\theta(x|z)\), with the system trained to maximise the Evidence Lower Bound (ELBO), fundamentally balancing a reconstruction term and a KL regularisation term. While theoretically sounding, VAEs suffer mainly from two limitations: posterior collapse and over-smoothing. The former, happens when the KL regularisation term dominates early training phases and push the approximate posterior towards the prior before any informative encoding is learned, degenerating into an unconditional mean model. The latter, because of the Gaussian decoder assumption, minimise square reconstruction error, which systematically compress variance and suppress tail events. Both model families have limitations that make them difficult to apply to FTS. In contrast, diffusion models provide a probabilistic framework and a stable training objective, at the cost of slower sampling.
 
@@ -82,19 +82,19 @@ VAEs, Variational Autoencoders, provide a probabilistic framework where input da
 \label{sec:scorediffmodels}
 Score-based diffusion models revolve around a simple idea: rather than learning to generate data directly, a model could learn to denoise it. If data are gradually corrupted, up to a point, where they become indistinguishable from a fixed prior, the generation is then reduced to learn how to reverse the corruption process, one step at the time. What makes the reversal possible is the score function,\(\nabla_x \log p(x)\), that intuitively points in the direction one should move a noisy sample to make it more likely under the current data distribution.
 
-The score function is chosen to represent the probability distribution of the generative model, because it encodes the geometry of the distribution and it does not require the computation of the normalizing constant, $Z_\theta$, which are often complex and unstable. Therefore, our goal is to learn a function that can approximate the score, \(s_\theta(x)\approx\nabla_x \log p(x)\) by minimizing the Fisher divergence between \(\mathbb{E}_{p(x)}=\left[\|\nabla_x\log p(x)-s_\theta (x)\|^2_2\right]\) the two distributions. This can be achieved without knowing the ground truth through methods called score matching \cite{hyvarinen2005estimation, vincent2011connection}. 
+The score function is chosen to represent the probability distribution of the generative model, because it encodes the geometry of the distribution and it does not require the computation of the normalizing constant, $Z_\theta$, which are often complex and unstable. Therefore, our goal is to learn a function that can approximate the score, \(s_\theta(x)\approx\nabla_x \log p(x)\) by minimizing the Fisher divergence between \(\mathbb{E}_{p(x)}=\left[\|\nabla_x\log p(x)-s_\theta (x)\|^2_2\right]\) the two distributions. This can be achieved without knowing the ground truth through methods called Score Matching (SM) \cite{hyvarinen2005estimation, vincent2011connection}. 
 
-Once we have trained a score-based model, we use Langevin dynamics \cite{parisi1981correlation} to draw samples from it. Due to the weighting of the Fisher Divergence the score estimate are only reliable in high density region, but Langevin dynamics must traverse low-density regions to move between modes, guided by the score. To address this, data are perturbed with a sequence of noise levels, \(\sigma_1< \sigma_2< \dots<\sigma_L\), that populate low-density regions and makes score estimation accurate everywhere. Therefore, we move to estimating a Noise-Conditional Score-based Network (NCSN) \cite{song2019generative}, \(s_\theta(x,i)\), where \(i=1,2,\dots,L\). The chosen noise is often Gaussian \(\mathcal{N}(0,\sigma_i^2I)\) and the sampling is performed through annealed Langevin dynamics. This model is often referred to as Score Matching with Langevin Dynamics (SMLD). 
+Once we have trained a score-based model, we can use Langevin dynamics \cite{parisi1981correlation} to draw samples from it. Due to the weighting of the Fisher Divergence the score estimate are only reliable in high density region, but Langevin dynamics must traverse low-density regions to move between modes while guided by the score. To address this, data are perturbed with a sequence of noise levels, \(\sigma_1< \sigma_2< \dots<\sigma_L\), that populate low-density regions and makes score estimation accurate everywhere. Therefore, we move to estimating a Noise-Conditional Score-based Network (NCSN) \cite{song2019generative}, \(s_\theta(x,i)\), where \(i=1,2,\dots,L\). The chosen noise is often Gaussian \(\mathcal{N}(0,\sigma_i^2I)\) and the sampling is performed through annealed Langevin dynamics. This model is often referred to as Score Matching with Langevin Dynamics (SMLD). 
 
-Independently, DDPM's authors \cite{ho2020ddpm} reached a similar framework, where the forward process is not motivated through score estimation, but is a fixed Markov chain that gradually injects Gaussian noise into the data. With the advantage that the marginal distribution at any step \(t\) has a closed form:
+Independently, DDPM's authors Ho et al.\ \cite{ho2020ddpm} reached a similar framework, where the forward process is not motivated through score estimation, but is a fixed Markov chain that gradually injects Gaussian noise into the data. With the advantage that the marginal distribution at any step \(t\) has a closed form:
 $$q(x_t|x_{t-1})=\mathcal{N}\left(x_t;\sqrt{1-\beta_t}x_{t-1}, \beta_tI\right), \quad q(x_t|x_0)=\mathcal{N}\left(x_t;\sqrt{\bar{\alpha}}x_0, (1-\bar{\alpha})I\right)$$
-where \(\alpha_t:=1-\beta_t\) and \(\bar{\alpha}_t:=\prod_{s=1}^t\alpha_t\) \cite{ho2020ddpm}. They also shows that by reparametrizing \(x_t(x_0,\epsilon)=\sqrt{\bar{\alpha_t}}x_0+\sqrt{1-\bar{\alpha_t}}\epsilon\), where \(\epsilon \sim \mathcal{N}(0,I)\), the objective function get simplified to a noise prediction loss:
+where \(\alpha_t:=1-\beta_t\) and \(\bar{\alpha}_t:=\prod_{s=1}^t\alpha_t\). They also shows that by reparametrizing \(x_t(x_0,\epsilon)=\sqrt{\bar{\alpha_t}}x_0+\sqrt{1-\bar{\alpha_t}}\epsilon\), where \(\epsilon \sim \mathcal{N}(0,I)\), the objective function get simplified to a noise prediction loss:
 \begin{equation}
 \label{eq:ddpm_noise_loss}
 \mathcal{L}=\mathbb{E}_{t,x_0,\epsilon}\left[\|\epsilon -\epsilon_\theta(\sqrt{\bar{\alpha_t}}x_0+\sqrt{1-\bar{\alpha_t}}\epsilon,t)\|\right]  
 \end{equation}
 
-The key connection that makes the score matching tractable is due to Vincent \cite{vincent2011connection}, who showed that the intractable Fisher Divergence over the clean distribution \(p(x)\) can be replaced by a noisy one \(q_\sigma(\tilde{x}|x)=\mathcal{N}\left(\tilde{x};x,\sigma^2I\right)\), yielding Denoising Score Matching (DSM) objective:
+The key connection that makes the score matching tractable was derived by Vincent\ \cite{vincent2011connection}, who showed that the intractable Fisher Divergence over the clean distribution \(p(x)\) can be replaced by a noisy one \(q_\sigma(\tilde{x}|x)=\mathcal{N}\left(\tilde{x};x,\sigma^2I\right)\), yielding the Denoising Score Matching (DSM) objective:
 $$\mathcal{L}_{\text{DSM}}=\mathbb{E}_{x\sim p(x),\space \tilde{x}\sim q_\sigma(\tilde{x}|x)}\left[\|s_\theta(\tilde{x},\sigma)-\nabla_{\tilde{x}} \log q_\sigma(\tilde{x}|x)\| \right]$$Since \(q_\sigma(\tilde{x}|x)\) is Gaussian then it is fully tractable with \(\nabla_{\tilde{x}} \log q_\sigma(\tilde{x}|x)=-\epsilon/\sigma\), where \(\tilde{x}=x+\sigma\epsilon\) and \(\epsilon\sim\mathcal{N}(0,I)\) is the added noise. The score therefore points from the corrupted sample \(\tilde{x}\) back towards the clean data \(x\), scaled by \(\sigma^2\). This reveals that the DDPM noise-prediction objective (Eq.\ref{eq:ddpm_noise_loss}) 
 is not conceptually different from score matching up to a scaling factor, since 
 $\epsilon_\theta(x_t,t)\approx -\sqrt{1-\bar{\alpha_t}}s_\theta(x_t,t)$. By 
@@ -103,16 +103,38 @@ general principle: corrupting data with a noise process and learning to reverse 
 by estimating scores. When training over multiple noise levels, the DSM objective 
 becomes a weighted sum:
 $$
-\mathcal{L}_{\text{NCSN}} = \sum_{i=1}^{L} \lambda(\sigma_i)\,
+\mathcal{L} = \sum_{i=1}^{L} \lambda(\sigma_i)\,
 \mathbb{E}_{x\sim p(x),\,\tilde{x}\sim q_{\sigma_i}(\tilde{x}|x)}
 \left[\left\|s_\theta(\tilde{x}, \sigma_i) - 
 \nabla_{\tilde{x}}\log q_{\sigma_i}(\tilde{x}|x)\right\|^2\right]
 $$
 Since the score satisfies $\nabla_{\tilde{x}}\log q_{\sigma_i}(\tilde{x}|x) = 
 -\epsilon/\sigma_i$, its magnitude varies strongly across noise levels, and the 
-choice of weighting $\lambda(\sigma_i)$ is non-trivial. Song \cite{song2019generative} 
-proposes $\lambda(\sigma_i) = \sigma_i^2$ to approximately equalise the contribution 
+choice of weighting $\lambda(\sigma_i)$ is non-trivial. Song et al.\ \cite{song2019generative} 
+propose $\lambda(\sigma_i) = \sigma_i^2$ to approximately equalise the contribution 
 of each noise level, but this choice is heuristic rather than principled. 
+
+Song et al.\ \cite{song2021score} formalize the diffusion model process by lifting DDPM and SMLD into a continuous framework. He showed that the diffusion process \(\{x_t\}_{t=0}^T\) indexed by a continuous time variable \(t\in[0,T]\), where \(x_0\sim p_0\) is composed by i.i.d. samples of the dataset, and \(x_T\sim p_T\), for which we have a tractable form, can be modeled as the solution to an Itô SDE:
+\begin{equation}
+    \label{eq:generalsde}
+    dx_t=f(x_t,t)dt+g(t)dW_t
+\end{equation}
+where \(W\) is the standard Wiener process, \(f(\cdot,t):\mathbb{R}^d\xrightarrow[]{}\mathbb{R}^d\) is a vector valued function called the drift coefficient of \(x_t\), and \(g(\cdot):\mathbb{R}\xrightarrow[]{}\mathbb{R}\) is a scalar function known as
+the diffusion coefficient of \(x_t\). The SDE admits a unique strong solution provided the coefficients are globally Lipschitz \cite{oksendal2003stochastic}, and \(p_T\) is chosen to be a tractable prior, typically a Gaussian with fixed mean and variance, that contains no information about \(p_0\). 
+
+The key insight is that the forward process admits a corresponding reverse-time SDE, specifically it has been shown by Anderson\  \cite{anderson1982reversetime} that the reverse of a diffusion process is a diffusion process itself. By starting from samples \(x_T \sim p_T\) and reversing the process from \(t=T\) to \(t=0\), we can obtain samples \(x_0\sim p_0\) according to the relationship:
+\begin{equation}
+    \label{eq:reverse_sde}
+    dx_t=\left[f(x_t, t)-g(t)^2\nabla_x\log p_t(x_t)\right]dt + g(t)d\bar{W}_t
+\end{equation}
+
+where \(\bar{W_t}\) is a standard Wiener process that flows back from \(T\) to \(0\). Since \(\nabla_x\log p_t(x_t)\) is unknown then we estimate it by using \(s_\theta(x_t,t)\). Importantly, Song et al.\ \cite{song2021score} showed that for any SDE (Eq.\ref{eq:generalsde}) there exists a corresponding deterministic Ordinary Differential Equation (ODE), called probability flow ODE, that produces the same family of marginal distributions \(\{p_t\}_{t\in[0,T]}\):
+\begin{equation}
+    \label{eq:probability_flow}
+    dx_t=\left[f(x_t,t)-\frac12g(t)^2\nabla_x\log p_t(x_t)\right]dt
+\end{equation}
+substituting the intractable score with the learned one yields a Neural ODE\ \cite{chen2018neural}, where given starting conditions $x_T\sim p_T$ one can deterministically integrate backward to obtain an approximate sample from \(p_0\). This deterministic formulation is generally more computationally efficient than its SDE counterpart, as it does not require noise injections at each step.
+
 
 % Song score funcitions
 % Song score functions
@@ -127,38 +149,17 @@ of each noise level, but this choice is heuristic rather than principled.
 \end{figure}
 
 
-Song \cite{song2021score} formalize the diffusion model process by lifting DDPM and SMLD into a continuous framework. He showed that the diffusion process \(\{x_t\}_{t=0}^T\) indexed by a continuous time variable \(t\in[0,T]\), where \(x_0\sim p_0\) is composed by i.i.d. samples of the dataset, and \(x_T\sim p_T\), for which we have a tractable form, can be modeled as the solution to an Itô SDE:
-\begin{equation}
-    \label{eq:generalsde}
-    dx_t=f(x_t,t)dt+g(t)dW_t
-\end{equation}
-where \(W\) is the standard Wiener process, \(f(\cdot,t):\mathbb{R}^d\xrightarrow[]{}\mathbb{R}^d\) is a vector valued function called the drift coefficient of \(x_t\), and \(g(\cdot):\mathbb{R}\xrightarrow[]{}\mathbb{R}\) is a scalar function known as
-the diffusion coefficient of \(x_t\). The SDE admits a unique strong solution provided the coefficients are globally Lipschitz \cite{oksendal2003stochastic}, and \(p_T\) is chosen to be a tractable prior, typically a Gaussian with fixed mean and variance, that contains no information about \(p_0\). 
-
-The key insight is that the forward process admits a corresponding reverse-time SDE, in particular it has been shown \cite{anderson1982reversetime} that the reverse of a diffusion process is a diffusion process itself. By starting from samples \(x_T \sim p_T\) and reversing the process from \(t=T\) to \(t=0\), we can obtain samples \(x_0\sim p_0\) according to the relationship:
-\begin{equation}
-    \label{eq:reverse_sde}
-    dx_t=\left[f(x_t, t)-g(t)^2\nabla_x\log p_t(x_t)\right]dt + g(t)d\bar{W}_t
-\end{equation}
-
-where \(\bar{W_t}\) is a standard Wiener process that flows back from \(T\) to \(0\). Since \(\nabla_x\log p_t(x_t)\) is unknown then we estimate it by using \(s_\theta(x_t,t)\). Importantly, Song et al. \cite{song2021score} showed that for any SDE (Eq.\ref{eq:generalsde}) there exists a corresponding deterministic Ordinary Differential Equation (ODE), called probability flow ODE, that produce the same family of marginal distributions \(\{p_t\}_{t\in[0,T]}\):
-\begin{equation}
-    \label{eq:probability_flow}
-    dx_t=\left[f(x_t,t)-\frac12g(t)^2\nabla_x\log p_t(x_t)\right]dt
-\end{equation}
-substituting the intractable score with the learned one yields a Neural ODE, where given starting conditions $x_T\sim p_T$ we can deterministically sample to produce a sample from, approximately, \(p_0\). This sampling technique is possibly more efficient. 
-
 Two specific SDE formulation that matched the SMLD and DDPM ones, in continuous time, hence when we assume that the number of noise steps \(N\xrightarrow[]{}\infty\), are: Variance Exploding (VE) and Variance Preserving (VP). The former sets \(f(\cdot,t)=0\) and is defined as:
 \begin{equation}
     \label{eq:ve}
     dx_t=\sqrt{\frac{d[\sigma^2(t)]}{dt}}dW_t
 \end{equation}
-so that \(x_t=x_0+\sigma\epsilon\), where \(\epsilon\sim \mathcal{N}(0,I)\), therefore the marginal's variance grows unbounded as \(\sigma(t)\) increases. VP is instead:
+so that \(x_t=x_0+\sigma\epsilon\), where \(\epsilon\sim \mathcal{N}(0,I)\), therefore the marginal's variance grows unbounded as \(\sigma(t)\) increases. VP instead is:
 $$dx_t=-\frac12 \beta(t)x_tdt+\sqrt{\beta(t)}dW_t$$
 with drift \(f(x_t,t)=-\frac12\beta(t)x_t\) and \(g(t)=\sqrt{\beta(t)}\). This setting preserve unit variance when \(x_0\) has it as well with the marginal converging to \(\mathcal{N}(0,I)\) as \(t\xrightarrow[]{}T\).
 
 The reverse SDE can be solved numerically through different samplers. 
-Song \cite{song2021score} employs the Euler-Maruyama method, a first-order 
+Song et al.\ \cite{song2021score} employs the Euler-Maruyama method, a first-order 
 discretisation of the reverse-time SDE:
 \begin{equation}
 \label{eq:euler_maruyama}
@@ -170,14 +171,14 @@ though any suitable numerical solver can in principle be substituted.
 This continuous formulation has the advantage of decoupling the noise schedule 
 from the choice of sampler, admitting common schedules such as linear, 
 exponential, and cosine. However, both DDPM \cite{ho2020ddpm} and the SDE-based 
-framework of Song \cite{song2021score} require hundreds of Neural Function 
+framework \cite{song2021score} require hundreds of Neural Function 
 Evaluations (NFEs) to produce a single sample, and neither provides a principled 
 answer to how noise levels should be chosen, nor how network inputs and outputs 
 should be scaled.
 
-\section{Elucidating the Design Space of Diffusion Models (EDM)}
+\section{Elucidating the Design Space of Diffusion Models}
 \label{sec:edm_literature}
-Karras et al.\ \cite{karras2022elucidating} identify that prior formulations, including 
+In Elucidated Diffusion Models (EDM), Karras et al.\ \cite{karras2022elucidating} identify that prior formulations, including 
 DDPM and Song's SDEs, choose in a dependable way four conceptually distinct design choices: the noise schedule, the parametrisation of network inputs and outputs, the weighting 
 of the loss across noise levels, and the numerical solver used at sampling time. 
 EDM separates these into four independent components and optimises each 
@@ -207,11 +208,11 @@ c_{\text{in}}(\sigma)=\frac{1}{\sqrt{\sigma^2 +
     \sigma_{\text{data}}^2}}, \quad
     c_{\text{noise}}(\sigma)=\frac{1}{4}\ln(\sigma)
 $$
-The skip connection $c_{\text{skip}}(\sigma)$ has a simpler interpretation: at low $\sigma$, $c_{\text{skip}} \to 1$ and the network mostly 
+The skip connection $c_{\text{skip}}(\sigma)$ has a simple interpretation: at low $\sigma$, $c_{\text{skip}} \to 1$ and the network mostly 
 copies the input, a sensible prior when the noisy observation is already close to 
 the data; at high $\sigma$, $c_{\text{skip}} \to 0$ and the network must 
 reconstruct the clean signal from scratch. This mechanism helps stabilizing the training 
-across the full noise range without requiring separate tuning for each noise level. Its connection with the Wiener Filter are discussed in Sec.\ \ref{app:subsec:wiener}. 
+across the full noise range without requiring separate tuning for each noise level. Its connection with the Wiener Filter is discussed in Sec.\ \ref{app:subsec:wiener}. 
 
 \textbf{Loss weighting} \quad The EDM training objective is defined with respect to the denoiser 
 $D_\theta(x;\sigma)$. Given a clean sample $x_0 \sim p_0$ and noise 
@@ -234,7 +235,7 @@ high $\sigma$ the target collapses to the dataset mean. The informative region i
     \label{eq:edm_sigma_sampling}
     \ln\sigma \sim \mathcal{N}(P_{\text{mean}},\, P_{\text{std}}^2)
 \end{equation}
-with defaults $P_{\text{mean}} = -1.2$ and $P_{\text{std}} = 1.2$, calibrated 
+with default values $P_{\text{mean}} = -1.2$ and $P_{\text{std}} = 1.2$, calibrated 
 on ImageNet \cite{deng2009imagenet}. 
 
 \begin{figure}[htbp]
@@ -259,7 +260,7 @@ a $\rho$-power noise schedule:
 \end{equation}
 with $\rho = 7$. The power-law schedule concentrates discretisation steps at
 small $\sigma$, where the ODE curvature is highest and denoising errors have the
-greatest impact on sample quality, which is why instead of \(\rho=3\) that equalize the truncation error at each step they chose higher values. This resulted in equivalent sample quality to DDPM with approximately $7\times$ fewer NFEs, and better convergence as shown in Fig.\ \ref{fig:karras_sampler_image}. Moreover, the sampler is independent of the training procedure, therefore a model trained with the EDM loss could be evaluated with any compatible ODE or SDE solver.
+greatest impact on sample quality, which is why instead of \(\rho=3\) that equalize the truncation error at each step they selected higher values. This resulted in equivalent sample quality to DDPM with approximately $7\times$ fewer NFEs, and better convergence as shown in Fig.\ \ref{fig:karras_sampler_image}. Moreover, the sampler is independent of the training procedure, therefore a model trained with the EDM loss could be evaluated with any compatible ODE or SDE solver.
 
 \textbf{Stochastic Heun Sampler} \label{sec:stochastic_heun} \quad Karras et al.\ also propose a stochastic variant of the Heun solver in which a controlled amount of noise is reinjected before each denoising step. Before applying the standard second-order Heun update, the current noise level $\sigma_i$ is temporarily inflated to
 \begin{equation}
@@ -269,7 +270,7 @@ greatest impact on sample quality, which is why instead of \(\rho=3\) that equal
 \end{equation}
 and the sample is perturbed as $\hat{x}_i = x_i + \sqrt{\hat{\sigma}_i^2 - \sigma_i^2}\;\epsilon_i$ with $\epsilon_i \sim \mathcal{N}(0,I)$, before the Heun step proceeds from $(\hat{x}_i,\hat{\sigma}_i)$ to $\sigma_{i+1}$. The scalar $S_{\text{churn}} \geq 0$ is the sole stochasticity parameter: when $S_{\text{churn}} = 0$ every $\gamma_i = 0$ and the algorithm collapses to the deterministic ODE solver, while positive values allow the trajectory to briefly re-enter a higher-noise regime at each step, counteracting discretisation errors at the cost of additional noise injections.
 
-\section{Conditional Score-Based Diffusion for Time Series (CSDI)}
+\section{Conditional Score-based Diffusion Models for Probabilistic Time Series Imputation (CSDI)}
 \label{sec:csdi_literature}
 
 Standard diffusion models, as described in the previous sections, learn to 
@@ -297,7 +298,7 @@ for observed values. The evolution therefore follows a clear progression: firstl
   \label{fig:csdi_high_level}
 \end{figure}
 
-\textbf{Conditional denoising mechanism} \quad At each denoising step $t$, the CSDI model takes as input three quantities: 
+\textbf{Conditional denoising mechanism} \quad Looking at Fig.\ \ref{fig:csdi_high_level}, we notice that at each denoising step $t$, the CSDI model takes as input three quantities: 
 the noisy target $x^{\text{ta}}_t$, which gets zero-padded at conditioning indices; the 
 clean conditioning observations $x^{\text{co}}_0$, which gets zero-padded at target indices; and a binary mask $m^{\text{co}} \in \{0,1\}^{K \times L}$ indicating which entries are observed, where $K$ is the number of channels and $L$ is the sequence length. The conditional score network is therefore 
 $\epsilon_\theta(x^{\text{ta}}_t, t \mid x^{\text{co}}_0, m^{\text{co}})$, and 
@@ -320,22 +321,20 @@ target entries are denoised.
   \includegraphics[width=\textwidth]{images/CSDI_architecture_full.jpg}
   }
   \caption{Architecture of \(\epsilon_\theta\) in CSDI for multivariate time series imputation. Source: CSDI\ \cite{tashiro2021csdi}.}
-  \label{fig:csdi_high_level}
+  \label{fig:csdi_full_architecture}
 \end{figure}
 
 \textbf{2D attention over time and features} \quad The central innovation of CSDI over DiffWave is the replacement of dilated 
-temporal convolutions with a two-dimensional attention mechanism. Two Transformer 
-layers \cite{vaswani2017attention} operate in sequence within each residual block: a temporal Transformer which operates along the time axis, capturing short- and long-range temporal dependencies within each channel, and a feature Transformer operating along the channel axis, capturing cross-channel dependencies between variables. This 2D attention allows the model to learn both the temporal dynamics of each channel and the 
+temporal convolutions with a two-dimensional attention mechanism (Fig.\ \ref{fig:csdi_full_architecture}. Two Transformer 
+encoders \cite{vaswani2017attention} operate in sequence within each residual block: a temporal Transformer which operates along the time axis, capturing short- and long-range temporal dependencies within each channel, and a feature Transformer operating along the channel axis, capturing cross-channel dependencies between variables. This 2D attention allows the model to learn both the temporal dynamics of each channel and the 
 contemporaneous relationships between channels, without the quadratic cost of 
-attending jointly over the full time-feature product space. The overall block 
-structure residual connections, skip aggregation, and gated activations 
-is inherited directly from DiffWave and ultimately from WaveNet. 
+attending jointly over the full time-feature product space.
 
 \textbf{Positional and diffusion-step embeddings} \quad Three types of embeddings are added to the latent representation to allow the model to simultaneously distinguish temporal position, noise level, and channel 
 identity: a sinusoidal diffusion-step embedding encoding the current noise level 
 $t$; a temporal embedding encoding absolute position along the time axis; and a 
 feature embedding encoding the identity of each channel. The diffusion-step 
-embedding plays the same role as the noise conditioning $c_{\text{noise}}(\sigma)$ 
+embedding plays a similar role as the noise conditioning $c_{\text{noise}}(\sigma)$ 
 in the EDM preconditioning, ensuring that the denoiser is aware of the current noise level. 
 
 \textbf{Self-supervised training strategy and limitations} \quad CSDI introduces several masking strategies for training (random, historical, 
@@ -345,7 +344,7 @@ masking.
 
 \section{GBM--style SDE}
 \label{sec:gbm_sde_ch2}
-The idea of using CSDI for FTS modeling was explored previously by Gihum Kim et al. in \emph{A diffusion-based generative model for financial time series via geometric Brownian motion} \cite{kim2025diffusion}. While interesting this work lack the details needed in order to be replicable and provide ambiguous statements about what is actually persue. 
+The idea of using CSDI for FTS modeling was previously explored by Kim et al.\ in \emph{A diffusion-based generative model for financial time series via geometric Brownian motion} \cite{kim2025diffusion}. While conceptually motivated, this work suffers from reproducibility limitations and lacks precise specification of the formulation being proposed.
 
 They showed that starting from the Black--Scholes equation (Eq.~\ref{eq:blackscholes}) and 
 applying It\^{o}'s lemma to \(X_t = \log S_t\), one obtains:
@@ -363,7 +362,7 @@ process reduced to:
 where \(\sigma\) denotes the noise level at diffusion step \(t\), 
 distinct from the instantaneous volatility. 
 
-It is important to stress that this drift cancellation is a deliberate 
+This drift cancellation is a deliberate 
 modelling choice, not a consequence of the GBM dynamics: the resulting 
 process is no longer a pure GBM but rather a VE-type diffusion in 
 log-price space inspired by it. The financial interpretation is that, 
