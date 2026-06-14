@@ -22,6 +22,7 @@ git rm -r --cached images/
 .virtual_documents/
 
 datasets/
+results/
 checkpoints/
 outputs/
 *.sh
