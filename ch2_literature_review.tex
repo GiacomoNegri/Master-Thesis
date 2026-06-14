@@ -119,7 +119,7 @@ of each noise level, but this choice is heuristic rather than principled.
 \begin{figure}[htbp]
   \centering
   {\small
-  \includegraphics[width=\textwidth]{images/Overview_score_generative-modeling_Song.png}
+  \includegraphics[width=\textwidth]{images/Overview_score_generative-modeling_Song.jpg}
   }
   \caption{Data can be mapped to a noise distribution (the prior) with an SDE (Eq.~\ref{eq:generalsde}), and reverse this SDE for generative modeling
 (Eq.~\ref{eq:reverse_sde}). We can also reverse the associated probability flow ODE (Eq.~\ref{eq:probability_flow}), which yields a deterministic process that samples from the same distribution as the SDE. Both the reverse-time SDE and probability flow ODE can be obtained by estimating the score \(\nabla_x\log p_t(x_t)\). Source: Song et al.\ \cite{song2021score}.}
@@ -240,7 +240,7 @@ on ImageNet \cite{deng2009imagenet}.
 \begin{figure}[htbp]
   \centering
   {\small
-  \includegraphics[width=\textwidth]{images/EDM_Sampler.png}
+  \includegraphics[width=\textwidth]{images/EDM_Sampler.jpg}
   }
   \caption{ A sketch of ODE curvature in 1D where \(p_{\text{data}}\) is two Dirac peaks at \(x\pm1\) Horizontal \(t\) axis is chosen to show \(\sigma\in[0,0.25]\) in each plot, with insets showing \(\sigma\in[0,1]\) near the data. Example local gradients are shown with black arrows. \emph{Left.} Variance preserving ODE of Song et al. \cite{song2021score} has
 solution trajectories that flatten out to horizontal lines at large \(\sigma\). Local gradients start pointing towards data only at small \(\sigma\). \emph{Center.} Variance exploding variant has extreme curvature near data and the solution trajectories are curved everywhere. \emph{Right.} With the schedule used by DDIM \cite{song2021denoising} and us, as
@@ -317,7 +317,7 @@ target entries are denoised.
 \begin{figure}[htbp]
   \centering
   {\small
-  \includegraphics[width=\textwidth]{images/CSDI_architecture_full.png}
+  \includegraphics[width=\textwidth]{images/CSDI_architecture_full.jpg}
   }
   \caption{Architecture of \(\epsilon_\theta\) in CSDI for multivariate time series imputation. Source: CSDI\ \cite{tashiro2021csdi}.}
   \label{fig:csdi_high_level}
