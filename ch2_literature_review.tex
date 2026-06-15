@@ -270,7 +270,7 @@ greatest impact on sample quality, which is why instead of \(\rho=3\) that equal
 \end{equation}
 and the sample is perturbed as $\hat{x}_i = x_i + \sqrt{\hat{\sigma}_i^2 - \sigma_i^2}\;\epsilon_i$ with $\epsilon_i \sim \mathcal{N}(0,I)$, before the Heun step proceeds from $(\hat{x}_i,\hat{\sigma}_i)$ to $\sigma_{i+1}$. The scalar $S_{\text{churn}} \geq 0$ is the sole stochasticity parameter: when $S_{\text{churn}} = 0$ every $\gamma_i = 0$ and the algorithm collapses to the deterministic ODE solver, while positive values allow the trajectory to briefly re-enter a higher-noise regime at each step, counteracting discretisation errors at the cost of additional noise injections.
 
-\section{Conditional Score-based Diffusion Models for Probabilistic Time Series Imputation (CSDI)}
+\section{Conditional Score-based Diffusion Models for Time Series Imputation (CSDI)}
 \label{sec:csdi_literature}
 
 Standard diffusion models, as described in the previous sections, learn to 
