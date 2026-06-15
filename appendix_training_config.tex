@@ -29,7 +29,7 @@ reached.
 \section{Model Dimension and Parameter Count}
 \label{app:model-parameter-count}
 
-This section derives the trainable-parameter count of the CSDI-based diffusion
+This section derives the trainable parameter count of the CSDI-based diffusion
 backbone for the two experimental configurations, which differ only in the
 number of target features~$K$.
 
@@ -41,7 +41,7 @@ Here is some notation: \(K\) is \texttt{target\_dim},
 The side-information width per (feature, time) location is
 $S = E_t + E_f + 1$,
 where the $+1$ is the conditioning mask channel.
-This is independent of $K$ because $E_f$ is the \emph{output} dimension of the
+This is independent of $K$ because $E_f$ is the output dimension of the
 feature embedding lookup, not the vocabulary size.
 The Transformer feed-forward width is $d_{\mathrm{ff}} = 4C$.
 Fixed values:
@@ -57,14 +57,12 @@ R = 6.
 
 \subsection{Shared Parameters}
 
-\textbf{Non-backbone — time-embedding projection}
-$\mathrm{Linear}(E_t, E_t)$:\(
-E_t^2 + E_t = 16{,}512.\)
-
-\textbf{Outside residual blocks (\texttt{diff\_CSDI}):}
-input projection $\mathrm{Conv1d}(I,C,1)$, output projection
-$\mathrm{Conv1d}(C,1,1)$, and the two-layer diffusion embedding
-$2\,\mathrm{Linear}(D,D)$:
+\textbf{Non-backbone}
+\begin{itemize}
+    \item \textbf{Time-embedding projection}: $\mathrm{Linear}(E_t, E_t)$: \(E_t^2 + E_t = 16{,}512.\)
+    \item \textbf{Outside residual blocks (\texttt{diff\_CSDI})}: input projection $\mathrm{Conv1d}(I,C,1)$, output projection $\mathrm{Conv1d}(C,1,1)$, and the two-layer diffusion embedding $2\,\mathrm{Linear}(D,D)$
+\end{itemize}
+The total count of Non-backbone element is:
 \[
 N_{\mathrm{outside}}
 = (IC+C) + (C+1) + 2(D^2+D)
@@ -72,37 +70,29 @@ N_{\mathrm{outside}}
 = 132{,}097.
 \]
 
-\textbf{Per residual block — four projection layers}
-(diffusion $\mathrm{Linear}(D,C)$, conditioning $\mathrm{Conv1d}(S,2C,1)$,
-mid and output $\mathrm{Conv1d}(C,2C,1)$ each):
+\textbf{Residual Block (\texttt{ResidualBlock})}
+\begin{itemize}
+    \item \textbf{Four projection layers}: diffusion $\mathrm{Linear}(D,C)$, conditioning $\mathrm{Conv1d}(S,2C,1)$, mid and output $\mathrm{Conv1d}(C,2C,1)$ for each residual block:
 \[
 N_{\mathrm{proj}}
 = DC + 2CS + 4C^2 + 7C
 = 148{,}608.
 \]
-
-\textbf{Per residual block — one Transformer encoder layer}
-($d_{\mathrm{model}}=C$, $d_{\mathrm{ff}}=4C$, contributions from
-multi-head attention $4C^2+4C$, feed-forward network $8C^2+5C$, and
-two layer-norm layers $4C$):
+    \item \textbf{one Transformer encoder layer}: $d_{\mathrm{model}}=C$, $d_{\mathrm{ff}}=4C$, contributions from multi-head attention $4C^2+4C$, feed-forward network $8C^2+5C$, and two layer-norm layers $4C$ for each residual block:
 \[
 N_{\mathrm{trans}}
 = 12C^2 + 13C
 = 198{,}272.
 \]
-Every residual block contains at least one such layer (the time Transformer).
+\end{itemize}
 
 \subsection{K-dependent Parameters}
 
 Two components depend on $K$.
-
-\textbf{Feature embedding} $\mathrm{Embedding}(K,E_f)$: contributes
-$K\cdot E_f$ parameters.
-
-\textbf{Feature Transformer:} when $K>1$, each residual block contains a
-second Transformer encoder layer of identical architecture to the time
-Transformer, operating across the feature axis ($N_{\mathrm{trans}}$
-additional parameters per block). For $K=1$ this layer is instantiated, but never updated. The reason is just code compatability across phases. [RIVEDERE]
+\begin{itemize}
+    \item \textbf{Feature embedding}: $\mathrm{Embedding}(K,E_f)$: contributes $K\cdot E_f$ parameters.
+    \item \textbf{Feature Transformer}: when $K>1$, each residual block contains a second Transformer encoder layer of identical architecture to the time Transformer, operating across the feature axis ($N_{\mathrm{trans}}$ additional parameters per block). For $K=1$ this layer is instantiated, but never updated. The reason is just code compatability across phases. 
+\end{itemize}
 
 \begin{table}[h]
 \centering

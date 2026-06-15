@@ -1,7 +1,7 @@
 \chapter{Theoretical Background and Models}
 \label{app:math_foundations}
 
-This appendix provides expanded mathematical background and explanation for the mathematical foundations and literature review in chapter \ref{ch:literature_review}.
+This appendix provides expanded mathematical background and explanation for the mathematical foundations and literature review in Ch.\ \ref{ch:literature_review}.
 
 \section{Brownian Motion}
 \label{app:sec:bm}
@@ -64,7 +64,7 @@ Ordinary calculus provides the chain rule: if $f$ is smooth and $x(t)$ is
 differentiable, then $df = f'(x)\,dx$. Because BM paths are not differentiable,
 this rule fails when $x$ is driven by a BM. It\^{o}'s Lemma provides the correct generalisation.
 
-\subsection{Statement}
+\subsection{Statement of It\^{o}'s Lemma}
 
 Let $\{X_t\}$ be an It\^{o} process satisfying:
 \[
@@ -85,17 +85,17 @@ Then:
 
 The term $\frac{1}{2} b_t^2 \frac{\partial^2 f}{\partial x^2}\, dt$ is the
 It\^{o} correction. It is absent in ordinary calculus and appear
-because the stochastic increment has a non-negligible second-order contribution. A proof is provided in \cite{oksendal2003stochastic}, chapter 4, \emph{The Itô Formula and the Martingale Representation Theorem}
+because the stochastic increment has a non-negligible second-order contribution. A proof is provided in \cite{oksendal2003stochastic}, chapter 4, \emph{The Itô Formula and the Martingale Representation Theorem}.
 
 \subsection{Proof of the Black-Scholes Price Equation}
 
-Chapter \ref{ch:literature_review} states that applying It\^{o}'s Lemma to $\log S_t$ under GBM
-(Eq.~\ref{eq:blackscholes}) yields the log-normal price formula. It was derived in full here. The GBM is the It\^{o} process with drift coefficient
+Ch. \ref{ch:literature_review} states that applying It\^{o}'s Lemma to $\log S_t$ under GBM
+(Eq.\ \ref{eq:blackscholes}) yields the log-normal price formula. It was derived in full here. The GBM is the It\^{o} process with drift coefficient
 $a_t = \mu S_t$ and diffusion coefficient $b_t = \nu S_t$:
 \[
     dS_t = \mu\, S_t\, dt + \nu\, S_t\, dW_t.
 \]
-Apply It\^{o}'s Lemma (Eq.~\ref{eq:ito_lemma}) to $f(S_t) = \log S_t$:
+Apply It\^{o}'s Lemma (Eq.\ \ref{eq:ito_lemma}) to $f(S_t) = \log S_t$:
 \[
     \frac{\partial f}{\partial t} = 0, \qquad
     \frac{\partial f}{\partial S} = \frac{1}{S_t}, \qquad
@@ -129,11 +129,11 @@ Since $W_t \sim \mathcal{N}(0, t)$, the log-return over $[0, t]$ satisfies:
     \nu^2 t\right).
 \]
 Log-returns are normally distributed with mean proportional to $t$ and variance
-proportional to $t$, confirming the statement in Section \ref{sec:classical_models_literature} and the foundation
+proportional to $t$, confirming the statement in Sec. \ref{sec:classical_models_literature} and the foundation
 of the Black--Scholes option pricing model \cite{black1973pricing}.
 
 
-\textbf{Interpreting the It\^{o} correction} The term $-\frac{1}{2}\nu^2$ is
+\textbf{Interpreting the It\^{o} correction} \quad The term $-\frac{1}{2}\nu^2$ is
 not an approximation error, instead it is present because the exponential map from log-price to price is convex, so randomness in log-space increases the arithmetic expectation in price-space, therefore it compensates for this convexity effect so that the price process still has drift \(\mu\) in expectation, so that \(\mathbb{E}[S_t]=S_0\, e^{\mu t}\).
 
 \section{Poisson Process and Merton's Jump-Diffusion Model}
@@ -170,15 +170,15 @@ From Eq.~(\ref{eq:poisson_increment}):
     \mathbb{E}[P_t] = \lambda t, \qquad \operatorname{Var}(P_t) = \lambda t.
 \]
 The intensity of $\lambda$ simultaneously controls the average jump rate and the variability of the jump count. Because the waiting time between jumps are independent then we are dealing with a memoryless process, where the time until the next jump does not depend on how long
-one has already waited, see limitations in Sec.~\ref{app:sec:limitations}).
+one has already waited, see limitations in Sec.\ \ref{app:sec:limitations}).
 
 \subsection{Merton's Jump-Diffusion Model}
 
-Merton \cite{merton1976option} extended the GBM (Eq.~\ref{eq:blackscholes}) by
+Merton \cite{merton1976option} extended the GBM (Eq.\ \ref{eq:blackscholes}) by
 superimposing a compound Poisson jump component onto the continuous diffusion:\(
     \label{eq:merton_sde_app}
     dS_t = \mu\, S_t\, dt + \nu\, S_t\, dW_t + S_{t^-}(J - 1)\, dP_t.
-\). As discussed in Section~\ref{sec:classical_models_literature} the log-return distribution under Merton's model is a Poisson-weighted mixture of
+\). As discussed in Sec.\ \ref{sec:classical_models_literature} the log-return distribution under Merton's model is a Poisson-weighted mixture of
 Gaussians. This result requires $\log J$ to be normally distributed; consistent
 with Merton's \cite{merton1976option} original formulation, $J$ is therefore \textit{log-normally}
 distributed:
@@ -192,8 +192,8 @@ sizes.
 \subsection{Log-Return Distribution under Merton's Model}
 
 Applying the jump-diffusion analogue of It\^{o}'s Lemma to $f(S_t) = \log S_t$
-under Eq.~(\ref{eq:merton_sde_app}), the continuous part is handled exactly as
-in Appendix~\ref{app:sec:ito}, while each jump at time $t$ contributes
+under Eq.\ \ref{eq:merton_sde_app}, the continuous part is handled exactly as
+in App.\ \ref{app:sec:ito}, while each jump at time $t$ contributes
 $\log(J)$ to the log-price. The resulting log-price dynamics are:
 \[
     d(\log S_t) = \left(\mu - \frac{1}{2}\nu^2\right)\! dt
@@ -221,45 +221,45 @@ $p_n = e^{-\lambda t}(\lambda t)^n / n!$:
 \end{equation}
 where $\phi(\cdot;\, m, v)$ denotes the Gaussian density with mean $m$ and
 variance $v$. This is the Poisson-weighted mixture of Gaussians stated in
-Section \ref{sec:classical_models_literature}.
+Sec. \ref{sec:classical_models_literature}.
 
 \section{Further Limitations of GARCH and Merton's Model}
 \label{app:sec:limitations}
 
-Section \ref{sec:classical_models_literature} identifies the core limitation shared by both models, which is further expanded here.
+Sec. \ref{sec:classical_models_literature} identifies the core limitation shared by both models, which is further expanded here.
 
 \subsection{GARCH-X}
 \label{app:sec:garch_limitations}
 
-\textbf{Symmetric shock response and the leverage effect} The GARCH(1,1) variance equation $\sigma_t^2 = \omega + \alpha\epsilon_{t-1}^2 + \beta\sigma_{t-1}^2$ depends on $\epsilon_{t-1}^2$, which is symmetric in the sign of the innovation: a negative shock $\epsilon_{t-1} = -c$ and a positive shock $\epsilon_{t-1} = +c$ of the same magnitude produce identical increases in $\sigma_t^2$, contradicting the leverage effect.
+\textbf{Symmetric shock response and the leverage effect} \quad The GARCH(1,1) variance equation $\sigma_t^2 = \omega + \alpha\epsilon_{t-1}^2 + \beta\sigma_{t-1}^2$ depends on $\epsilon_{t-1}^2$, which is symmetric in the sign of the innovation: a negative shock $\epsilon_{t-1} = -c$ and a positive shock $\epsilon_{t-1} = +c$ of the same magnitude produce identical increases in $\sigma_t^2$, contradicting the leverage effect.
 
-\textbf{Tail inadequacy} Even with Student-$t$ innovations, the GARCH conditional tail remains insufficiently heavy. Section \ref{sec:fts_literature} reported power-law tails with exponents $\alpha \in [3,5]$; standard GARCH with Gaussian innovations has finite moments of all orders, and heavier-tailed innovations do not reproduce the empirical tail decay.
+\textbf{Tail inadequacy} \quad Even with Student-$t$ innovations, the GARCH conditional tail remains insufficiently heavy. Sec. \ref{sec:fts_literature} reported power-law tails with exponents $\alpha \in [3,5]$; standard GARCH with Gaussian innovations has finite moments of all orders, and heavier-tailed innovations do not reproduce the empirical tail decay.
 
-\textbf{Short-memory volatility autocorrelation} In GARCH(1,1), squared-return autocorrelation decays exponentially at rate $(\alpha + \beta)^k$. Empirically, volatility autocorrelation decays hyperbolically, $\operatorname{Corr}(|r_t|, |r_{t+k}|) \sim k^{-\beta}$ with $\beta \in [0.1, 0.5]$ \cite{cont2001empirical}, causing underestimation of volatility persistence at long horizons even when $\alpha + \beta$ is close to one.
+\textbf{Short-memory volatility autocorrelation} \quad In GARCH(1,1), squared-return autocorrelation decays exponentially at rate $(\alpha + \beta)^k$. Empirically, volatility autocorrelation decays hyperbolically, $\operatorname{Corr}(|r_t|, |r_{t+k}|) \sim k^{-\beta}$ with $\beta \in [0.1, 0.5]$ \cite{cont2001empirical}, causing underestimation of volatility persistence at long horizons even when $\alpha + \beta$ is close to one.
 
-\textbf{Absence of jumps} GARCH generates smooth conditional variance paths and cannot produce discontinuous price gaps or isolated large moves.
+\textbf{Absence of jumps} \quad GARCH generates smooth conditional variance paths and cannot produce discontinuous price gaps or isolated large moves.
 
-\textbf{Re-estimation requirement} The model must be re-fitted from scratch whenever a new regime arises, with no native mechanism to detect regime transitions.
+\textbf{Re-estimation requirement} \quad The model must be re-fitted from scratch whenever a new regime arises, with no native mechanism to detect regime transitions.
 
 \subsection{Merton-X}
 \label{app:sec:merton_limitation}
 
-\textbf{Constant jump intensity} The Poisson intensity $\lambda$ in Eq.~(\ref{eq:merton_sde_app}) is fixed, whereas in reality jump activity is time-varying and clustered: large moves arrive in bursts during market stress and are rare during calm periods. A constant $\lambda$ cannot reproduce this self-reinforcing behaviour.
+\textbf{Constant jump intensity} \quad The Poisson intensity $\lambda$ in Eq.\ \ref{eq:merton_sde_app} is fixed, whereas in reality jump activity is time-varying and clustered: large moves arrive in bursts during market stress and are rare during calm periods. A constant $\lambda$ cannot reproduce this self-reinforcing behaviour.
 
-\textbf{Tail inadequacy despite fat tails} Although the Poisson mixture (Eq.~\ref{eq:merton_return_dist}) has heavier tails than a single Gaussian, all moments remain finite. The $n$-th component has variance $\nu^2 t + n\sigma_J^2$ growing linearly in $n$, but the Poisson weights $e^{-\lambda t}(\lambda t)^n/n!$ decay super-exponentially, so the tail of Eq.~(\ref{eq:merton_return_dist}) decays faster than any power law.
+\textbf{Tail inadequacy despite fat tails} \quad Although the Poisson mixture (Eq.\ \ref{eq:merton_return_dist}) has heavier tails than a single Gaussian, all moments remain finite. The $n$-th component has variance $\nu^2 t + n\sigma_J^2$ growing linearly in $n$, but the Poisson weights $e^{-\lambda t}(\lambda t)^n/n!$ decay super-exponentially, so the tail of Eq.\ \ref{eq:merton_return_dist} decays faster than any power law.
 
-\textbf{No volatility clustering} The diffusion component $\nu\, S_t\, dW_t$ has constant volatility $\nu$. Jumps introduce excess kurtosis, but not persistent time-varying conditional variance: between jump events the model reverts to a constant-volatility GBM, and a jump does not alter the volatility of subsequent diffusion increments.
+\textbf{No volatility clustering} \quad The diffusion component $\nu\, S_t\, dW_t$ has constant volatility $\nu$. Jumps introduce excess kurtosis, but not persistent time-varying conditional variance: between jump events the model reverts to a constant-volatility GBM, and a jump does not alter the volatility of subsequent diffusion increments.
 
-\textbf{No leverage effect} Both the diffusion noise $\nu\, dW_t$ and the jump multiplier $J$ are specified symmetrically with respect to the sign of the return, so Merton's model cannot reproduce the negative lead-lag correlation $L(k) < 0$ defined in Section~\ref{sec:fts_literature}.
+\textbf{No leverage effect} \quad Both the diffusion noise $\nu\, dW_t$ and the jump multiplier $J$ are specified symmetrically with respect to the sign of the return, so Merton's model cannot reproduce the negative lead-lag correlation $L(k) < 0$ defined in Sec.\ \ref{sec:fts_literature}.
 
-\textbf{Calibration difficulty} The likelihood surface of Eq.~(\ref{eq:merton_return_dist}) has multiple local optima, and the jump parameters $(\lambda, \mu_j, \sigma_J^2)$ are poorly identified unless the sample is long and contains clearly distinguishable events. With limited data, a small number of outliers can dominate the estimation of $\lambda$ and $\sigma_J^2$, leading to unstable parameter estimates, which is why we had to constrain the generation process.
+\textbf{Calibration difficulty} \quad The likelihood surface of Eq.\ \ref{eq:merton_return_dist} has multiple local optima, and the jump parameters $(\lambda, \mu_j, \sigma_J^2)$ are poorly identified unless the sample is long and contains clearly distinguishable events. With limited data, a small number of outliers can dominate the estimation of $\lambda$ and $\sigma_J^2$, leading to unstable parameter estimates, which is why we had to constrain the generation process.
 
 \section{Likelihoods and Derivations}
 \label{app:baselines}
 
 \subsection{Log-GARCH-X Likelihood}
 
-Given the variance recursion~(\ref{eq:garch_x_var}), the standardised residual
+Given the variance recursion (Eq.\ \ref{eq:garch_x_var}), the standardised residual
 is $z_t = \varepsilon_t / \sigma_t$. The negative log-likelihood is:
 \begin{equation}
     \label{eq:garchx_nll_app}
@@ -304,7 +304,7 @@ for Merton-X, $(\lambda_0, \sigma_{J,0}) \in \{(0.10, 0.01),\,
 
 The following model-specific choices were made to ensure numerical stability and physical plausibility during fitting and simulation. Their value were adjusted iteratively to ensure the best possible outcome and distribution fidelity. 
 
-\textbf{GARCH-X.} \quad
+\textbf{GARCH-X} \quad
 The model is formulated in log-variance space: the recursion propagates
 $\log\sigma_t^2$ rather than $\sigma_t^2$ directly, keeping variance
 strictly positive by construction.
@@ -325,7 +325,7 @@ $\log(\varepsilon_{t-1}^2 + 10^{-8})$ to prevent $\log 0$, and the
 log-variance is clipped to $[-30,\, 30]$ to prevent overflow.
 The recursion is initialised at $\log\operatorname{Var}(r)$.
 
-\textbf{Merton-X.} \quad
+\textbf{Merton-X} \quad
 The diffusion variance is time-varying with log-linear dependence on
 two intra-day regressors: $\log\nu_t^2 = a_0 + \mathbf{q}_t^\top\mathbf{a}$,
 where $\mathbf{q}_t = [\texttt{open}_t^2,\;(\texttt{high}_t -
@@ -338,7 +338,7 @@ $\log\lambda \in [-6,\,3]$ (i.e.\ $\lambda \in (0.002,\,20)$),
 $\mu_J \in [-0.5,\,0.5]$, and $\log\sigma_J \in [-8,\,0]$
 (i.e.\ $\sigma_J \leq 1$), preventing degenerate jump configurations
 during optimisation.
-\textit{Correction to Eq.~\ref{eq:mertonx_loglik_app}}: the Poisson
+\textit{Correction to Eq.\ \ref{eq:mertonx_loglik_app}}: the Poisson
 series is truncated at $K_{\max} = 20$, not $K_{\max} = 30$ as stated
 in that equation. For S\&P~500 daily returns, fitted $\lambda$ values
 are consistently below $5$, for which $P(N > 20\,|\,\lambda) < 8\times

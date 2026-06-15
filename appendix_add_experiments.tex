@@ -8,7 +8,7 @@ The first line concerns the generation phase and asks whether sample improvement
 The second line revisits two open questions left by the main text. Sec.~\ref{app:sec:vol_regime} tests the conditioning hypothesis of Sec.~\ref{sec:discussion_results} (Ch.~\ref{ch:discussion}) through a regime-stratified analysis of generated volatility, checking whether same-day OHL conditioning lets EDM-CSDI~(Cond.) reproduce period-specific volatility levels that the unconditional model averages away. Finally, Sec.~\ref{app:sec:capacity_ablation} reports a capacity ablation that halves the model's channel width to probe the capacity-to-data concern raised in Sec.~\ref{sec:limitations}, asking whether the model's accuracy reflects genuine generalisation rather than partial memorisation of the training windows.
 \section{EDM-CSDI Conditional Sampling Variations}
 \subsection{Heun Stochastic Sampler}
-In the first phase, we generated data under the same conditions as sub-Sec.\ \ref{subsec:conditiona_edm_csdi}, using EDM-CSDI (Cond.) with a stochastic sampler instead. Specifically, we experimented with a budget of \(S_{\text{churn}}=10\), \(S_{\text{tmin}}=0.05\), \(S_{\text{tmax}}=\infty\), and \(S_{\text{noise}}=1.0\). Over \(20,000\) windows, the distributional properties remained largely unchanged.
+In the first phase, we generated data under the same conditions as Sec.\ \ref{subsec:conditiona_edm_csdi}, using EDM-CSDI (Cond.) with a stochastic sampler instead. Specifically, we experimented with a budget of \(S_{\text{churn}}=10\), \(S_{\text{tmin}}=0.05\), \(S_{\text{tmax}}=\infty\), and \(S_{\text{noise}}=1.0\). Over \(20,000\) windows, the distributional properties remained largely unchanged.
 
 \begin{table}[htbp]
 \centering
@@ -222,7 +222,7 @@ For the same number of samples, Heun SDE achieves a lower CRPS and MAE than Heun
 \end{figure}
 
 \subsection{NFEs Variations}
-Another set of experiments focused on sampling with EDM-CSDI (Cond.) under the Heun ODE sampler with a different number of function evaluations (NFEs), specifically \(NFEs=200\) (\(steps=100\)) and \(NFEs=600\) (\(steps=300\)), to evaluate whether any discernible difference would be observed with respect to the default configuration \(NFEs=400\) (\(steps=200\)) used in sub-Sec.\ \ref{subsec:conditiona_edm_csdi}. For computational-speed reasons given the HPC constraints, the generated set for this exploration was limited to \(10,000\) windows with \(5\) samples each (except for Heun ODE 400), rather than the full \(20,000\)-window set used elsewhere in this chapter.
+Another set of experiments focused on sampling with EDM-CSDI (Cond.) under the Heun ODE sampler with a different number of function evaluations (NFEs), specifically \(NFEs=200\) (\(steps=100\)) and \(NFEs=600\) (\(steps=300\)), to evaluate whether any discernible difference would be observed with respect to the default configuration \(NFEs=400\) (\(steps=200\)) used in Sec.\ \ref{subsec:conditiona_edm_csdi}. For computational-speed reasons given the HPC constraints, the generated set for this exploration was limited to \(10,000\) windows with \(5\) samples each (except for Heun ODE 400), rather than the full \(20,000\)-window set used elsewhere in this chapter.
 
 \begin{table}[htbp]
 \centering
@@ -404,10 +404,10 @@ Gen/Ref (Cond.) & 0.95 & 0.94 & 0.99 \\
 % Appendix keys: repl_Pm-1.4_Ps_1.8_64_channels_validation / _both
 % Image folder: images/final/edm/reference_vs_generated/
 % ======================================================================
-\section{Capacity Ablation: 64-Channel Model}
+\section{Capacity Ablation and Analysis}
 \label{app:sec:capacity_ablation}
 
-In Sec.~\ref{sec:limitations} it was noted that EDM-CSDI (Cond.) carries \(\approx3.4\)M parameters against only \(\approx2.7\)M unique observations, which raises the question of whether its accuracy reflects genuine generalisation or partial memorisation of the training windows. This analysis address this concern directly by retraining the model with the number of channels halved from \(128\) to \(64\). The change lowers the parameters of each ResidualBlock from \(545{,}152\) to \(182{,}592\), and the total from \(3{,}419{,}777\) to \(1{,}244{,}417\), bringing the capacity-to-data ratio below one half; the number of residual layers (six) and every other setting of sub-Sec.~\ref{subsec:conditiona_edm_csdi} were left unchanged, so that capacity is the only varying factor. The rationale is that a model relying on memorisation should lose the most when capacity is removed, and primarily on the held-out windows, whereas a model that has learned a generalisable conditional law should degrade gracefully and not asymmetrically across splits.
+In Sec.~\ref{sec:limitations} it was noted that EDM-CSDI (Cond.) carries \(\approx3.4\)M parameters against only \(\approx2.7\)M unique observations, which raises the question of whether its accuracy reflects genuine generalisation or partial memorisation of the training windows. This analysis address this concern directly by retraining the model with the number of channels halved from \(128\) to \(64\). The change lowers the parameters of each ResidualBlock from \(545{,}152\) to \(182{,}592\), and the total from \(3{,}419{,}777\) to \(1{,}244{,}417\), bringing the capacity-to-data ratio below one half. The number of residual layers (six) and every other setting of Sec.~\ref{subsec:conditiona_edm_csdi} were left unchanged, so that capacity is the only varying factor. The rationale is that a model relying on memorisation should lose the most when capacity is removed, and primarily on the held-out windows, whereas a model that has learned a generalisable conditional law should degrade gracefully and not asymmetrically across splits.
 
 \textbf{Marginal Distribution} \quad As shown in Tab.~\ref{tab:app_capacity}, the bulk of the distribution is robust to the capacity reduction: on the \emph{Both} split \(D_{KS}\) and \(W_1\) are essentially unchanged with respect to the \(128\)-channel model (\(0.0390\) vs.\ \(0.0411\), and \(\approx0.0006\) for both), and the central quantiles remain close to the reference. The degradation concentrates instead in the higher moments, where capacity matters most. On \emph{Both}, skewness collapses towards zero (\(-0.0024\) against a reference \(-0.5864\)) and excess kurtosis inflates to \(114.4\); this is however driven by a handful of unstable windows (normalised min/max of \(-70.5/123.4\)), analogous to the VP+Linear behaviour of Sec.~\ref{sec:phase1_results}, rather than by a genuinely heavier tail. Consistently, the power-law exponent rises to \(\hat{\alpha}=4.94\) (against \(4.42\)), i.e.\ a \emph{lighter} bulk-tail accompanied by sparse extreme outliers. The held-out \emph{Validation} split is by contrast well behaved, with a moderate kurtosis of \(21.4\) and a tail exponent (\(\hat{\alpha}=4.11\)) that is actually closer to its ground truth (\(4.07\)) than the \(128\)-channel model (\(4.28\)), indicating that the smaller model still generalises the tail shape on unseen conditioning windows. The zero-return spike, as in every other configuration, is not recovered, and is in fact slightly more oversmoothed than at \(128\) channels, more markedly on \emph{Validation} than on \emph{Both}, while the QQ-plot confirms that despite the high kurtosis the tails remain underestimated (Fig.~\ref{fig:app_capacity_marginal}).
 
@@ -457,7 +457,20 @@ Both & EDM-CSDI (Cond.), 64\,ch  &  0.0056 & 0.9394 & -0.0024 & 114.4 & -2.5408 
 
 \begin{figure}[htbp]
     \centering
-    % Row 1: Both (training + validation)
+    % Row 1: Validation only
+    \begin{subfigure}{0.4\textwidth}
+        \centering
+        \includegraphics[width=\textwidth]{images/Phase2/64_channels/cazzone_2.jpg}
+        \label{fig:app_cap_marg_val_large}
+    \end{subfigure}
+    \hfill
+    \begin{subfigure}{0.4\textwidth}
+        \centering
+        \includegraphics[width=\textwidth]{images/Phase2/64_channels/cazzone_1.jpg}
+        \label{fig:app_cap_marg_val_thin}
+    \end{subfigure}
+    \vspace{0.05em}
+    % Row 2: Both (training + validation)
     \begin{subfigure}{0.4\textwidth}
         \centering
         \includegraphics[width=\textwidth]{images/Phase2/64_channels/marginal_distribution_repl_Pm-1.4_Ps_1.8_64_channels_both_cropped.jpg}
@@ -469,23 +482,7 @@ Both & EDM-CSDI (Cond.), 64\,ch  &  0.0056 & 0.9394 & -0.0024 & 114.4 & -2.5408 
         \includegraphics[width=\textwidth]{images/Phase2/64_channels/marginal_thinner_repl_Pm-1.4_Ps_1.8_64_channels_both_cropped.jpg}
         \label{fig:app_cap_marg_both_thin}
     \end{subfigure}
-
-    \vspace{0.05em}
-
-    % Row 2: Validation only
-    \begin{subfigure}{0.4\textwidth}
-        \centering
-        \includegraphics[width=\textwidth]{images/Phase2/64_channels/marginal_distribution_repl_Pm-1.4_Ps_1.8_64_channels_val_cropped.png}
-        \label{fig:app_cap_marg_val_large}
-    \end{subfigure}
-    \hfill
-    \begin{subfigure}{0.4\textwidth}
-        \centering
-        \includegraphics[width=\textwidth]{images/Phase2/64_channels/marginal_thinner_distribution_repl_Pm-1.4_Ps_1.8_64_channels_val_cropped.png}
-        \label{fig:app_cap_marg_val_thin}
-    \end{subfigure}
-
-    \caption{Marginal distribution against the empirical reference (blue) for the \(64\)-channel EDM-CSDI (Cond.) model. \emph{Top. }: combined validation and training windows; \textit{Bottom. }: validation windows only (GT). \textit{Left. }: full density range \(q_{0.001}\text{--}q_{0.999}\); \textit{Right. }: central range \(q_{0.02}\text{--}q_{0.98}\).}
+    \caption{Marginal distribution against the empirical reference (blue) for the \(64\)-channel EDM-CSDI (Cond.) model. \emph{Top.} validation windows only (GT). \textit{Bottom.} combined validation and training windows. \textit{Left.} full density range \(q_{0.001}\text{--}q_{0.999}\). \textit{Right.} central range \(q_{0.02}\text{--}q_{0.98}\).}
     \label{fig:app_capacity_marginal}
 \end{figure}
 
@@ -517,7 +514,7 @@ Both & EDM-CSDI (Cond.), 64\,ch  &  0.0056 & 0.9394 & -0.0024 & 114.4 & -2.5408 
     \label{fig:app_capacity_stylized}
 \end{figure}
 
-\textbf{CRPS and Interval Coverage} \quad The CRPS decomposition and coverage analysis of sub-Sec.~\ref{subsec:conditiona_edm_csdi} were repeated for the \(64\)-channel model with \(N=50\) samples per window over the same \(2{,}000\)-window protocol (Tab.~\ref{tab:app_capacity_crps}, Tab.~\ref{tab:app_capacity_coverage}). Probabilistic skill is largely retained: the CRPS skill score over climatology stays at \(0.71\) (Both) and \(0.70\) (Val), against \(0.74\) and \(0.73\) at \(128\) channels, and the model still improves on the OLS linear forecast (CRPS skill \(0.36\) Both, \(0.28\) Val), confirming that the conditional density keeps information beyond a linear point forecast even at half capacity. The coverage shifts in a way consistent with the heavier, less controlled dispersion of the smaller model: at the \(95\%\) and \(99\%\) levels the \(64\)-channel intervals are slightly less overconfident than the \(128\)-channel ones (e.g.\ \(95.11\%\) vs.\ \(94.06\%\) at the \(95\%\) Val level), whereas at the \(50\%\)--\(90\%\) levels they now over-cover the nominal value, as the extra dispersion, partly the outlier windows of Tab.~\ref{tab:app_capacity}, widens the min/max intervals rather than reflecting genuinely better calibration. No held-out collapse appears, with Validation tracking the Both split closely, consistent with the underfitting reading of the marginal results above.
+\textbf{CRPS and Interval Coverage} \quad The CRPS decomposition and coverage analysis of Sec.~\ref{subsec:conditiona_edm_csdi} were repeated for the \(64\)-channel model with \(N=50\) samples per window over the same \(2{,}000\)-window protocol (Tab.~\ref{tab:app_capacity_crps}, Tab.~\ref{tab:app_capacity_coverage}). Probabilistic skill is largely retained: the CRPS skill score over climatology stays at \(0.71\) (Both) and \(0.70\) (Val), against \(0.74\) and \(0.73\) at \(128\) channels, and the model still improves on the OLS linear forecast (CRPS skill \(0.36\) Both, \(0.28\) Val), confirming that the conditional density keeps information beyond a linear point forecast even at half capacity. The coverage shifts in a way consistent with the heavier, less controlled dispersion of the smaller model: at the \(95\%\) and \(99\%\) levels the \(64\)-channel intervals are slightly less overconfident than the \(128\)-channel ones (e.g.\ \(95.11\%\) vs.\ \(94.06\%\) at the \(95\%\) Val level), whereas at the \(50\%\)--\(90\%\) levels they now over-cover the nominal value, as the extra dispersion, partly the outlier windows of Tab.~\ref{tab:app_capacity}, widens the min/max intervals rather than reflecting genuinely better calibration. No held-out collapse appears, with Validation tracking the Both split closely, consistent with the underfitting reading of the marginal results above.
 
 \begin{table}[H]
 \centering

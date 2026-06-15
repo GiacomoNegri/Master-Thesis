@@ -5,7 +5,7 @@
 \subsection{Score Matching}
 \label{app:subsec:sm}
 
-Chapter \ref{ch:literature_review}  introduced the Fisher divergence as the natural objective for
+Ch.\ \ref{ch:literature_review}  introduced the Fisher divergence as the natural objective for
 learning the score function, noting that it is intractable because it requires
 $\nabla_x \log p(x)$. Hyv\"arinen \cite{hyvarinen2005estimation} showed that
 the Fisher divergence can be rewritten in a form computable without the true
@@ -91,8 +91,8 @@ For a Gaussian kernel $q_\sigma(\tilde{x}|x)=\mathcal{N}(\tilde{x};\,x,
 The network thus learns to predict the normalised noise direction from the
 corrupted sample, requiring only paired $(x_0, \tilde{x})$ samples and no
 Jacobian computation. This is the foundation for the DSM loss used in both
-DDPM (Eq.~\ref{eq:ddpm_noise_loss}) and the CSDI objective
-(Eq.~\ref{eq:csdi_objective}).
+DDPM (Eq.\ \ref{eq:ddpm_noise_loss}) and the CSDI objective
+(Eq.\ \ref{eq:csdi_objective}).
 
 \subsection{Probability Flow ODE via the Fokker--Planck Equation}
 \label{app:subsec:fp_ode}
@@ -101,13 +101,13 @@ The Fokker--Planck (FP) equation is the mass-conservation law governing how the
 density $p_t(x)$ evolves under an It\^{o} SDE. Here we derive the probability
 flow ODE from it.\\
 
-\textbf{Intuition} Treat $p_t(x)$ as a cloud of probability mass. Two forces
+\textbf{Intuition} \quad Treat $p_t(x)$ as a cloud of probability mass. Two forces
 reshape it: \textit{drift} $f$ acts like a fluid velocity, transporting mass
 along deterministic trajectories and \textit{diffusion} $g\,dW_t$ which injects
 randomness, spreading and smoothing the cloud like heat diffusing from a peak.
 The FP equation encodes both effects as a single continuity equation.\\
 
-\textbf{The FP equation} For the forward SDE (Eq.~\ref{eq:generalsde}) with
+\textbf{The FP equation} \quad For the forward SDE (Eq.\ \ref{eq:generalsde}) with
 scalar $g(t)$, the marginal density satisfies:
 \begin{equation}
     \label{eq:fokker_planck}
@@ -119,7 +119,7 @@ where $\Delta_x = \sum_i \partial^2/\partial x_i^2$ is the Laplacian. The first
 term is advection (transport) by the drift; the second is isotropic diffusion that flattens
 peaks and fills troughs.
 
-\textbf{Deriving the probability flow ODE} We seek a deterministic ODE
+\textbf{Deriving the probability flow ODE} \quad We seek a deterministic ODE
 $dx_t = v(x_t,t)\,dt$ whose marginals match those of the SDE. Such an ODE
 satisfies the continuity equation $\partial_t p_t = -\nabla_x\cdot(v\,p_t)$.
 Setting this equal to the FP equation requires:
@@ -134,7 +134,7 @@ the right-hand side becomes $-\nabla_x\cdot\!\left(f\,p_t -
     \label{eq:pf_ode_derived}
     v(x_t,t) = f(x_t,t) - \frac{g(t)^2}{2}\,\nabla_x\log p_t(x_t),
 \end{equation}
-which is the probability flow ODE stated in Section~\ref{sec:scorediffmodels}.
+which is the probability flow ODE stated in Sec.\ \ref{sec:scorediffmodels}.
 Replacing the intractable score with $s_\theta(x_t,t)$ yields a Neural ODE
 with approximately identical marginals, enabling deterministic sampling and
 exact likelihood computation via the instantaneous change-of-variables formula.
@@ -146,7 +146,7 @@ exact likelihood computation via the instantaneous change-of-variables formula.
 % the second-order Heun method, applied in $\sigma$-space (decreasing from
 % $\sigma_{\max}$ to $\sigma_{\min}$). Let $F(x_i,\sigma_i)$ denote the ODE
 % slope at $(x_i, \sigma_i)$, computed from $D_\theta$ via the probability flow
-% ODE (Chapter~3). A single step from $\sigma_i$ to $\sigma_{i+1}$ (step size
+% ODE (Ch.~3). A single step from $\sigma_i$ to $\sigma_{i+1}$ (step size
 % $h = \sigma_{i+1} - \sigma_i < 0$) proceeds as:
 % \begin{enumerate}
 %     \item \textit{Euler predictor}:
@@ -168,7 +168,7 @@ exact likelihood computation via the instantaneous change-of-variables formula.
 % \subsection{The Variance-Preserving SDE}
 % \label{app:subsec:vp_sde}
 
-% The VP SDE from Section~\ref{sec:scorediffmodels}
+% The VP SDE from Sec.\ \ref{sec:scorediffmodels}
 % uses a linear mean-reverting drift and a state-independent diffusion:
 % \[
 %     dx_t = -\frac{1}{2}\beta(t)\,x_t\,dt + \sqrt{\beta(t)}\,dW_t,
@@ -197,7 +197,7 @@ exact likelihood computation via the instantaneous change-of-variables formula.
 % $x_t|x_0 \sim \mathcal{N}(\sqrt{\bar\alpha_t}\,x_0,(1-\bar\alpha_t)\,I)$,
 % confirming that DDPM is a discretisation of the VP SDE. As $t\to T$ with
 % $B(T)$ large, $\bar\alpha_T\to 0$ and $x_T\approx\mathcal{N}(0,I)$, the
-% tractable prior. Unlike the VE process (Eq.~\ref{eq:ve}), whose marginal
+% tractable prior. Unlike the VE process (Eq.\ \ref{eq:ve}), whose marginal
 % variance grows without bound, VP keeps $\operatorname{Var}(x_t)\approx 1$
 % when $\operatorname{Var}(x_0)=1$, providing more numerically stable training
 % at the cost of lower expressivity.
@@ -205,7 +205,7 @@ exact likelihood computation via the instantaneous change-of-variables formula.
 \subsection{Wiener Filter and the Skip Connection Coefficient}
 \label{app:subsec:wiener}
 
-The EDM preconditioning (Eq.~\ref{eq:edm_denoiser}) includes a skip connection
+The EDM preconditioning (Eq.\ \ref{eq:edm_denoiser}) includes a skip connection
 $c_{\text{skip}}(\sigma)\cdot x_t$ that bypasses the neural network. Here $c_{\text{skip}}$ is derived as the optimal linear estimator of $x_0$ given $x_t$,
 known as the \textit{Wiener filter coefficient}.\\
 
@@ -253,7 +253,7 @@ distribution beyond its second-order statistics.
 \section{Bounds on the CRPS}
 \label{app:sec:crps_bounds}
 
-Section~\ref{sec:fts_literature} introduced the CRPS as a calibration-adjusted
+Sec.\ \ref{sec:fts_literature} introduced the CRPS as a calibration-adjusted
 MAE. Here it is shown that, for $X,X'$ i.i.d.\ draws from $\hat{F}$ and
 observation $y$,
 \[
