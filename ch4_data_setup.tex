@@ -4,7 +4,7 @@ This section specifies the dataset characteristics and training choices. A summa
 \section{Data}
 \label{sec:ch4_data}
 The dataset follows the source and structure reported by Kim et al.\ \cite{kim2025diffusion}.
-Specifically, the list of current S\&P 500 members was taken as the starting universe (as of 10th of April 2026), and
+Specifically, the list of current S\&P 500 members was taken as the starting universe\footnot{The starting universe as of the \(10^{th}\) of April \(2026\)} and
 tickers with non-standard symbols (e.g., BRK.B, BF.B) were excluded. For each remaining
 ticker, the maximum available daily price history was downloaded. The dataset was then
 filtered to retain only those stocks whose available history extends at least 40 years back.
@@ -14,44 +14,42 @@ According to the authors:
     regimes, including various boom and bust cycles, thus providing a rich context for
     training the generative model.}
 \end{quote}
-For each selected stock, daily log-returns were computed as in Eq.~\ref{eq:log_returns},
+For each selected stock, daily log-returns were computed as in Eq.\ \ref{eq:log_returns},
 using the adjusted closing price on day \(t\).
 
 This selection is subject to some limitations. First, survivorship bias: only companies that remained listed for a
 period substantially longer than the average tenure in the S\&P 500 index, which is 15 years \cite{slok_apollo_longevity}, are included. The resulting universe therefore may understate the frequency of adverse market events associated with delistings
-and corporate failures. The second aspect regards the pre-decimalization process, which was mandated by the Securities and Exchange Commission in January 2000 and completed by the 9th of April 2001 \cite{furfine2003decimalization}. Before this period, US stock prices were quoted in fractions, specifically 1/16th of a dollar, meaning that the minimum price movement needed to record an effective change in price was 0.0625 dollars. After decimalization, this changed to 1 cent. This manifests as 7.1928\% of all returns displaying an exact 0\% daily return (in depth analysis in sub-Sec.\ \ref{app:subsec:decimalization}).
+and corporate failures. The second aspect regards the pre-decimalization process, which was mandated by the Securities and Exchange Commission in January 2000 and completed by the 9th of April 2001 \cite{furfine2003decimalization}. Before this period, US stock prices were quoted in fractions, specifically 1/16th of a dollar, meaning that the minimum price movement needed to record an effective price change was 0.0625 dollars. After decimalization, this changed to 1 cent. This manifests as 7.1928\% of all returns displaying an exact 0\% daily return. A more in depth analysis is presented in Sec.\ \ref{app:subsec:decimalization}.
 
 \section{Preprocessing}
 
-\textbf{Phase~1} \quad Only univariate log-returns are used, as defined in Eq.~\ref{eq:log_returns}, and no preprocessing is applied to them since no mention of it is made by Kim et al. \cite{kim2025diffusion}, and the average log-return \(\mu=0.0005\) does not conflict with prior sampling assumptions.
+\textbf{Phase~1} \quad Only univariate log-returns are used, as defined in Eq.\ \ref{eq:log_returns}, and no preprocessing is applied to them since no mention of it is made by Kim et al. \cite{kim2025diffusion}, and the average log-return \(\mu=0.0005\) and standard deviations \(\sigma=0.020867\) do not conflict with prior sampling assumptions.
 
-\textbf{Phase~2} \quad All four OHLC channels are required, the Open, High,
-and Low prices are each expressed as log-returns relative to the previous closing price:
+\textbf{Phase~2} \quad All four OHLC channels are expressed as log-returns relative to the previous closing price:
 \begin{equation}
 \label{eq:preprocessed_data}
     \hat{O}_t = \log\!\left(\frac{O_t}{C_{t-1}}\right), \qquad
     \hat{H}_t = \log\!\left(\frac{H_t}{C_{t-1}}\right), \qquad
     \hat{L}_t = \log\!\left(\frac{L_t}{C_{t-1}}\right)
 \end{equation}
-This formulation is consistent with the Close log-return defined in Eq.~\ref{eq:log_returns},
+This formulation is consistent with the Close log-return defined in Eq.\ \ref{eq:log_returns},
 expressing all channels relative to the same reference price \(C_{t-1}\).
 
 \textbf{Phase~2} \quad A per-channel z-score normalisation is then applied independently to each of the four
 distributions while standardising it to zero mean and unit variance, so that
 \(\sigma_{\text{data}} = 1\) holds by construction and network inputs remain numerically
 stable across channels. However, because each channel is scaled by its own standard
-deviation, the ordering constraint \(L_t \leq \min(O_t, C_t) \leq \max(O_t, C_t) \leq H_t\),
-which holds in price space, is not preserved after normalisation. This is a structural
+deviation, the ordering constraint \(L_t \leq \min(O_t, C_t) \leq \max(O_t, C_t) \leq H_t\) is not preserved after normalisation. This is a structural
 limitation acknowledged throughout the evaluation.
 
 Four tickers were excluded from the dataset prior to training: BEN, HUBB, NVR, 
 and WMB. Each exhibits absolute log-returns exceeding $100\%$, with values 
 ranging from $-157\%$ to $+330\%$. Returns below $-100\%$ are theoretically 
 inadmissible, because they violate price non-negativity. Such observations are therefore artifacts of the split- and dividend-adjustment procedure described in 
-Sec.~\ref{sec:fts_literature}, rather than genuine market events. Exclusion was 
+Sec.\ \ref{sec:fts_literature}, rather than genuine market events. Exclusion was 
 preferred over imputation or smoothing, both of which would introduce their own 
 distortions. This choice is consistent with the likely preprocessing of Kim 
-et al.~\cite{kim2025diffusion}: after removing these four tickers, the empirical 
+et al.\ \cite{kim2025diffusion}: after removing these four tickers, the empirical 
 distribution aligns more closely with Figure~8 of that paper, 
 which is used here as a reference baseline.
 
@@ -63,19 +61,19 @@ configurations are used across the two experimental phases:
 \begin{itemize}
     \item \textbf{Phase 1, replication:} window length \(L = 2048\) and stride \(s = 400\),
     yielding 5,568 training windows over the full dataset.
-    \item \textbf{Phase 2, EDM-CSDI:} window length \(L = 512\) and stride \(s = 100\), yielding \(25,226\) maximum possible windows with no validation \(\texttt{val\_split\_ratio}=0\).
+    \item \textbf{Phase 2, EDM-CSDI:} window length \(L = 512\) and stride \(s = 100\), yielding \(25,226\) maximum possible windows if no validation is considered \(\texttt{val\_split\_ratio}=0\).
 \end{itemize}
 
 A window of length \(L = 2048\) spans approximately ten years of daily returns and is
 therefore well-suited to capturing long-term trends. However, the temporal Transformer
 incurs an \(\mathcal{O}(L^2)\) cost in sequence length, making it computationally
 expensive. The shorter \(L = 512\) setting was adopted for Phase 2 due to hardware
-constraints imposed by MIG partitioning of the A100 GPU by the university's High-Performance Computing policy. The full memory analysis is given in Sec.~\ref{app:sec:attention_memory}.
+constraints imposed by MIG partitioning of the A100 GPU by the university's High-Performance Computing (HPC) policy. The full memory analysis is provided in Sec.\ \ref{app:sec:attention_memory}.
 
 \textbf{Phase 1} \quad Given the window length, the number of non-overlapping windows per ticker is small, making a strict 
 train--validation split undesirable. Validation windows were therefore extracted 
 by random holdout, consistent with the supposed implementation of Kim 
-et al.~\cite{kim2025diffusion}, who are assumed to have either applied a similar random selection or foregone a validation set entirely. Due to the stride, partial overlap between training and validation windows exists.
+et al.\ \cite{kim2025diffusion}, who are assumed to have either applied a similar random selection or foregone a validation set entirely. Due to the stride, partial overlap between training and validation windows exists.
 
 For the GBM-inspired SDE variant, each window was additionally mean-centred prior 
 to training by subtracting the sample mean of the window. This transformation does not conflict with the generative setting, because no forecasting is performed. In addition, any daily log-returns can be easily recovered by \(r_{\tau+k}=C_{\tau+k}-C_{\tau+k-1}\), except for the first element.
@@ -94,16 +92,16 @@ to training by subtracting the sample mean of the window. This transformation do
 
 This section summarises the most relevant training configuration and design choices;
 explicit formulations for the optimiser and learning rate schedule are given in
-Sec.~\ref{app:sec:optim}, and full hyperparameter details in App.~\ref{app:training_config}.
+Sec.\ \ref{app:sec:optim}, and full hyperparameter details in App.\ \ref{app:training_config}.
 
-\textbf{Optimizer} \quad The optimiser used throughout is \texttt{AdamW}~\cite{loshchilov2019decoupled},
-following the choice of CSDI~\cite{tashiro2021csdi}. It applies weight decay directly
+\textbf{Optimizer} \quad The optimiser used throughout is \texttt{AdamW}\ \cite{loshchilov2019decoupled},
+following the choice of CSDI\ \cite{tashiro2021csdi}. It applies weight decay directly
 to the parameters rather than through the gradient, preventing the interaction between
 $\ell_2$ regularisation and the adaptive scaling of standard Adam. This decoupling results in more consistent regularisation across parameters with different
 gradient magnitudes.
 
 \textbf{Learning Rate Scheduler} \quad The learning rate follows cosine
-annealing~\cite{loshchilov2017sgdr}, allowing larger updates early in training and progressively smaller updates near
+annealing\ \cite{loshchilov2017sgdr}, allowing larger updates early in training and progressively smaller updates near
 convergence. Reduce-on-Plateau was also evaluated but yielded consistently worse
 training dynamics and was not adopted. For Phase~1, $\eta_{\max} = 5 \times 10^{-4}$
 and $\eta_{\min} = 1 \times 10^{-6}$; for Phase~2, $\eta_{\max}$ is lowered to
@@ -112,7 +110,7 @@ loss weighting.
 
 \textbf{Model Architecture} \quad  Both phases share the same backbone: 128 \texttt{channels},
 6 \texttt{layers}, a 256-dimensional diffusion-step and time embedding, and a
-64-dimensional feature embedding, following Kim et al.~\cite{kim2025diffusion}.
+64-dimensional feature embedding, following Kim et al.\ \cite{kim2025diffusion}.
 This configuration was selected empirically: a 64-channel variant was less expressive,
 while a 256-channel variant offered no measurable improvement in generation quality at
 substantially higher compute cost.
@@ -152,7 +150,7 @@ $P_{\text{std}} = 1.8$ were selected via grid search over
 $P_{\text{mean}} \in \{-0.8,\,-1.0,\,-1.2,\,-1.4,\,-1.6\}$ and
 $P_{\text{std}} \in \{1.0,\,1.2,\,1.4,\,1.6,\,1.8,\,2.0\}$ based first on validation loss and later on generative samples. This was influenced by Phase~1, where small \(t-\)regimes were identified as the hardest to predict. Lower \(P_{\text{mean}}\) concentrates more training samples on low-\(\sigma\) regions and higher \(P_{\text{std}}\) helps cover the tails. Above \(P_{\text{std}}=1.8\), no significant generation gains were observed.
 
-\textbf{Training parameters} \quad The batch size is 64 across both phases. Phase~1 trains for \(1000\) epochs, as in Kim et al.~\cite{kim2025diffusion}, while Phase~2 uses half that budget, which reflects the hardware constraints and the larger number of available training windows, which increases the number of gradient steps per epoch.
+\textbf{Training parameters} \quad The batch size is 64 across both phases. Phase~1 trains for \(1000\) epochs, as in Kim et al.\ \cite{kim2025diffusion}, while Phase~2 uses half that budget, which reflects the hardware constraints and the larger number of available training windows, which increases the number of gradient steps per epoch.
 
 \textbf{Sampling parameters} \quad For Phase~2, $\sigma_{\max}$ and $\sigma_{\min}$ were
 selected to cover the support of $\ln\sigma \sim \mathcal{N}(P_{\text{mean}}, P_{\text{std}}^2)$,

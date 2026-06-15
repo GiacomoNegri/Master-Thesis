@@ -279,9 +279,9 @@ mask is \(m^{\text{co}}=0\) everywhere, and the target mask is
 \(m^{\text{ta}}=1\) everywhere, so the loss reduces to the
 standard denoising objective evaluated on all entries without any side information.
 
-\textbf{Remark on the \texttt{unconditional} label} \quad It is worth stressing that the \texttt{unconditional} mask eliminates value-level conditioning, since the OHL channels are zeroed in the model input, but it does not eliminate temporal conditioning. The time embedding (\texttt{observed\_tp}), encoding the absolute calendar position of each time step as described in Sec.\ \ref{sec:model_architecture}, is passed to the model regardless of mask mode and contributes a form of conditioning on calendar time. In this sense, both training modes model a temporally conditioned distribution \(p_\theta(x \mid \tau)\), where \(\tau\) denotes \texttt{observed\_tp}; the \texttt{unconditional} mask differs from \texttt{predict\_close} only in not providing observed OHLC values.
+\textbf{Remark on the \texttt{unconditional} label} \quad It is worth stressing that the \texttt{unconditional} mask eliminates value-level conditioning, since the OHL channels are zeroed in the model input, but it does not eliminate temporal conditioning. The time embedding (\texttt{observed\_tp}), encoding the absolute calendar position of each time step as described in Sec.\ \ref{sec:model_architecture}, is passed to the model regardless of mask mode and contributes a form of conditioning on calendar time. In this sense, both training phases mdoel a temporally conditioned distribution \(p_\theta(x \mid \tau)\), where \(\tau\) denotes \texttt{observed\_tp}; the \texttt{unconditional} mask differs from \texttt{predict\_close} only in not providing observed OHLC values.
 
-\textbf{Phase 2} \quad When \(K>1\) we use the \texttt{predict\_close} strategy which is a fixed deterministic mask:
+\textbf{Phase 2} \quad When \(K>1\) we use the \texttt{predict\_close} strategy that defines a deterministic mask:
 \[
     m^{\text{co}}_{k,l} = 1 \quad \text{for } k \in \{O,H,L\}, 
     \qquad
@@ -297,9 +297,7 @@ and correspondingly:
 \]
 This differs from the random masking used in the original CSDI 
 \cite{tashiro2021csdi}, where conditioning and target sets are drawn 
-stochastically at each training step. The \texttt{predict\_close} mask 
-is closest to CSDI's \emph{test-pattern} strategy, applied at the 
-channel level rather than the time-point level, and is consistent with 
+stochastically at each training step. The \texttt{predict\_close} mask is consistent with 
 the OHLC information structure discussed in 
 Sec.\ \ref{sec:ohlc_theoretical}: the conditioning set \(\{O,H,L\}\) 
 is always observed before \(C\) within a trading session.
@@ -315,9 +313,8 @@ input to the backbone concatenates a signal channel and a mask channel:
 \]
 The scaling \(c_{\text{in}}(\sigma)\) is applied only to the noisy 
 target entries and not to the clean conditioning observations, since the 
-latter carry no noise and no variance drift; rescaling them would destroy 
-the conditioning signal. The conditional EDM loss (Eq.\ \ref{eq:edm_loss}) 
-becomes:
+latter carry no noise and no variance drift, rescaling them would destroy 
+the conditioning signal. The conditional EDM loss therefore (Eq.\ \ref{eq:edm_loss}) becomes:
 \[
     \mathcal{L}_{\text{cond}}(\theta) = \mathbb{E}_{\sigma,x_0,\epsilon}
     \left[\lambda(\sigma)\,
@@ -334,18 +331,6 @@ The additional arguments \(\tau\) (observed time positions
 are passed to \(D_\theta\) to construct the side information embeddings, 
 consistent with the CSDI implementation.
 
-% The conditioning constraint is enforced at every step of the reverse 
-% process. After each Heun update producing a candidate \(\tilde{x}_{i+1}\) 
-% for the full \(K\times L\) tensor, the conditioning channels are 
-% overwritten with the observed values:
-% \[
-%     x_{i+1} \xleftarrow[]{} (1-m^{\text{co}}) \odot \text{[update]} 
-%     + m^{\text{co}} \odot x_0^{\text{co}},
-% \]
-% ensuring that the \(O\), \(H\), and \(L\) channels never drift from 
-% their observed values during sampling, regardless of what \(D_\theta\) 
-% outputs for those positions.
-
 \section{Sampling}
 
 \textbf{Phase 1} \quad As discussed in Sec.\ \ref{sec:scorediffmodels}, the Euler--Maruyama
@@ -353,26 +338,15 @@ method performs a first-order discretisation of the reverse SDE, at each
 step removing noise while injecting a small stochastic perturbation. 
 Because it is first-order, the local truncation error is 
 \(\mathcal{O}(h^2)\), and acceptable sample quality typically requires 
-hundreds to thousands of steps, implying a high number of neural function 
-evaluations (NFEs). Consistently with Song et al.\ \cite{song2021score} 
-and CSDI \cite{tashiro2021csdi}, this method is used in the replication 
-phase together with the probability flow ODE Eq.\ref{eq:probability_flow}, where the learned score \(s_\theta(x_t,t)\) is substituted for the 
+hundreds to thousands of steps, implying a high number of NFEs. Consistently with Song et al.\ \cite{song2021score} the probability flow ODE (Eq.\ \ref{eq:probability_flow}) is used in Phase~1, where the learned score \(s_\theta(x_t,t)\) is substituted for the 
 intractable \(\nabla_x \log p_t(x_t)\).
 
 \textbf{Phase 2} \quad In the EDM phase, the Heun second-order
-predictor--corrector sampler (Eq.\ \ref{eq:edm_sampler}) was used, which
+predictor--corrector sampler (Eq.\ \ref{eq:edm_sampler}) is used, which
 integrates the probability flow ODE rather than the reverse SDE. The 
-corrector step requires twice the number of network evaluations per 
+corrector step requires double the number of NFEs per 
 denoising step, but reduces the local truncation error to 
-\(\mathcal{O}(h^3)\). Karras et al.\ \cite{karras2022elucidating} report 
-that this achieves comparable sample quality to Euler--Maruyama at approximately seven times fewer NFEs.
-% As discussed in 
-% Sec.\ \ref{sec:edm_literature}, the \(\rho\)-power noise schedule 
-% concentrates denoising steps at low \(\sigma\), where ODE curvature is 
-% highest and discretisation errors have the greatest impact on sample 
-% quality.
-
-% The choice of \(\sigma_{\text{max}}\) and \(S_{\text{churn}}\) jointly determines the character of sampling. \(\sigma_{\text{max}}\) sets the noise level at which the reverse process begins, so the prior from which samples are drawn is \(x_N \sim \mathcal{N}(0,\sigma_{\text{max}}^2 I)\); for this prior to be approximately data-free, \(\sigma_{\text{max}}\) must be large enough that the signal-to-noise ratio is negligible. For standardised OHLC log-returns with \(\sigma_{\text{data}} = 1\), values of \(\sigma_{\text{max}} \gg 1\) are required, and setting it too small results in a prior that retains residual data structure, biasing every generated sample. As discussed in Sec.\ \ref{sec:edm_literature}, \(S_{\text{churn}}\) governs the amount of stochasticity reinjected per step via the noise inflation \(\hat{\sigma}_i = \sigma_i\sqrt{1+\gamma_i^2}\): a value of \(S_{\text{churn}} = 0\) recovers the deterministic Heun ODE, while positive values allow the sampler to escape discretisation errors by temporarily re-entering a higher-noise regime, at the cost of additional noise injections along each trajectory.
+\(\mathcal{O}(h^3)\).
 
 A key advantage of the EDM framework is the decoupling of the sampler
 from the training objective: a model trained with the EDM loss can be
@@ -380,30 +354,3 @@ evaluated with any compatible ODE or SDE solver without retraining. This
 is in contrast to DDPM \cite{ho2020ddpm}, where the sampler and the
 noise schedule are tightly coupled to the training procedure.
 
-% \section{Summary}
-
-% This chapter has established the theoretical and architectural foundation 
-% of the implemented model. Starting from the financial structure of OHLC 
-% data, we motivated the conditioning partition \(\mathcal{C} = \{O,H,L\}\ 
-% \to \mathcal{T} = \{C\}\) and acknowledged the structural limitations 
-% that the Gaussian diffusion kernel imposes on OHLC consistency. The 
-% GBM-inspired VE instantiation was derived from the Black--Scholes 
-% framework and its ambiguities with respect to the training data 
-% clarified. The EDM preconditioning scheme was interpreted in the context 
-% of OHLC log-returns, with particular attention to the consequences of 
-% setting \(\sigma_{\text{data}} = 1.0\) on the skip-connection crossover 
-% and loss weighting. The CSDI-based architecture was motivated by the 
-% global dependency structure of financial time series, and each design 
-% choice --- factored attention, gated residual blocks, and the three-level 
-% embedding scheme --- was connected to specific properties of the data. 
-% Finally, the two masking strategies and the conditional EDM loss were 
-% formalised, and the Heun sampler was justified as a more efficient 
-% alternative to Euler--Maruyama through its improved truncation error and 
-% decoupling from the training objective. The two-phase structure --- 
-% replication under Song et al.\ conventions and conditional generation 
-% under EDM --- runs consistently through each of these components and 
-% provides the basis for the experimental evaluation in Chapter~5.
-
-
-
-% %

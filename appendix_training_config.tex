@@ -161,4 +161,4 @@ materialises the full \(L \times L\) attention matrix, costing approximately 17 
 attention alone at \(L = 2048\), which exceeds the 40 GB budget once model parameters
 and activations are included. Reducing to \(L = 512\) brings the attention cost within
 budget while still covering approximately two years of daily returns; the stride of 100
-maintains sufficient window overlap and training set diversity.
+maintains the same ratio of overlap as \(2048/400\).
