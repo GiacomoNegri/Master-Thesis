@@ -228,7 +228,7 @@ Section \ref{sec:classical_models_literature}.
 
 Section \ref{sec:classical_models_literature} identifies the core limitation shared by both models, which is further expanded here.
 
-\subsection{Further Limitations of GARCH}
+\subsection{GARCH-X}
 \label{app:sec:garch_limitations}
 
 \textbf{Symmetric shock response and the leverage effect} The GARCH(1,1) variance equation $\sigma_t^2 = \omega + \alpha\epsilon_{t-1}^2 + \beta\sigma_{t-1}^2$ depends on $\epsilon_{t-1}^2$, which is symmetric in the sign of the innovation: a negative shock $\epsilon_{t-1} = -c$ and a positive shock $\epsilon_{t-1} = +c$ of the same magnitude produce identical increases in $\sigma_t^2$, contradicting the leverage effect.
@@ -241,7 +241,7 @@ Section \ref{sec:classical_models_literature} identifies the core limitation sha
 
 \textbf{Re-estimation requirement} The model must be re-fitted from scratch whenever a new regime arises, with no native mechanism to detect regime transitions.
 
-\subsection{Further Limitations of Merton's Model}
+\subsection{Merton-X}
 \label{app:sec:merton_limitation}
 
 \textbf{Constant jump intensity} The Poisson intensity $\lambda$ in Eq.~(\ref{eq:merton_sde_app}) is fixed, whereas in reality jump activity is time-varying and clustered: large moves arrive in bursts during market stress and are rare during calm periods. A constant $\lambda$ cannot reproduce this self-reinforcing behaviour.
@@ -254,7 +254,7 @@ Section \ref{sec:classical_models_literature} identifies the core limitation sha
 
 \textbf{Calibration difficulty} The likelihood surface of Eq.~(\ref{eq:merton_return_dist}) has multiple local optima, and the jump parameters $(\lambda, \mu_j, \sigma_J^2)$ are poorly identified unless the sample is long and contains clearly distinguishable events. With limited data, a small number of outliers can dominate the estimation of $\lambda$ and $\sigma_J^2$, leading to unstable parameter estimates, which is why we had to constrain the generation process.
 
-\section{Classical Baseline Models: GARCH-X and Merton-X}
+\section{Likelihoods and Derivations}
 \label{app:baselines}
 
 \subsection{Log-GARCH-X Likelihood}

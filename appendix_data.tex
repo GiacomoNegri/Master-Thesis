@@ -1,8 +1,8 @@
 \chapter{Data}
 \label{app:ch:data_insights}
-In this chapter, additional information regarding the data used in this work is provided.
+In this chapter, additional information regarding the data used in this work are provided.
 
-\textbf{OHLC Distribution} \quad It is subsequently displayed in Fig.\ \ref{appendix_ohlc_reference_norm} the aggregate statistics for the z-score normalized OHLC data and their mean and standard deviation (Fig.\ \ref{appendix_ohlc_zscore_params}).
+\textbf{OHLC Distribution} \quad It is subsequently displayed in Tab.\ \ref{tab:appendix_ohlc_reference_norm} the aggregate statistics for the z-score normalized OHLC data and their mean and standard deviation (Tab.\ \ref{tab:appendix_ohlc_zscore_params}).
 
 \begin{table}[htbp]
 \centering
@@ -64,12 +64,12 @@ OHLC log-return channels prior to training.}
 
 \section{Decimalization}
 \label{app:subsec:decimalization}
-In this section it will be discussed more in depth the decimalization process briefly mentioned in  Sec.\ \ref{sec:ch4_data}, specifically what it is and how it is distributed in our model.
+In this section it will be discussed more in depth the decimalization process briefly mentioned in  Sec.\ \ref{sec:ch4_data}, specifically what it is and how it is distributed in our training dataset.
 
 \textbf{Introduction} \quad The decimalization process was mandated by the Securities and Exchange Commission in January 2000 and completed by the 9th of April 2001 \cite{furfine2003decimalization}. Before this period US stock prices were quoted in fractions, specifically 1/16th of a dollar, meaning that the minimum price movement needed to record an effective
 change in price was 0.0625 dollars. After decimalization this changed to 1 cent.
 
-\textbf{Characteristics} \quad About 7.1928\% of all our returns are exactly 0.0. The distribution of these zero-returns is not equal, specifically they are mostly concentrated around 1980s and 1990s as it is possible to see from the Fig.\ \ref{fig:zero_returns_distribution}.
+\textbf{Characteristics} \quad 7.1928\% of all our returns are exactly 0.0. The distribution of these zero-returns is not equal, specifically they are mostly concentrated around 1980s and 1990s as it is possible to see from the Fig.\ \ref{fig:zero_returns_distribution}.
 
 \begin{figure}[h]
     \centering
@@ -78,9 +78,18 @@ change in price was 0.0625 dollars. After decimalization this changed to 1 cent.
     \label{fig:zero_returns_distribution}
 \end{figure}
 
-The maximum recorded was in 1984 with \(10,600\), amounting to 21.374\% of the yearly observations. Interestingly, 0\% returns drop before 1980, this has to due with the fact that with a 40 years historical minimum all the first have data till April 1986, nevertheless as we proceed further back in time, the number of observations fall. Indeed, we move from having 210 tickers till 1986 to have only 91 in the 1970s and 26 in the 1960s.
+The peak incidence of zero-returns occurred in 1984, with \(10{,}600\) observations, corresponding to \(21.374\%\) of that year's total returns.Interestingly, the frequency of 0\% returns drops before 1980. This is due 
+to the 40-year historical minimum imposed on ticker selection (Sec.\ \ref{sec:ch4_data}): all tickers 
+have data from at least April 1986, but as one moves further back in time 
+the number of available observations falls considerably. Specifically, the 
+number of tickers decreases from 210 with data going back to 1986, to 91 
+in the 1970s, and to only 26 in the 1960s.
 
-\textbf{Decimalization Consequences} \quad Decimalization is the cause of the peculiar distribution that provide the peculiar \(q_{0.02}-q_{0.98}\) range shape discussed in the experimental chapter (Ch.\ \ref{ch:experiments_results}). This is even more evident when we look at the evolution of the log-returns distribution in Fig.\ \ref{fig:log_returns_history}.
+\textbf{Decimalization Consequences} \quad Decimalization is responsible for 
+the distinctive $q_{0.02}$--$q_{0.98}$ range shape discussed in the 
+experimental chapter (Ch.~\ref{ch:experiments_results}), as further 
+evidenced by the evolution of the log-return distribution shown in 
+Fig.~\ref{fig:log_returns_history}.
 
 
 \begin{figure}[h]

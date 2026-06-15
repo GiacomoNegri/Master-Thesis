@@ -33,7 +33,7 @@ This section derives the trainable-parameter count of the CSDI-based diffusion
 backbone for the two experimental configurations, which differ only in the
 number of target features~$K$.
 
-\subsection{Notation and model values}
+\subsection{Notation and Hyperparameters}
 Here is some notation: \(K\) is \texttt{target\_dim}, 
 \(E_f\) is \texttt{featureemb},
 \(E_t\) is \texttt{timeemb}, \(C\) is \texttt{channels}, \(D\) is \texttt{diffusion\_embedding\_dim}, \(R\) is \texttt{num\_layers}.
@@ -55,7 +55,7 @@ I = 2,\quad
 R = 6.
 \]
 
-\subsection{Parameters shared across both configurations}
+\subsection{Shared Parameters}
 
 \textbf{Non-backbone — time-embedding projection}
 $\mathrm{Linear}(E_t, E_t)$:\(
@@ -92,7 +92,7 @@ N_{\mathrm{trans}}
 \]
 Every residual block contains at least one such layer (the time Transformer).
 
-\subsection{K-dependent parameters}
+\subsection{K-dependent Parameters}
 
 Two components depend on $K$.
 
@@ -118,7 +118,7 @@ Parameters per residual block $N_{\mathrm{res}}$ & $346{,}880$ & $545{,}152$ \\
 \end{tabular}
 \end{table}
 
-\subsection{Total parameter count}
+\subsection{Total Parameter Count}
 
 \[
 N_{\mathrm{total}}
