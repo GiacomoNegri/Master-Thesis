@@ -108,8 +108,8 @@ observation-count $= 1,048,576$. In this case, reference statistics are computed
 windows rather than on the raw dataset, so that the reference and generated 
 samples are drawn from the same population. Since \texttt{stride} $< L$, 
 consecutive windows overlap and the total number of observations exceeds that 
-of the original dataset. The reference set comprises $n = 10{,}833{,}920$ 
-observations across $5{,}290$ windows of length $L = 2048$.
+of the original dataset. The reference set comprises $n = 11{,}403{,}264$
+observations across $5{,}568$ windows of length $L = 2048$.
 
 Images of all the marginal distribution metrics and analysis are displayed in Fig.\ \ref{fig:app_phase1_marginal_ve} for VE SDE, Fig.\ \ref{fig:app_phase1_marginal_gbm} for GBM-style SDE, and Fig.\ \ref{fig:app_phase1_marginal_vp} for VP SDE.
 % =========================================================
@@ -154,7 +154,7 @@ Skewness    & $-$0.5387 & $-$0.5979 & $-$0.0860 & $-$0.1712 & $-$0.0130 & $-$0.0
 Ex.\ Kurt.  & 36.1 & 21.5 & 14.3 &  7.1 &  0.1 &  0.1 &  0.0 & 15.8 &  5.6 & 529.8 \\
 \bottomrule
 \end{tabular}
-\caption{Full window-level distributional statistics for the training reference and all nine Phase~1 configurations ($L=2048$). Reference comprises 5290 windows; each configuration is evaluated on 512 generated windows. Columns are grouped by SDE family (VE, GBM, VP) and noise schedule (Cos., Exp., Lin.).}
+\caption{Full window-level distributional statistics for the training reference and all nine Phase~1 configurations ($L=2048$). Reference comprises 5568 windows; each configuration is evaluated on 512 generated windows. Columns are grouped by SDE family (VE, GBM, VP) and noise schedule (Cos., Exp., Lin.).}
 \label{tab:phase1_raw_with_reference}
 \end{table}
 

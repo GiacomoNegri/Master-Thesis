@@ -328,8 +328,7 @@ The recursion is initialised at $\log\operatorname{Var}(r)$.
 \textbf{Merton-X} \quad
 The diffusion variance is time-varying with log-linear dependence on
 two intra-day regressors: $\log\nu_t^2 = a_0 + \mathbf{q}_t^\top\mathbf{a}$,
-where $\mathbf{q}_t = [\texttt{open}_t^2,\;(\texttt{high}_t -
-\texttt{low}_t)^2]^\top$.
+where $\mathbf{q}_t = [\texttt{open}_t^2,\;(\log H_t/L_t)^2]^\top$.
 Unlike GARCH-X, both regressors are winsorised at their 99th-percentile
 training value before entering the likelihood, limiting the influence of
 extreme intra-day moves on the fitted variance surface.
