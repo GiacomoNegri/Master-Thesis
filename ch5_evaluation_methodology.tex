@@ -62,7 +62,7 @@ in \cite{stakahashy_fingan}, which was also adopted by Kim et al.\
 consistency, the power-law coefficient is computed using the same Python package:
 \texttt{powerlaw} by Alstott et al.\ \cite{alstott2014powerlaw}. The definitions of the tail distribution, \(\alpha\),
 volatility clustering, and the leverage effect are provided in
-Sec.\ \ref{sec:fts_literature}.
+Sec.\ \ref{sec:fts_literature}. Following Kim et al.\ \cite{kim2025diffusion}, the heavy-tail diagnostic and the exponent \(\alpha\) are computed on the positive (right) tail only.
 
 Following FinGAN\ \cite{stakahashy_fingan} and Kim et al.\ \cite{kim2025diffusion}, in Phase~1 the maximum lag for the leverage effect is set to 100 and for volatility clustering to 1000. In Phase~2, the maximum lag for volatility clustering is reduced to 256 for estimation stability. The ACF at lag \(k\) is estimated over \(L - k\) observation pairs; for a window of length \(L = 512\), lags approaching \(L\) leave too few pairs to produce reliable estimates, rendering a maximum lag of 512 impractical. Setting the upper bound to \(L/2 = 256\) ensures that at least half the window's values contributes to each estimate.
 

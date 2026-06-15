@@ -32,7 +32,7 @@ and the number of samples per window ($239 \times 512 \times 5$).}
 For all other cases, the full Reference dataset of $11{,}825{,}664$ 
 observations is used.\footnote{The product of the total number of windows 
 (training and validation combined) and the sequence length 
-($23{,}097 \times 512$).} Excess kurtosis (Kur.) is reported relative to the Gaussian baseline.
+($23{,}097 \times 512$).} Excess kurtosis (Kur.) is reported relative to the Gaussian baseline. Throughout this chapter, the heavy-tail stylized fact is assessed on the positive (right) tail only, following Kim et al.\ \cite{kim2025diffusion} (Sec.\ \ref{ch:evaluation_methodology}).
 
 \section{Baseline Models: GARCH-X and Merton-X}
 GARCH-X and Merton-X models, defined in Sec.\ \ref{sec:classical_baselines_theoretical}, were trained on the log-transformed data described in Sec.\ \ref{sec:ch4_data}, following Eq.\ \ref{eq:preprocessed_data}. A GARCH-X and a Merton-X model were fit specifically for each ticker. Details about the design choices and constraints applied are available in Sec.\ \ref{app:baselines_constraints}.
