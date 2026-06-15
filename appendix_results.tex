@@ -3,18 +3,21 @@
 % No rotating package needed — portrait orientation.
 % Metadata rows removed (all identical across configurations) and moved to caption.
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+This appendix gathers the full quantitative evidence behind Ch.\ \ref{ch:experiments_results}, reporting the complete distributional statistics, heavy-tail estimates, and stylized-facts figures only summarized there. It follows the same progression: GARCH-X and Merton-X baselines (Sec.\ \ref{sec:app_baselines}), the nine Phase1 configurations (Sec.\ \ref{sec:app_phase1_results}), and the Phase2 champion and EDM-CSDI models—so each main-text claim can be traced to its underlying numbers.
+
 \section{Baseline Models}
 \label{sec:app_baselines}
 Full distributional statistics for the GARCH-X and Merton-X baseline models alongside
 the training reference are reported in Tab.\ \ref{tab:baseline_full}. GARCH-X was
-evaluated on $n = 50{,}000{,}000$ generated samples; Merton-X likewise. From this pool a
+evaluated on $n = 50{,}000{,}000$ generated samples and Merton-X likewise. From this pool a
 10M-observation subsample was used for the aggregate statistics reported in the main
 chapter (Tab.\ \ref{tab:baseline_aggregate}). The reference
 comprises $n = 2{,}623{,}489$ observations from the training dataset (see
 Sec.\ \ref{sec:ch4_data}).
 
 \textbf{Aggregate Statistics} \quad
-Due to the generation constraints that have been applied to GARCH-X and Merton-X, it was possible to bound the number of unlikely returns, i.e.\ returns whose absolute value exceeds one, \(|r_t|>1\), to approximately 0\% for GARCH-X and to 0.02\% for Merton-X (up to 4 decimal places); those few extreme generated values contribute to most of the kurtosis and skewness shifts.
+Due to the generation constraints that have been applied to GARCH-X and Merton-X (Sec.\ \ref{app:sec:garch_limitations} and Sec.\ \ref{app:sec:merton_limitation}), it was possible to bound the number of unlikely returns, meaning returns whose absolute value exceeds one, \(|r_t|>1\), to approximately 0\% for GARCH-X and to 0.02\% for Merton-X. Those few extreme generated values contribute to most of the kurtosis and skewness shifts.
 \begin{table}[htbp]
 \centering
 \footnotesize
@@ -101,7 +104,12 @@ Merton-X & 3.344 & 0.0337 & 0.0284 & 23508\\
 \subsection{Aggregate Statistics}
 In this section the aggregate statistics for Sec.\ \ref{sec:phase1_results} are displayed in full in Tab.\ \ref{tab:phase1_raw_with_reference}. The configurations shared by all runs are: ODE sampler, $n$-windows $= 512$,
 sequence length $= 2048$, stride $= 400$, diffusion steps $= 2000$,
-W-count $= 1,048,576$. In this case reference statistics are computed on the windows generated for training from the training dataset, meaning that, since \(\texttt{stride}\) is smaller than \(L\), the total number of values is higher than the dataset one, due to repetition. The number of reference data is \(n=10,833,920\) or \(5290\) windows of \(L=2048\).
+observation-count $= 1,048,576$. In this case, reference statistics are computed on the full set of training 
+windows rather than on the raw dataset, so that the reference and generated 
+samples are drawn from the same population. Since \texttt{stride} $< L$, 
+consecutive windows overlap and the total number of observations exceeds that 
+of the original dataset. The reference set comprises $n = 10{,}833{,}920$ 
+observations across $5{,}290$ windows of length $L = 2048$.
 
 Images of all the marginal distribution metrics and analysis are displayed in Fig.\ \ref{fig:app_phase1_marginal_ve} for VE SDE, Fig.\ \ref{fig:app_phase1_marginal_gbm} for GBM-style SDE, and Fig.\ \ref{fig:app_phase1_marginal_vp} for VP SDE.
 % =========================================================
@@ -298,7 +306,7 @@ Ex.\ Kurt.  & 36.1 & 21.5 & 14.3 &  7.1 &  0.1 &  0.1 &  0.0 & 15.8 &  5.6 & 529
 % Required packages: graphicx, subcaption, rotating
 % ================================================================
 \subsection{Stylized Facts}
-In this sub-section we display the stylized-facts grids for the combinations of the VE, VP, and GBM SDEs with the different noise schedules. Specifically, heavy-tail distribution plots are visible in Fig.\ \ref{fig:app_phase1_tail_grid}, volatility clustering graphs in Fig.\ \ref{fig:app_phase1_vol_grid}, and the leverage effect in Fig.\ \ref{fig:app_phase1_lev_grid}.
+In this sub-section we display the stylized-facts grids for the combinations of the VE, VP, and GBM SDEs with the different noise schedules. Specifically, positive heavy-tail distribution plots are visible in Fig.\ \ref{fig:app_phase1_tail_grid}, volatility clustering graphs in Fig.\ \ref{fig:app_phase1_vol_grid}, and the leverage effect in Fig.\ \ref{fig:app_phase1_lev_grid}.
 % ----------------------------------------------------------------
 % GRID 1: HEAVY-TAIL DISTRIBUTION
 % ----------------------------------------------------------------
@@ -385,7 +393,7 @@ In this sub-section we display the stylized-facts grids for the combinations of 
 configurations. \textit{Rows} (top to bottom): VP, VE, and GBM SDE families.
 \textit{Columns} (left to right): linear, cosine, and exponential noise schedules.
 The estimated power-law tail exponent~$\hat{\alpha}$ is reported in
-Tab.~\ref{tab:phase1_aggregate}; the empirical reference is $\hat{\alpha}=4.378$.}
+Tab.\ \ref{tab:phase1_aggregate}; the empirical reference is $\hat{\alpha}=4.378$.}
 \label{fig:app_phase1_tail_grid}
 \end{figure}
 
@@ -915,7 +923,7 @@ $W_1\downarrow$
 % configurations. \textit{Rows} (top to bottom): VP, VE, and GBM SDE families.
 % \textit{Columns} (left to right): linear, cosine, and exponential noise schedules.
 % The estimated power-law tail exponent~$\hat{\alpha}$ is reported in
-% Tab.~\ref{tab:phase1_aggregate}; the empirical reference is $\hat{\alpha}=4.378$.}
+% Tab.\ \ref{tab:phase1_aggregate}; the empirical reference is $\hat{\alpha}=4.378$.}
 % \label{fig:app_phase1_tail_grid}
 % \end{figure}
 
