@@ -88,7 +88,7 @@ It is well established that marginalising over Poisson counts results in a Gauss
 Both baselines are parametric and fitted separately on each ticker's full history, and are therefore ticker-specific. Moreover Merton-X captures a complementary stylized fact to GARCH-X: discontinuities. Nevertheless, none of the two learns the conditional distribution $p(r_t^C \mid r_t^O, r_t^H, r_t^L)$ non-parametrically. The diffusion model is the non-parametric alternative,
 at the cost of higher complexity.
 
-\section{SDE and the VE Instantiation}
+\section{VE Instantiation for OHLC}
 As discussed in Sec.\ \ref{sec:scorediffmodels}, diffusion models were 
 originally developed in distinct formulations before being unified under 
 the EDM framework. These formulation are relevant for Phase~1, which aims to replicate the results of Kim et al.\cite{kim2025diffusion}. Meanwhile, for Phase~2 we will move towards the EDM framework.
@@ -110,7 +110,7 @@ Therefore, the denoiser and score function are connected by:
 \]
 implying that rather than learn the score field directly, which is hard and an ill-conditioned regression target in high dimensions, we train a denoiser \(D_\theta\) to approximate \(D^*\), and we later recover the score analytically.
 
-\section{GBM--style SDE and CSDI}
+\section{GBM--style SDE and CSDI (Kim et al.)}
 \label{sec:gbm_sde_ch3}
 In Sec.\ref{sec:gbm_sde_ch2} we highlighted that the GBM derivation operates on log-prices $X_t=\log S_t$ in theory, while training is performed on log-returns. The cumulative interpretation of log-returns closes this gap, since summing returns recovers the log-price path the GBM dynamics act upon. This stands from the fact that training diffusion models on raw log-prices is inadvisable
 for two reasons. First, log-prices are non-stationary, therefore their mean grows approximately linearly and with different scales across tickers and time periods. Second, the sampling process relies on a Gaussian prior 
@@ -269,7 +269,7 @@ temporal and feature axes. Without this, the Transformer would be permutation-in
 
 \textbf{Residuals and skip connections} \quad Each \texttt{ResidualBlock} produces two outputs: a residual branch, added back to the block's input, and a skip branch, collected and pooled across all \(n\) blocks before the final output projection. Following WaveNet\ \cite{oord2016wavenet} and CSDI\ \cite{tashiro2021csdi}, each \texttt{ResidualBlock} produces two outputs: a residual branch, added back to the block's own input, and a skip branch, aggregated across all \(n\) blocks before the final output projection. This design allows every block to contribute directly to the prediction, irrespective of its depth in the stack. The residual addition and the skip aggregation are rescaled by \(1/\sqrt{2}\) and \(1/\sqrt{n}\), respectively, to maintain stable signal variance as representations accumulate through successive blocks. The \texttt{mid\_projection} is a pointwise convolution that doubles the channel dimension immediately before the side-information conditioning is added; this provides the extra capacity needed to later split the combined representation into the gate and filter branches of the gated activation unit.
 
-\section{Masking strategies}
+\section{Masking Strategies}
 \label{sec:masking_strategies_ch3}
 This work employs two masking strategies: \texttt{unconditional} and \texttt{predict\_close}.
 

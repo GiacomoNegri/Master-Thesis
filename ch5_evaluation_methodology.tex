@@ -53,7 +53,7 @@ Complementary with the statistics we plotted different sets of graphs.
 
 \textbf{Unnormalized Paths} \quad Invert the normalisation to recover approximate price-level trajectories. This serves primarily as a sanity and plausibility check of the model's ability to generate coherent price levels, where ``unnormalize'' denotes applying the inverse of the global z-score.
 
-\section{FTS evaluation}
+\section{Financial Time Series Evaluation}
 For financial time series, a set of tools is used to compute the tail distribution,
 the autocorrelation function (ACF), the leverage effect, and a power-law tail
 exponent \(\alpha\). These metrics are implemented following the functions provided
@@ -67,7 +67,7 @@ Sec.\ \ref{sec:fts_literature}.
 Following FinGAN\ \cite{stakahashy_fingan} and Kim et al.\ \cite{kim2025diffusion}, in Phase~1 the maximum lag for the leverage effect is set to 100 and for volatility clustering to 1000. In Phase~2, the maximum lag for volatility clustering is reduced to 256 for estimation stability. The ACF at lag \(k\) is estimated over \(L - k\) observation pairs; for a window of length \(L = 512\), lags approaching \(L\) leave too few pairs to produce reliable estimates, rendering a maximum lag of 512 impractical. Setting the upper bound to \(L/2 = 256\) ensures that at least half the window's values contributes to each estimate.
 
 
-\section{Conditional evaluation}
+\section{Conditional Evaluation}
 When evaluating the conditional generation we are evaluating the quality of the conditional generation by focusing on CRPS (Continuous Rank Probability Score) and interval coverage.
 
 \textbf{CRPS} \quad This metrics is measured as:
