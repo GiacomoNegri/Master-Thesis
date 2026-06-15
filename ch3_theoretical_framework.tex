@@ -139,7 +139,7 @@ However, Fig.\ \ref{fig:kim_architecture} clearly shows that the time embeddings
 \section{EDM}
 The components described in this section apply exclusively to Phase~2.
 
-\textbf{Preconditioning} \quad Training a raw network \(F_\theta (x_t;\sigma)\) directly as a denoiser is impractical because according to the VE forward process (Eq.\ \ref{eq:forward_ve}) the inputs have variance \(\sigma_{\text{data}}+\sigma^2\), which means that the network sees input that varies by orders of magnitude across the distribution of \(\sigma\) (different noise levels), as discussed in Sec.\ \ref{sec:edm_literature}. EDM addresses both problems introducing preconditioned denoiser \(D_\theta\) (Eq.\ \ref{eq:edm_denoiser}). 
+\textbf{Preconditioning} \quad Training a raw network \(F_\theta (x_t;\sigma)\) directly as a denoiser is impractical because according to the VE forward process (Eq.\ \ref{eq:forward_ve}) the inputs have variance \(\sigma_{\text{data}}^2+\sigma^2\), which means that the network sees input that varies by orders of magnitude across the distribution of \(\sigma\) (different noise levels), as discussed in Sec.\ \ref{sec:edm_literature}. EDM addresses both problems introducing preconditioned denoiser \(D_\theta\) (Eq.\ \ref{eq:edm_denoiser}). 
 
 Follows the role of each preconditioning parameter:
 \begin{itemize}
