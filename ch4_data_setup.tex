@@ -4,7 +4,7 @@ This section specifies the dataset characteristics and training choices. A summa
 \section{Data}
 \label{sec:ch4_data}
 The dataset follows the source and structure reported by Kim et al.\ \cite{kim2025diffusion}.
-Specifically, the list of current S\&P 500 members was taken as the starting universe\footnot{The starting universe as of the \(10^{th}\) of April \(2026\)} and
+Specifically, the list of current S\&P 500 members was taken as the starting universe\footnote{The starting universe as of the \(10^{th}\) of April \(2026\)} and
 tickers with non-standard symbols (e.g., BRK.B, BF.B) were excluded. For each remaining
 ticker, the maximum available daily price history was downloaded. The dataset was then
 filtered to retain only those stocks whose available history extends at least 40 years back.
@@ -131,7 +131,6 @@ The number of input/output channels (K) also varies across configurations: (K=1)
         \caption{\(\ln(\sigma)\sim\mathcal{N}\left(P_{\text{mean}}, P_{\text{std}}^2\right)\)}
         \label{fig:image2}
     \end{subfigure}
-\end{figure}
 
     \caption{Noise schedules: Phase~1 (left), Phase~2 (right).}
     \label{fig:two_images}
