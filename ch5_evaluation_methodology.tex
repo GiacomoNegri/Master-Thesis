@@ -42,10 +42,7 @@ skewness, and kurtosis are computed for each window in \(\mathcal{D}_{\text{trai
 \(\mathcal{D}_{\text{gen}}\). Scalar metrics such as KS and \(W_1\) flatten temporal
 structure; pathwise higher-order moments instead provide direct evidence of whether the
 model reproduces non-Gaussian behaviour and the stylized facts of financial time series,
-with particular attention to skewness and excess kurtosis. The latter must be interpreted
-with caution: as discussed in Sec.~\ref{sec:fts_literature}, the fourth moment is likely
-unbounded for financial time series, so while it is computationally finite on a limited
-dataset, it may be infinite for the true underlying population.
+with particular attention to skewness and excess kurtosis. The latter must be interpreted with caution, since, as discussed in Sec.\ \ref{sec:fts_literature}, the fourth moment is likely unbounded for FTS. Hence, even if computationally finite on a limited dataset, it may be infinite for the true underlying population.
 
 \section{Visualizations}
 Complementary with the statistics we plotted different sets of graphs.
@@ -54,7 +51,7 @@ Complementary with the statistics we plotted different sets of graphs.
 
 \textbf{ECDF Plots} \quad It is a visual complement to the KS test. Plot the Empirical Cumulative Distribution Functions \(\hat{F}_{\text{gen}}\) and \(\hat{F}_{\text{data}}\) together with the KS gap marked. This makes the KS statistic more interpretable.
 
-\textbf{Unnormalized Paths} \quad Invert the normalisation to recover approximate price-level trajectories. This is primarily a sanity and plausibility check, which check the model's ability to generate price levels. In this case "unnormalize" means applying the inverse of global z-score.
+\textbf{Unnormalized Paths} \quad Invert the normalisation to recover approximate price-level trajectories. This serves primarily as a sanity and plausibility check of the model's ability to generate coherent price levels, where ``unnormalize'' denotes applying the inverse of the global z-score.
 
 \section{FTS evaluation}
 For financial time series, a set of tools is used to compute the tail distribution,
@@ -65,23 +62,25 @@ in \cite{stakahashy_fingan}, which was also adopted by Kim et al.\
 consistency, the power-law coefficient is computed using the same Python package:
 \texttt{powerlaw} by Alstott et al.\ \cite{alstott2014powerlaw}. The definitions of the tail distribution, \(\alpha\),
 volatility clustering, and the leverage effect are provided in
-Sec.~\ref{sec:fts_literature}.
+Sec.\ \ref{sec:fts_literature}.
 
-Following \cite{stakahashy_fingan} and Kim et al.\ \cite{kim2025diffusion}, in Phase~1 the maximum lag for the leverage effect is set to 100 and for volatility clustering to 1000. In Phase~2, the maximum lag for volatility clustering is reduced to 256 for estimation stability. The ACF at lag \(k\) is estimated over \(L - k\) observation pairs; for a window of length \(L = 512\), lags approaching \(L\) leave too few pairs to produce reliable estimates, rendering a maximum lag of 512 impractical. Setting the upper bound to \(L/2 = 256\) ensures that at least half the window contributes to each estimate.
+Following FinGAN\ \cite{stakahashy_fingan} and Kim et al.\ \cite{kim2025diffusion}, in Phase~1 the maximum lag for the leverage effect is set to 100 and for volatility clustering to 1000. In Phase~2, the maximum lag for volatility clustering is reduced to 256 for estimation stability. The ACF at lag \(k\) is estimated over \(L - k\) observation pairs; for a window of length \(L = 512\), lags approaching \(L\) leave too few pairs to produce reliable estimates, rendering a maximum lag of 512 impractical. Setting the upper bound to \(L/2 = 256\) ensures that at least half the window's values contributes to each estimate.
 
 
 \section{Conditional evaluation}
-When evaluating the conditional generation we are evaluating the quality of the conditional generation, specifically we will be focusing on CRPS (Continuous Rank Probability Score) and interval coverage.
+When evaluating the conditional generation we are evaluating the quality of the conditional generation by focusing on CRPS (Continuous Rank Probability Score) and interval coverage.
 
 \textbf{CRPS} \quad This metrics is measured as:
 \[
 \text{CRPS}(\hat{F}, y) = \mathbb{E}_{\hat{F}} \left[|X - y|\right] - \tfrac{1}{2}\,\mathbb{E}_{\hat{F}}\left[|X - X'|\right]
 \]
 
-where \(X,X'\) are independent draws from the predictive ensemble \(\hat{F}\) and \(y\) is the observed Close. CRPS \cite{matheson1976scoring} is a proper scoring rule: it rewards both accuracy (the first term) and sharpness (the second term penalises spread). It reduces to MAE when the distribution collapses to a point forecast, so you can interpret CRPS as a calibration-adjusted MAE, where \(0 \le \text{CRPS}\le\text{MAE}\) (proof in Sec.\ \ref{app:sec:crps_bounds}). This score is also used in CSDI \cite{tashiro2021csdi}. Nevertheless, a raw CRPS value is difficult to interpret in isolation, so it was constructed a \emph{climatology} baseline whose ensemble is formed by drawing, with replacement, from the full pool of observed Close log-returns, ignoring the OHL conditioning. A second baseline fits an OLS regression of Close on the same-day Open, High, and Low log-returns, with its ensemble formed by adding bootstrapped residuals to the OLS point forecast. Relative skill is summarised by the CRPS skill score $\text{SS}_{\text{CRPS}} = 1 - \overline{\text{CRPS}}_{\text{model}} / \overline{\text{CRPS}}_{\text{clim}}$, where $1$ is perfect, $0$ means no improvement over the uninformative baseline.
+where \(X,X'\) are independent draws from the predictive ensemble \(\hat{F}\) and \(y\) is the observed Close. CRPS \cite{matheson1976scoring} is a proper scoring rule: it penalises inaccuracy 
+(the first term) and rewards spread (the second term lowers CRPS as ensemble 
+diversity grows). It reduces to MAE when the distribution collapses to a point forecast, so it can be interpreted as a calibration-adjusted MAE, where \(0 \le \text{CRPS}\le\text{MAE}\) (proof in Sec.\ \ref{app:sec:crps_bounds}). This score is also used in CSDI \cite{tashiro2021csdi}. Nevertheless, a raw CRPS value is difficult to interpret in isolation, so it was constructed a \emph{climatology} baseline whose ensemble is formed by drawing, with replacement, from the full pool of observed Close log-returns, ignoring the OHL conditioning. A second baseline fits an OLS regression of Close on the same-day Open, High, and Low log-returns, with its ensemble formed by adding bootstrapped residuals to the OLS point forecast. Relative skill is summarised by the CRPS skill score $\text{SS}_{\text{CRPS}} = 1 - \overline{\text{CRPS}}_{\text{model}} / \overline{\text{CRPS}}_{\text{baseline}}$, where $1$ is perfect, $0$ means no improvement over the uninformative baseline.
 
-\textbf{Interval Coverage} \quad This metrics is measure for nominal levels, for instance for \(\alpha \in \{0.01,0.05,0.5,0.75,0.99\}\). Then we compute the empirical coverage:
+\textbf{Interval Coverage} \quad This metrics is measure for nominal levels, \(\alpha \in \{0.01,0.05,0.5,0.75,0.99\}\). Once defined the nominal level investigated the empirical coverage is:
 \[
-coverage_{1-\alpha} = \frac{1}{N} \sum_{t=1}^{L} \sum_{n=1}^{N_t} \mathbf{1}\left[y_{n,t} \in \bigl[q_{\alpha/2}(n,t),\; q_{1-\alpha/2}(n,t)\bigr]\right]
+\text{coverage}_{1-\alpha} = \frac{1}{N} \sum_{t=1}^{L} \sum_{n=1}^{N_t} \mathbf{1}\left[y_{n,t} \in \bigl[q_{\alpha/2}(n,t),\; q_{1-\alpha/2}(n,t)\bigr]\right]
 \]
 where \(q\) are ensemble quantiles, which means they are quantiles computed from the set of multiple forecasts the model produces for the same target value, or set of conditioning information. A well-calibrated model has the empirical value approximately identical to nominal. Positive gap means underconfidence (intervals too wide), negative gap means overconfidence (intervals too narrow).

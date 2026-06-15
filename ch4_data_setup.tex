@@ -70,10 +70,10 @@ incurs an \(\mathcal{O}(L^2)\) cost in sequence length, making it computationall
 expensive. The shorter \(L = 512\) setting was adopted for Phase 2 due to hardware
 constraints imposed by MIG partitioning of the A100 GPU by the university's High-Performance Computing (HPC) policy. The full memory analysis is provided in Sec.\ \ref{app:sec:attention_memory}.
 
-\textbf{Phase 1} \quad Given the window length, the number of non-overlapping windows per ticker is small, making a strict 
+\textbf{Phase 1} \quad Given the window length \((L=2048)\), the number of non-overlapping windows per ticker is small, making a strict 
 train--validation split undesirable. Validation windows were therefore extracted 
-by random holdout, consistent with the supposed implementation of Kim 
-et al.\ \cite{kim2025diffusion}, who are assumed to have either applied a similar random selection or foregone a validation set entirely. Due to the stride, partial overlap between training and validation windows exists.
+by random holdout, supposedly consistent with the implementation of Kim 
+et al.\ \cite{kim2025diffusion}, since such design choice was not specified. Due to the stride, partial overlap between training and validation windows exists.
 
 For the GBM-inspired SDE variant, each window was additionally mean-centred prior 
 to training by subtracting the sample mean of the window. This transformation does not conflict with the generative setting, because no forecasting is performed. In addition, any daily log-returns can be easily recovered by \(r_{\tau+k}=C_{\tau+k}-C_{\tau+k-1}\), except for the first element.
@@ -81,20 +81,19 @@ to training by subtracting the sample mean of the window. This transformation do
 \begin{figure}[htbp]          % placement: here, top, bottom, page
   \centering
   \includegraphics[width=0.6\textwidth]{images/ch4/windows construction_cropped.png}
-  \caption{Phase~2 selection of Validation windows process. Example with window length \(L=4\), stride \(s=1\), and \texttt{val\_split\_ratio}\(=0.25\), where the \(7^{\text{th}}\) index of the ticker (red block) is extracted randomly.}
+  \caption{Phase~2 selection of Validation windows process. Example with window length \(L=4\), stride \(s=1\), and \texttt{val\_split\_ratio}\(=0.25\), where the \(7^{\text{th}}\) ticker index (red block) is drawn at random.}
   \label{fig:window_construction}
 \end{figure}
 
-\textbf{Phase 2} \quad In order to assess the discriminative power of the conditioning information, validation windows were fully held out: for each ticker a contiguous block of records amounting to a \texttt{val\_split\_ratio} fraction was reserved starting at a random index, and every window straddling this interval was excluded from the subsequent training. This per-ticker approach enables our model to see diverse market conditions across all stocks without concentrating only on the longer-lasting tickers. The validation split ratio was set to 5\% (239 windows), because, since windows overlap due to the stride, each additional validation window required roughly 10 training windows to be discarded. For 5\% validation split \(2,129\) windows are discarded, leaving \(22,858\) for training. For instance windows that fell entirely within the validation block, by contrast, were retained and used in full as validation.
+\textbf{Phase 2} \quad In order to assess the discriminative power of the conditioning information, validation windows were fully held out: for each ticker a contiguous block of records amounting to a \texttt{val\_split\_ratio} fraction was reserved starting at a random index, and every window straddling this interval was excluded from the subsequent training (Fig.\ \ref{fig:window_construction}). This per-ticker approach enables the model to see diverse market conditions across all stocks without concentrating only on the longer-lasting tickers. The validation split ratio was set to 5\% (239 windows), because, since windows overlap accordingly to the stride, each additional validation window required roughly 10 training windows to be discarded. For 5\% validation split, \(2,129\) windows are discarded, leaving \(22,858\) for training.
 
 \section{Training Configuration}
 \label{sec:training_config}
 
-This section summarises the most relevant training configuration and design choices;
-explicit formulations for the optimiser and learning rate schedule are given in
+This section summarises the most relevant training configuration and design choices. Explicit formulations for the optimiser and learning rate schedule are given in
 Sec.\ \ref{app:sec:optim}, and full hyperparameter details in App.\ \ref{app:training_config}.
 
-\textbf{Optimizer} \quad The optimiser used throughout is \texttt{AdamW}\ \cite{loshchilov2019decoupled},
+\textbf{Optimiser} \quad The optimiser used throughout is \texttt{AdamW}\ \cite{loshchilov2019decoupled},
 following the choice of CSDI\ \cite{tashiro2021csdi}. It applies weight decay directly
 to the parameters rather than through the gradient, preventing the interaction between
 $\ell_2$ regularisation and the adaptive scaling of standard Adam. This decoupling results in more consistent regularisation across parameters with different
@@ -115,24 +114,24 @@ This configuration was selected empirically: a 64-channel variant was less expre
 while a 256-channel variant offered no measurable improvement in generation quality at
 substantially higher compute cost.
 
-The number of input/output channels (K) also varies across configurations: (K=1) for the unconditional models (Close log-returns only), and (K=4) for the conditional EDM-CSDI model, which jointly processes Open, High, Low, and Close log-returns with \texttt{predict\_close} masks. This increase is reflected in the total parameter count, which grows from approximately 2.2 million in the unconditional configuration to approximately 3.4 million in the conditional configuration (Sec.\ \ref{app:model-parameter-count}).
+The number of input/output channels (K) also varies across configurations: (K=1) for the unconditional models (Close log-returns only), and (K=4) for the conditional EDM-CSDI model, which jointly processes Open, High, Low, and Close log-returns with \texttt{predict\_close} masks. This increase is reflected in the total parameter count, which grows from approximately 2.2 million in Phase~1 to approximately 3.4 million in Phase~2 (Sec.\ \ref{app:model-parameter-count}).
 
 \begin{figure}[htbp]
     \centering
-
     \begin{subfigure}{0.48\textwidth}
         \centering
-        \includegraphics[width=\textwidth]{images/ch4/noise_schedules.jpg}
+        \includegraphics[width=\textwidth, height=5cm, keepaspectratio]{images/ch4/noise_schedules.jpg}
         \caption{Sigma Schedule (\(\sigma_{\min}=0.01\), \(\sigma_{\max}=1.0\)) for \(t\sim \mathcal{U}(0,1]\) and noise \(\sigma(t)\)}
         \label{fig:image1}
     \end{subfigure}
     \hfill
     \begin{subfigure}{0.48\textwidth}
         \centering
-        \includegraphics[width=\textwidth]{images/ch4/edm_noise_distribution.jpg}
+        \includegraphics[width=\textwidth, height=5cm, keepaspectratio]{images/ch4/edm_noise_distribution.jpeg}
         \caption{\(\ln(\sigma)\sim\mathcal{N}\left(P_{\text{mean}}, P_{\text{std}}^2\right)\)}
         \label{fig:image2}
     \end{subfigure}
+\end{figure}
 
     \caption{Noise schedules: Phase~1 (left), Phase~2 (right).}
     \label{fig:two_images}
@@ -142,7 +141,8 @@ The number of input/output channels (K) also varies across configurations: (K=1)
 In Phase~1, they define the range of the forward-process noise: VE-style diffusion
 uses $\sigma_{\max} = 1$ and $\sigma_{\min} = 0.01$; GBM-style diffusion, operating
 on cumulative log-returns, uses $\sigma_{\max} = 10$ and $\sigma_{\min} = 0.1$; and
-the VP formulation is parameterised by $\beta_{\max} = 8$ and $\beta_{\min} = 0.01$. The choice was reached after testing the forward process and reaching prior matching while retaining as much signal as possible, with focus on the first.
+the VP formulation is parameterised by $\beta_{\max} = 8$ and $\beta_{\min} = 0.01$. These values were determined empirically by testing the forward process to achieve prior matching while preserving as much signal as possible, with emphasis on the former.
+
 In Phase~2, the EDM log-normal sampling distribution
 $\ln\sigma \sim \mathcal{N}(P_{\text{mean}}, P_{\text{std}}^2)$ replaces the
 forward-process schedule entirely. The values $P_{\text{mean}} = -1.4$ and
@@ -155,7 +155,6 @@ $P_{\text{std}} \in \{1.0,\,1.2,\,1.4,\,1.6,\,1.8,\,2.0\}$ based first on valida
 \textbf{Sampling parameters} \quad For Phase~2, $\sigma_{\max}$ and $\sigma_{\min}$ were
 selected to cover the support of $\ln\sigma \sim \mathcal{N}(P_{\text{mean}}, P_{\text{std}}^2)$,
 requiring $\sigma_{\max} \geq \exp(P_{\text{mean}} + n\,P_{\text{std}})$ for a chosen
-coverage multiplier $n$. Three values were tested, $\sigma_{\max} \in \{5,\,7,\,9\}$,
-with $\sigma_{\min} = 0.002$ fixed throughout.
+coverage multiplier $n$. With \(n=5\), \(\sigma_{\max}=8.0\) with $\sigma_{\min} = 0.002$ fixed throughout.
 \newpage
 \input{table/training_setup}
