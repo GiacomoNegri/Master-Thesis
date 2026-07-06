@@ -21,9 +21,12 @@ Usage:
         --out_dir figures/denoising \\
         --norm_stats data/fake_fts_processed/normalization_stats.csv \\
         --seed 42
+
+python visualize_denoising.py --checkpoint_folder final/edm --checkpoint_name EDM_REPLICATION_CLOS_ep-500_step-44500_lr-8e-04_ch-128_layers-6_nheads-4_diffemb-256_sd-1.0_Pm--1.4_Ps-1.8_20260602_201915.pt --split train --window_idx 0 --num_samples 10 --num_steps 200 --snapshot_steps 0 20 40 60 80 100 120 140 160 180 195 199 --norm_stats data/normalization_stats_norm_replication.csv --seed 42 --out_dir figures/denoising --seed 42
 """
 
 import argparse
+import json
 import os
 import sys
 import warnings
@@ -161,6 +164,7 @@ def load_window(config, split, window_idx, repo_root, device, num_samples,
     cond_mask    : (num_samples, K, L) tensor on device — 1=OHL, 0=Close
     observed_tp  : (num_samples, L)   tensor on device — global date indices
     gt_close     : (L,) numpy float32 — ground-truth normalised close log-returns
+    window_info  : dict — metadata identifying the chosen window (for reproducibility)
     """
     files, flat_index, train_indices, val_indices, date_to_idx, date_col = \
         reconstruct_split(config, repo_root, date_format=date_format)
@@ -197,7 +201,17 @@ def load_window(config, split, window_idx, repo_root, device, num_samples,
     gt_close = gt_win[close_idx]                                                 # (L,)
     print(f"Window [{split}][{window_idx}]  file={os.path.basename(files[fi])}  "
           f"start={start}  dates={dates[0]}..{dates[-1]}")
-    return obs, cond_mask, observed_tp, gt_close
+
+    window_info = {
+        "split":        split,
+        "window_idx":   window_idx,
+        "file":         os.path.basename(files[fi]),
+        "start":        int(start),
+        "seq_len":      int(seq_len),
+        "date_start":   dates[0],
+        "date_end":     dates[-1],
+    }
+    return obs, cond_mask, observed_tp, gt_close, window_info
 
 
 # ── Sampling with full snapshot capture ──────────────────────────────────────
@@ -548,11 +562,27 @@ def main():
 
     # ── Load one window ───────────────────────────────────────────────────────
     repo_root = os.path.abspath(os.path.dirname(__file__))
-    obs, cond_mask, observed_tp, gt_close = load_window(
+    obs, cond_mask, observed_tp, gt_close, window_info = load_window(
         config, args.split, args.window_idx, repo_root,
         device, args.num_samples, close_idx, feat_cols, seq_len,
         date_format=args.date_format,
     )
+
+    # ── Save chosen window/run info for later reuse ──────────────────────────
+    os.makedirs(args.out_dir, exist_ok=True)
+    run_info = {
+        **window_info,
+        "checkpoint_folder": args.checkpoint_folder,
+        "checkpoint_name":   args.checkpoint_name,
+        "num_samples":       args.num_samples,
+        "sample_idx":        args.sample_idx,
+        "num_steps":         args.num_steps,
+        "seed":              args.seed,
+    }
+    run_info_path = os.path.join(args.out_dir, "run_info.json")
+    with open(run_info_path, "w") as f:
+        json.dump(run_info, f, indent=2)
+    print(f"Saved run/window info → {run_info_path}")
 
     # ── Run sampler — capture all steps ──────────────────────────────────────
     print(f"\nRunning EDM sampler ({args.num_steps} steps, "
@@ -594,16 +624,16 @@ def main():
     plot_prices(snapshots, gt_close, close_idx, args.sample_idx,
                 selected_steps, norm_stats, close_feat, args.out_dir)
 
-    print("\n── Vis 4: ACF (volatility clustering) evolution ──")
-    plot_acf_evolution(snapshots, gt_close, close_idx, args.sample_idx,
-                       selected_steps, args.acf_max_lag, args.out_dir)
+    # print("\n── Vis 4: ACF (volatility clustering) evolution ──")
+    # plot_acf_evolution(snapshots, gt_close, close_idx, args.sample_idx,
+    #                    selected_steps, args.acf_max_lag, args.out_dir)
 
-    print("\n── Vis 5: EDM preconditioning coefficients ──")
-    plot_preconditioning(sigma_min, sigma_max, sigma_data, args.out_dir)
+    # print("\n── Vis 5: EDM preconditioning coefficients ──")
+    # plot_preconditioning(sigma_min, sigma_max, sigma_data, args.out_dir)
 
-    print("\n── Vis 6: Phase-space trajectory ──")
-    plot_phase_space(snapshots, gt_close, close_idx, args.num_samples,
-                     args.phase_space_t0, args.out_dir)
+    # print("\n── Vis 6: Phase-space trajectory ──")
+    # plot_phase_space(snapshots, gt_close, close_idx, args.num_samples,
+    #                  args.phase_space_t0, args.out_dir)
 
     print(f"\nDone. All outputs in: {args.out_dir}")
     print("GIF assembly example:")
