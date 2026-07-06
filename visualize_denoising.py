@@ -248,6 +248,45 @@ def run_sampler_with_snapshots(processes, model, obs, cond_mask, observed_tp,
     return snapshots
 
 
+# ── Visualisation 0: Prior noise vs reference ────────────────────────────────
+
+def plot_prior_vs_reference(gt_close, close_idx, num_samples, shape, sigma_max,
+                            device, out_dir):
+    """
+    One PNG: raw prior noise sample(s) x ~ N(0, sigma_max^2 I) — the sampler's
+    literal starting point, before any denoising step — plotted directly
+    against the reference (normalised) close log-returns.
+
+    This does NOT run the model or the sampler; it draws the same prior
+    (`torch.randn(*shape) * sigma_max`) used at the top of `edm_sampler`.
+    """
+    os.makedirs(out_dir, exist_ok=True)
+    L  = len(gt_close)
+    xs = np.arange(L)
+
+    x_prior     = torch.randn(*shape, device=device) * sigma_max
+    prior_close = x_prior[:, close_idx, :].cpu().numpy()   # (num_samples, L)
+
+    colors = cm.tab10(np.linspace(0.0, 0.9, num_samples))
+
+    y_lo = min(float(gt_close.min()), float(prior_close.min()))
+    y_hi = max(float(gt_close.max()), float(prior_close.max()))
+    pad  = 0.10 * (y_hi - y_lo)
+    y_lo -= pad;  y_hi += pad
+
+    fig, ax = plt.subplots(figsize=(10, 3.5))
+    ax.plot(xs, gt_close, "k--", lw=1.8, alpha=0.8, label="Reference (true close)")
+    for s in range(num_samples):
+        ax.plot(xs, prior_close[s], color=colors[s], lw=1.0, alpha=0.6,
+                label=f"Prior sample {s}")
+    ax.set_xlim(0, L - 1)
+    ax.set_ylim(y_lo, y_hi)
+    # ax.set_xlabel("Time step")
+    # ax.set_ylabel("Normalised log-return")
+    # ax.set_title(f"Prior noise vs reference  ($\\sigma_{{max}}$ = {sigma_max:.3f})")
+    _save(fig, os.path.join(out_dir, "prior_vs_reference.png"))
+
+
 # ── Visualisation 1: Marginal distribution panels ────────────────────────────
 
 def plot_marginals(snapshots, gt_close, close_idx, selected_steps, out_dir):
@@ -290,10 +329,9 @@ def plot_marginals(snapshots, gt_close, close_idx, selected_steps, out_dir):
                 label=f"Step {step}  (σ = {sigma:.3f})")
         ax.set_xlim(x_lo, x_hi)
         ax.set_ylim(0.0, y_max)
-        ax.set_xlabel("Normalised close log-return")
-        ax.set_ylabel("Density")
-        ax.set_title(f"Marginal distribution — denoising step {step}  (σ = {sigma:.3f})")
-        ax.legend()
+        # ax.set_xlabel("Normalised close log-return")
+        # ax.set_ylabel("Density")
+        ax.set_title(f"Step {step}  (σ = {sigma:.3f})")
         _save(fig, os.path.join(out_dir, f"marginal_step_{step:04d}.png"))
 
 
@@ -325,10 +363,9 @@ def plot_evolution(snapshots, gt_close, close_idx, sample_idx, selected_steps,
                 label=f"Denoised  (step {step}, σ = {sigma:.3f})")
         ax.set_xlim(0, L - 1)
         ax.set_ylim(y_lo, y_hi)
-        ax.set_xlabel("Time step")
-        ax.set_ylabel("Normalised log-return")
-        ax.set_title(f"Sample evolution — step {step}  (σ = {sigma:.3f})")
-        ax.legend(loc="upper right")
+        # ax.set_xlabel("Time step")
+        # ax.set_ylabel("Normalised log-return")
+        ax.set_title(f"Step {step}")
         _save(fig, os.path.join(out_dir, f"evolution_step_{step:04d}.png"))
         rendered += 1
 
@@ -382,10 +419,9 @@ def plot_prices(snapshots, gt_close, close_idx, sample_idx, selected_steps,
                 label=f"Denoised  (step {step}, σ = {sigma:.3f})")
         ax.set_xlim(0, L1 - 1)
         ax.set_ylim(y_lo, y_hi)
-        ax.set_xlabel("Time step")
-        ax.set_ylabel("Relative price  ($S_0 = 1$)")
-        ax.set_title(f"Price path evolution — step {step}  (σ = {sigma:.3f})")
-        ax.legend(loc="upper right")
+        # ax.set_xlabel("Time step")
+        # ax.set_ylabel("Relative price  ($S_0 = 1$)")
+        ax.set_title(f"Step {step}")
         _save(fig, os.path.join(out_dir, f"prices_step_{step:04d}.png"))
 
 
@@ -428,10 +464,9 @@ def plot_acf_evolution(snapshots, gt_close, close_idx, sample_idx, selected_step
         ax.axhline(0.0, color="gray", lw=0.8, ls=":")
         ax.set_xlim(1, max_lag)
         ax.set_ylim(y_lo, y_hi)
-        ax.set_xlabel("Lag")
-        ax.set_ylabel("ACF of |return|")
-        ax.set_title(f"Volatility clustering (ACF) — step {step}  (σ = {sigma:.3f})")
-        ax.legend()
+        # ax.set_xlabel("Lag")
+        # ax.set_ylabel("ACF of |return|")
+        ax.set_title(f"Step {step}")
         _save(fig, os.path.join(out_dir, f"acf_step_{step:04d}.png"))
 
 
@@ -460,10 +495,9 @@ def plot_preconditioning(sigma_min: float, sigma_max: float,
     ax.set_xscale("log")
     ax.set_xlim(sigmas[0], sigmas[-1])
     ax.set_ylim(-0.05, 1.1)
-    ax.set_xlabel(r"Noise level $\sigma$")
-    ax.set_ylabel("Coefficient value")
-    ax.set_title("EDM preconditioning coefficients")
-    ax.legend(loc="center right")
+    # ax.set_xlabel(r"Noise level $\sigma$")
+    # ax.set_ylabel("Coefficient value")
+    # ax.set_title("EDM preconditioning coefficients")
     _save(fig, os.path.join(out_dir, "preconditioning.png"))
 
 
@@ -501,10 +535,9 @@ def plot_phase_space(snapshots, gt_close, close_idx, num_samples,
                label=f"Reference  (t = {t0})")
     ax.set_xscale("log")
     ax.invert_xaxis()   # high σ on left → denoising goes left-to-right
-    ax.set_xlabel(r"Noise level $\sigma$   (← denoising direction)")
-    ax.set_ylabel(f"Denoised estimate  $\\hat{{x}}_0(\\sigma)$ at $t = {t0}$")
-    ax.set_title("Phase-space trajectory — convergence of denoised estimates")
-    ax.legend(loc="upper right", ncol=2)
+    # ax.set_xlabel(r"Noise level $\sigma$   (← denoising direction)")
+    # ax.set_ylabel(f"Denoised estimate  $\\hat{{x}}_0(\\sigma)$ at $t = {t0}$")
+    # ax.set_title("Phase-space trajectory — convergence of denoised estimates")
     _save(fig, os.path.join(out_dir, "phase_space.png"))
 
 
@@ -597,6 +630,10 @@ def main():
     with open(run_info_path, "w") as f:
         json.dump(run_info, f, indent=2)
     print(f"Saved run/window info → {run_info_path}")
+
+    print("\n── Vis 0: Prior noise vs reference ──")
+    plot_prior_vs_reference(gt_close, close_idx, args.num_samples, tuple(obs.shape),
+                            sigma_max, device, args.out_dir)
 
     # ── Run sampler — capture all steps ──────────────────────────────────────
     print(f"\nRunning EDM sampler ({args.num_steps} steps, "

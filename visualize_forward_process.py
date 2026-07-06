@@ -213,20 +213,27 @@ def plot_evolution_forward(gt_close, sigmas, quantiles, fixed_eps, out_dir):
     corrupted paths x_sigma = x_0 + sigma*eps, reusing the *same* eps vectors
     across every sigma so each coloured line is one trajectory continuously
     dissolving into noise, not an independent resample per frame.
+
+    Y-axis is scaled per frame (NOT fixed across all sigma). The log-normal
+    quantile schedule spans several orders of magnitude in sigma by design
+    (that is the point of the marginal plot), so a single shared axis would
+    make every frame except the most extreme sigma render as a flat line at
+    the scale needed to fit the widest one. Per-frame scaling keeps each
+    frame's path shape legible; the KDE plot (which uses a fixed axis) is
+    what conveys the cross-sigma comparison against the prior.
     """
     os.makedirs(out_dir, exist_ok=True)
     L  = len(gt_close)
     xs = np.arange(L)
-    sigma_last = float(sigmas[-1])
-
-    y_lo = min(float(gt_close.min()), -4.0 * sigma_last)
-    y_hi = max(float(gt_close.max()),  4.0 * sigma_last)
-    pad  = 0.10 * (y_hi - y_lo)
-    y_lo -= pad; y_hi += pad
 
     num_path_samples = fixed_eps.shape[0]
     for idx, (sigma, q) in enumerate(zip(sigmas, quantiles)):
         x_sigma = gt_close[None, :] + sigma * fixed_eps   # (num_path_samples, L)
+        y_lo = min(float(gt_close.min()), float(x_sigma.min()))
+        y_hi = max(float(gt_close.max()), float(x_sigma.max()))
+        pad  = 0.10 * (y_hi - y_lo) if y_hi > y_lo else 1.0
+        y_lo -= pad; y_hi += pad
+
         fig, ax = plt.subplots(figsize=(10, 3.5))
         ax.plot(xs, gt_close, "k--", lw=1.8, alpha=0.75, label="Reference (true close)")
         for s in range(num_path_samples):
@@ -257,6 +264,11 @@ def plot_prices_forward(gt_close, sigmas, quantiles, fixed_eps, norm_stats,
     when clipping is triggered. This is itself informative: it marks the
     point at which the "log-return path" interpretation breaks down and the
     corrupted sequence is just noise.
+
+    Y-axis is scaled per frame (NOT fixed across all sigma), for the same
+    reason as plot_evolution_forward: price paths at high sigma can be
+    ~1e28x the reference scale, so a shared axis would flatten every other
+    frame into an invisible line.
     """
     if close_feat not in norm_stats:
         print(f"  [prices] skipping — '{close_feat}' not in norm_stats")
@@ -278,7 +290,6 @@ def plot_prices_forward(gt_close, sigmas, quantiles, fixed_eps, norm_stats,
         return np.exp(cumsum), clipped
 
     frame_prices = []
-    all_prices = [gt_price]
     any_clipped = False
     for sigma, q in zip(sigmas, quantiles):
         x_sigma = gt_close[None, :] + sigma * fixed_eps        # (num_path_samples, L)
@@ -289,19 +300,18 @@ def plot_prices_forward(gt_close, sigmas, quantiles, fixed_eps, norm_stats,
             prices.append(gen_price)
             any_clipped = any_clipped or clipped
         frame_prices.append((sigma, q, prices))
-        all_prices.extend(prices)
 
     if any_clipped:
         print("  [prices] warning: cumulative log-return sum clipped to avoid "
               "float overflow at high sigma — price path no longer meaningful "
               "at those levels (expected: this is the noise-dominated regime).")
 
-    y_lo = min(float(p.min()) for p in all_prices)
-    y_hi = max(float(p.max()) for p in all_prices)
-    pad  = 0.10 * (y_hi - y_lo) if y_hi > y_lo else 1.0
-    y_lo -= pad; y_hi += pad
-
     for idx, (sigma, q, prices) in enumerate(frame_prices):
+        y_lo = min([float(gt_price.min())] + [float(p.min()) for p in prices])
+        y_hi = max([float(gt_price.max())] + [float(p.max()) for p in prices])
+        pad  = 0.10 * (y_hi - y_lo) if y_hi > y_lo else 1.0
+        y_lo -= pad; y_hi += pad
+
         fig, ax = plt.subplots(figsize=(10, 3.5))
         ax.plot(xs, gt_price, "k--", lw=1.8, alpha=0.75, label="Reference price path")
         for s, price in enumerate(prices):

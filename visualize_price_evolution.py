@@ -49,6 +49,7 @@ from visualize_denoising import (
     denorm,
     _to_price_path,
     _save,
+    plot_prior_vs_reference,
 )
 
 
@@ -103,10 +104,9 @@ def plot_price_evolution(snapshots, gt_close, close_idx, num_samples, selected_s
             ax.plot(xs, path, color=color, lw=1.2, alpha=0.8, label=f"Sample {s}")
         ax.set_xlim(0, L1 - 1)
         ax.set_ylim(y_lo, y_hi)
-        ax.set_xlabel("Time step")
-        ax.set_ylabel("Relative price  ($S_0 = 1$)")
-        ax.set_title(f"Price path evolution — step {step}  (σ = {sigma:.3f})")
-        ax.legend(loc="upper right", ncol=2, fontsize=8)
+        # ax.set_xlabel("Time step")
+        # ax.set_ylabel("Relative price  ($S_0 = 1$)")
+        ax.set_title(f"Step {step}")
         _save(fig, os.path.join(out_dir, f"prices_multi_step_{step:04d}.png"))
 
 
@@ -181,6 +181,10 @@ def main():
     with open(run_info_path, "w") as f:
         json.dump(run_info, f, indent=2)
     print(f"Saved run/window info → {run_info_path}")
+
+    print("\n── Prior noise vs reference ──")
+    plot_prior_vs_reference(gt_close, close_idx, args.num_samples, tuple(obs.shape),
+                            sigma_max, device, args.out_dir)
 
     print(f"\nRunning EDM sampler ({args.num_steps} steps, "
           f"{args.num_samples} samples)…")
