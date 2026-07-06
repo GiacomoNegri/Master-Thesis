@@ -217,9 +217,13 @@ def load_window(config, split, window_idx, repo_root, device, num_samples,
 # ── Sampling with full snapshot capture ──────────────────────────────────────
 
 def run_sampler_with_snapshots(processes, model, obs, cond_mask, observed_tp,
-                               num_steps, rho, device):
+                               num_steps, rho, device, sigma_min=None, sigma_max=None):
     """
     Run the Heun sampler capturing D_x at every step.
+
+    sigma_min / sigma_max default to the checkpoint's own values (via
+    processes.sde.sigma_schedule) when left as None; pass explicit values
+    to override the noise range used by the sampler.
 
     Returns
     -------
@@ -235,6 +239,8 @@ def run_sampler_with_snapshots(processes, model, obs, cond_mask, observed_tp,
         observed_tp    = observed_tp,
         num_steps      = num_steps,
         rho            = rho,
+        sigma_min      = sigma_min,
+        sigma_max      = sigma_max,
         device         = device,
         snapshot_steps = list(range(num_steps)),
     )
@@ -518,6 +524,9 @@ def parse_args():
                    help="Number of independent generated paths.")
     p.add_argument("--num_steps",         type=int, default=50,
                    help="Heun denoising steps (default: 50).")
+    p.add_argument("--sigma_max",         type=float, default=None,
+                   help="Override the sampler's sigma_max (top of the noise "
+                        "schedule). Default: the checkpoint's own sigma_max.")
     p.add_argument("--snapshot_steps",    type=int, nargs="+", default=None,
                    help="Step indices to use for frame-based plots. "
                         "Default: 5 evenly-spaced steps including first and last.")
@@ -554,6 +563,10 @@ def main():
     close_feat = feat_cols[close_idx]
     sigma_data = 1.0   # per-channel z-score normalisation ensures σ_data = 1
 
+    if args.sigma_max is not None:
+        print(f"Overriding sigma_max: {sigma_max} → {args.sigma_max}")
+        sigma_max = args.sigma_max
+
     # Validate sample_idx
     if args.sample_idx >= args.num_samples:
         raise ValueError(
@@ -577,6 +590,7 @@ def main():
         "num_samples":       args.num_samples,
         "sample_idx":        args.sample_idx,
         "num_steps":         args.num_steps,
+        "sigma_max":         sigma_max,
         "seed":              args.seed,
     }
     run_info_path = os.path.join(args.out_dir, "run_info.json")
@@ -590,6 +604,7 @@ def main():
     snapshots = run_sampler_with_snapshots(
         processes, model, obs, cond_mask, observed_tp,
         args.num_steps, rho, device,
+        sigma_min=sigma_min, sigma_max=sigma_max,
     )
 
     # ── Determine which steps to render as per-frame PNGs ────────────────────

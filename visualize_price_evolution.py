@@ -25,6 +25,7 @@ Usage:
 """
 
 import argparse
+import json
 import os
 import sys
 import warnings
@@ -125,6 +126,9 @@ def parse_args():
                    help="Number of independent generated paths to overlay.")
     p.add_argument("--num_steps",         type=int, default=50,
                    help="Heun denoising steps (default: 50).")
+    p.add_argument("--sigma_max",         type=float, default=None,
+                   help="Override the sampler's sigma_max (top of the noise "
+                        "schedule). Default: the checkpoint's own sigma_max.")
     p.add_argument("--snapshot_steps",    type=int, nargs="+", default=None,
                    help="Step indices to render as frames. "
                         "Default: 5 evenly-spaced steps including first and last.")
@@ -151,18 +155,39 @@ def main():
      seq_len, rho, sigma_min, sigma_max) = load_model(args, device)
     close_feat = feat_cols[close_idx]
 
+    if args.sigma_max is not None:
+        print(f"Overriding sigma_max: {sigma_max} → {args.sigma_max}")
+        sigma_max = args.sigma_max
+
     repo_root = os.path.abspath(os.path.dirname(__file__))
-    obs, cond_mask, observed_tp, gt_close = load_window(
+    obs, cond_mask, observed_tp, gt_close, window_info = load_window(
         config, args.split, args.window_idx, repo_root,
         device, args.num_samples, close_idx, feat_cols, seq_len,
         date_format=args.date_format,
     )
+
+    # ── Save chosen window/run info for later reuse ──────────────────────────
+    os.makedirs(args.out_dir, exist_ok=True)
+    run_info = {
+        **window_info,
+        "checkpoint_folder": args.checkpoint_folder,
+        "checkpoint_name":   args.checkpoint_name,
+        "num_samples":       args.num_samples,
+        "num_steps":         args.num_steps,
+        "sigma_max":         sigma_max,
+        "seed":              args.seed,
+    }
+    run_info_path = os.path.join(args.out_dir, "run_info.json")
+    with open(run_info_path, "w") as f:
+        json.dump(run_info, f, indent=2)
+    print(f"Saved run/window info → {run_info_path}")
 
     print(f"\nRunning EDM sampler ({args.num_steps} steps, "
           f"{args.num_samples} samples)…")
     snapshots = run_sampler_with_snapshots(
         processes, model, obs, cond_mask, observed_tp,
         args.num_steps, rho, device,
+        sigma_min=sigma_min, sigma_max=sigma_max,
     )
 
     if args.snapshot_steps is None:
