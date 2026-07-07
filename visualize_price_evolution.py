@@ -49,8 +49,55 @@ from visualize_denoising import (
     denorm,
     _to_price_path,
     _save,
-    plot_prior_vs_reference,
 )
+
+
+# ── Visualisation: Prior noise vs reference (unnormalized price path) ────────
+
+def plot_prior_vs_reference_prices(gt_close, close_idx, num_samples, shape, sigma_max,
+                                   device, norm_stats, close_feat, out_dir):
+    """
+    One PNG: raw prior noise sample(s) x ~ N(0, sigma_max^2 I) — the sampler's
+    literal starting point — denormalized and converted to relative price
+    paths (S_0 = 1), plotted against the reference (unnormalized) price path.
+
+    This does NOT run the model or the sampler; it draws the same prior
+    (`torch.randn(*shape) * sigma_max`) used at the top of `edm_sampler`.
+    """
+    if close_feat not in norm_stats:
+        print(f"  [prior] skipping — '{close_feat}' not in norm_stats")
+        return
+    mean, std = norm_stats[close_feat]
+    os.makedirs(out_dir, exist_ok=True)
+
+    gt_denorm = denorm(gt_close, mean, std)
+    gt_price  = _to_price_path(gt_denorm)
+    L1 = len(gt_price)
+    xs = np.arange(L1)
+
+    x_prior     = torch.randn(*shape, device=device) * sigma_max
+    prior_close = x_prior[:, close_idx, :].cpu().numpy()   # (num_samples, L)
+
+    colors = cm.tab10(np.linspace(0.0, 0.9, num_samples))
+
+    prior_prices = []
+    for s in range(num_samples):
+        prior_denorm = denorm(prior_close[s], mean, std)
+        prior_prices.append(_to_price_path(prior_denorm))
+
+    all_prices = [gt_price] + prior_prices
+    y_lo = min(float(p.min()) for p in all_prices)
+    y_hi = max(float(p.max()) for p in all_prices)
+    pad  = 0.10 * (y_hi - y_lo)
+    y_lo -= pad;  y_hi += pad
+
+    fig, ax = plt.subplots(figsize=(10, 3.5))
+    ax.plot(xs, gt_price, "k--", lw=1.8, alpha=0.8, label="Reference price path")
+    for s, (path, color) in enumerate(zip(prior_prices, colors)):
+        ax.plot(xs, path, color=color, lw=1.0, alpha=0.6, label=f"Prior sample {s}")
+    ax.set_xlim(0, L1 - 1)
+    ax.set_ylim(y_lo, y_hi)
+    _save(fig, os.path.join(out_dir, "prior_vs_reference_prices.png"))
 
 
 # ── Visualisation: Multi-sample price path evolution ─────────────────────────
@@ -182,9 +229,14 @@ def main():
         json.dump(run_info, f, indent=2)
     print(f"Saved run/window info → {run_info_path}")
 
-    print("\n── Prior noise vs reference ──")
-    plot_prior_vs_reference(gt_close, close_idx, args.num_samples, tuple(obs.shape),
-                            sigma_max, device, args.out_dir)
+    if not os.path.isfile(args.norm_stats):
+        raise FileNotFoundError(f"norm_stats not found: {args.norm_stats}")
+    norm_stats = load_norm_stats(args.norm_stats, feat_cols)
+    print(f"Loaded norm stats for: {list(norm_stats.keys())}")
+
+    print("\n── Prior noise vs reference (unnormalized price path) ──")
+    plot_prior_vs_reference_prices(gt_close, close_idx, args.num_samples, tuple(obs.shape),
+                                   sigma_max, device, norm_stats, close_feat, args.out_dir)
 
     print(f"\nRunning EDM sampler ({args.num_steps} steps, "
           f"{args.num_samples} samples)…")
@@ -202,11 +254,6 @@ def main():
         raise ValueError("No valid snapshot_steps in range [0, num_steps).")
     selected_steps = set(idxs)
     print(f"\nFrame steps: {sorted(selected_steps)}")
-
-    if not os.path.isfile(args.norm_stats):
-        raise FileNotFoundError(f"norm_stats not found: {args.norm_stats}")
-    norm_stats = load_norm_stats(args.norm_stats, feat_cols)
-    print(f"Loaded norm stats for: {list(norm_stats.keys())}")
 
     print("\n── Multi-sample price path evolution ──")
     plot_price_evolution(snapshots, gt_close, close_idx, args.num_samples,
