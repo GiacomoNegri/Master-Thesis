@@ -55,7 +55,7 @@ from visualize_denoising import (
 # ── Visualisation: Prior noise vs reference (unnormalized price path) ────────
 
 def plot_prior_vs_reference_prices(gt_close, close_idx, num_samples, shape, sigma_max,
-                                   device, norm_stats, close_feat, out_dir):
+                                   device, norm_stats, close_feat, out_dir, ylim=None):
     """
     One PNG: raw prior noise sample(s) x ~ N(0, sigma_max^2 I) — the sampler's
     literal starting point — denormalized and converted to relative price
@@ -63,6 +63,10 @@ def plot_prior_vs_reference_prices(gt_close, close_idx, num_samples, shape, sigm
 
     This does NOT run the model or the sampler; it draws the same prior
     (`torch.randn(*shape) * sigma_max`) used at the top of `edm_sampler`.
+
+    If `ylim` is given, it is used as-is (e.g. to match the fixed y-axis of
+    `plot_price_evolution`'s frames); otherwise it's computed from this
+    plot's own data.
     """
     if close_feat not in norm_stats:
         print(f"  [prior] skipping — '{close_feat}' not in norm_stats")
@@ -85,18 +89,19 @@ def plot_prior_vs_reference_prices(gt_close, close_idx, num_samples, shape, sigm
         prior_denorm = denorm(prior_close[s], mean, std)
         prior_prices.append(_to_price_path(prior_denorm))
 
-    all_prices = [gt_price] + prior_prices
-    y_lo = min(float(p.min()) for p in all_prices)
-    y_hi = max(float(p.max()) for p in all_prices)
-    pad  = 0.10 * (y_hi - y_lo)
-    y_lo -= pad;  y_hi += pad
+    if ylim is None:
+        all_prices = [gt_price] + prior_prices
+        y_lo = min(float(p.min()) for p in all_prices)
+        y_hi = max(float(p.max()) for p in all_prices)
+        pad  = 0.10 * (y_hi - y_lo)
+        ylim = (y_lo - pad, y_hi + pad)
 
     fig, ax = plt.subplots(figsize=(10, 3.5))
     ax.plot(xs, gt_price, "k--", lw=1.8, alpha=0.8, label="Reference price path")
     for s, (path, color) in enumerate(zip(prior_prices, colors)):
         ax.plot(xs, path, color=color, lw=1.0, alpha=0.6, label=f"Prior sample {s}")
     ax.set_xlim(0, L1 - 1)
-    ax.set_ylim(y_lo, y_hi)
+    ax.set_ylim(*ylim)
     _save(fig, os.path.join(out_dir, "prior_vs_reference_prices.png"))
 
 
@@ -107,11 +112,13 @@ def plot_price_evolution(snapshots, gt_close, close_idx, num_samples, selected_s
     """
     One PNG per selected step: reference price path (dashed) plus all
     `num_samples` generated price paths (relative, S_0 = 1), overlaid.
-    Y-axis fixed across frames.
+    Y-axis fixed across frames. Returns the (y_lo, y_hi) used, or None if
+    skipped, so callers can reuse the same axis elsewhere (e.g. the prior
+    noise vs reference plot).
     """
     if close_feat not in norm_stats:
         print(f"  [prices] skipping — '{close_feat}' not in norm_stats")
-        return
+        return None
     mean, std = norm_stats[close_feat]
     os.makedirs(out_dir, exist_ok=True)
 
@@ -137,12 +144,12 @@ def plot_price_evolution(snapshots, gt_close, close_idx, num_samples, selected_s
 
     if not step_prices:
         print("  [prices] no matching snapshot steps — skipping")
-        return
+        return None
 
     y_lo = min(float(p.min()) for p in all_prices)
     y_hi = max(float(p.max()) for p in all_prices)
     pad  = 0.10 * (y_hi - y_lo)
-    y_lo -= pad;  y_hi += pad
+    ylim = (y_lo - pad, y_hi + pad)
 
     for step, (sigma, paths) in sorted(step_prices.items()):
         fig, ax = plt.subplots(figsize=(10, 3.5))
@@ -150,11 +157,13 @@ def plot_price_evolution(snapshots, gt_close, close_idx, num_samples, selected_s
         for s, (path, color) in enumerate(zip(paths, colors)):
             ax.plot(xs, path, color=color, lw=1.2, alpha=0.8, label=f"Sample {s}")
         ax.set_xlim(0, L1 - 1)
-        ax.set_ylim(y_lo, y_hi)
+        ax.set_ylim(*ylim)
         # ax.set_xlabel("Time step")
         # ax.set_ylabel("Relative price  ($S_0 = 1$)")
         ax.set_title(f"Step {step}")
         _save(fig, os.path.join(out_dir, f"prices_multi_step_{step:04d}.png"))
+
+    return ylim
 
 
 # ── CLI ───────────────────────────────────────────────────────────────────────
@@ -234,10 +243,6 @@ def main():
     norm_stats = load_norm_stats(args.norm_stats, feat_cols)
     print(f"Loaded norm stats for: {list(norm_stats.keys())}")
 
-    print("\n── Prior noise vs reference (unnormalized price path) ──")
-    plot_prior_vs_reference_prices(gt_close, close_idx, args.num_samples, tuple(obs.shape),
-                                   sigma_max, device, norm_stats, close_feat, args.out_dir)
-
     print(f"\nRunning EDM sampler ({args.num_steps} steps, "
           f"{args.num_samples} samples)…")
     snapshots = run_sampler_with_snapshots(
@@ -256,8 +261,13 @@ def main():
     print(f"\nFrame steps: {sorted(selected_steps)}")
 
     print("\n── Multi-sample price path evolution ──")
-    plot_price_evolution(snapshots, gt_close, close_idx, args.num_samples,
-                         selected_steps, norm_stats, close_feat, args.out_dir)
+    ylim = plot_price_evolution(snapshots, gt_close, close_idx, args.num_samples,
+                                selected_steps, norm_stats, close_feat, args.out_dir)
+
+    print("\n── Prior noise vs reference (unnormalized price path) ──")
+    plot_prior_vs_reference_prices(gt_close, close_idx, args.num_samples, tuple(obs.shape),
+                                   sigma_max, device, norm_stats, close_feat, args.out_dir,
+                                   ylim=ylim)
 
     print(f"\nDone. All outputs in: {args.out_dir}")
     print("GIF assembly example:")
