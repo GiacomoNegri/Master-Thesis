@@ -54,47 +54,42 @@ from visualize_denoising import (
 
 # ── Visualisation: Prior noise vs reference (unnormalized price path) ────────
 
-def plot_prior_vs_reference_prices(gt_close, close_idx, num_samples, shape, sigma_max,
-                                   device, norm_stats, close_feat, out_dir, ylim=None):
+def compute_prior_prices(gt_close, close_idx, num_samples, shape, sigma_max,
+                         device, norm_stats, close_feat):
     """
-    One PNG: raw prior noise sample(s) x ~ N(0, sigma_max^2 I) — the sampler's
-    literal starting point — denormalized and converted to relative price
-    paths (S_0 = 1), plotted against the reference (unnormalized) price path.
-
-    This does NOT run the model or the sampler; it draws the same prior
-    (`torch.randn(*shape) * sigma_max`) used at the top of `edm_sampler`.
-
-    If `ylim` is given, it is used as-is (e.g. to match the fixed y-axis of
-    `plot_price_evolution`'s frames); otherwise it's computed from this
-    plot's own data.
+    Draw the sampler's literal prior x ~ N(0, sigma_max^2 I) once, and
+    denormalize it plus the reference into relative price paths (S_0 = 1).
+    Returns (gt_price, prior_prices) or None if `close_feat` isn't in
+    `norm_stats`. Kept separate from rendering so the same random draw can
+    be plotted at more than one y-axis scale without redrawing noise.
     """
     if close_feat not in norm_stats:
         print(f"  [prior] skipping — '{close_feat}' not in norm_stats")
-        return
+        return None
     mean, std = norm_stats[close_feat]
-    os.makedirs(out_dir, exist_ok=True)
 
     gt_denorm = denorm(gt_close, mean, std)
     gt_price  = _to_price_path(gt_denorm)
-    L1 = len(gt_price)
-    xs = np.arange(L1)
 
     x_prior     = torch.randn(*shape, device=device) * sigma_max
     prior_close = x_prior[:, close_idx, :].cpu().numpy()   # (num_samples, L)
 
+    prior_prices = [
+        _to_price_path(denorm(prior_close[s], mean, std))
+        for s in range(num_samples)
+    ]
+    return gt_price, prior_prices
+
+
+def plot_prior_vs_reference_prices(gt_price, prior_prices, num_samples, ylim, out_dir, filename):
+    """
+    One PNG: reference price path (dashed) vs. the (already computed) prior
+    noise price paths, at the given fixed `ylim`.
+    """
+    os.makedirs(out_dir, exist_ok=True)
+    L1 = len(gt_price)
+    xs = np.arange(L1)
     colors = cm.tab10(np.linspace(0.0, 0.9, num_samples))
-
-    prior_prices = []
-    for s in range(num_samples):
-        prior_denorm = denorm(prior_close[s], mean, std)
-        prior_prices.append(_to_price_path(prior_denorm))
-
-    if ylim is None:
-        all_prices = [gt_price] + prior_prices
-        y_lo = min(float(p.min()) for p in all_prices)
-        y_hi = max(float(p.max()) for p in all_prices)
-        pad  = 0.10 * (y_hi - y_lo)
-        ylim = (y_lo - pad, y_hi + pad)
 
     fig, ax = plt.subplots(figsize=(10, 3.5))
     ax.plot(xs, gt_price, "k--", lw=1.8, alpha=0.8, label="Reference price path")
@@ -102,7 +97,7 @@ def plot_prior_vs_reference_prices(gt_close, close_idx, num_samples, shape, sigm
         ax.plot(xs, path, color=color, lw=1.0, alpha=0.6, label=f"Prior sample {s}")
     ax.set_xlim(0, L1 - 1)
     ax.set_ylim(*ylim)
-    _save(fig, os.path.join(out_dir, "prior_vs_reference_prices.png"))
+    _save(fig, os.path.join(out_dir, filename))
 
 
 # ── Visualisation: Multi-sample price path evolution ─────────────────────────
@@ -265,9 +260,28 @@ def main():
                                 selected_steps, norm_stats, close_feat, args.out_dir)
 
     print("\n── Prior noise vs reference (unnormalized price path) ──")
-    plot_prior_vs_reference_prices(gt_close, close_idx, args.num_samples, tuple(obs.shape),
-                                   sigma_max, device, norm_stats, close_feat, args.out_dir,
-                                   ylim=ylim)
+    prior_data = compute_prior_prices(gt_close, close_idx, args.num_samples, tuple(obs.shape),
+                                      sigma_max, device, norm_stats, close_feat)
+    if prior_data is not None:
+        gt_price_prior, prior_prices = prior_data
+
+        # Version 1: matched to the step frames' shared y-axis.
+        if ylim is not None:
+            plot_prior_vs_reference_prices(
+                gt_price_prior, prior_prices, args.num_samples, ylim,
+                args.out_dir, "prior_vs_reference_prices_matched.png",
+            )
+
+        # Version 2: own axis, scaled so all prior noise samples are visible.
+        all_prices = [gt_price_prior] + prior_prices
+        y_lo = min(float(p.min()) for p in all_prices)
+        y_hi = max(float(p.max()) for p in all_prices)
+        pad  = 0.10 * (y_hi - y_lo)
+        full_ylim = (y_lo - pad, y_hi + pad)
+        plot_prior_vs_reference_prices(
+            gt_price_prior, prior_prices, args.num_samples, full_ylim,
+            args.out_dir, "prior_vs_reference_prices_full.png",
+        )
 
     print(f"\nDone. All outputs in: {args.out_dir}")
     print("GIF assembly example:")
