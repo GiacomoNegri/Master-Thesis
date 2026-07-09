@@ -46,6 +46,9 @@ Usage:
         --num_kde_samples 1000 --num_path_samples 5 \\
         --norm_stats data/normalization_stats_norm_replication.csv \\
         --out_dir figures/forward --seed 42
+
+python visualize_forward_process.py --checkpoint_folder final/edm --checkpoint_name EDM_REPLICATION_CLOS_ep-500_step-44500_lr-8e-04_ch-128_layers-6_nheads-4_diffemb-256_sd-1.0_Pm--1.4_Ps-1.8_20260602_201915.pt --split train --window_idx 0 --quantiles 0.0 0.01 0.05 0.1 0.2 0.3 0.4 0.5 0.6 0.7 0.8 0.9 0.95 0.97 0.999 --P_mean -1.4 --P_std 1.8 --num_kde_samples 10 --num_path_samples 5 --norm_stats data/normalization_stats_norm_replication.csv --out_dir figures/forward --seed 42
+
 """
 
 import argparse
