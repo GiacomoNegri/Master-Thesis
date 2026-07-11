@@ -190,7 +190,16 @@ def parse_args():
     p.add_argument("--split",             type=str, default="val",
                    choices=["train", "val"])
     p.add_argument("--window_idx",        type=int, default=0,
-                   help="Index into the chosen split (default: 0).")
+                   help="Index into the chosen split (default: 0). Ignored if "
+                        "--window_file is given.")
+    p.add_argument("--window_file",       type=str, default=None,
+                   help="Select the window by CSV basename (e.g. OKE_...csv) "
+                        "instead of --window_idx. Invariant to how many other "
+                        "files are in the data directory, so it resolves to the "
+                        "same window across machines whose data dirs differ.")
+    p.add_argument("--window_start",      type=int, default=0,
+                   help="Start row within --window_file (default: 0). "
+                        "Only used with --window_file.")
     p.add_argument("--num_samples",       type=int, default=5,
                    help="Number of independent generated paths to overlay.")
     p.add_argument("--num_steps",         type=int, default=50,
@@ -233,6 +242,7 @@ def main():
         config, args.split, args.window_idx, repo_root,
         device, args.num_samples, close_idx, feat_cols, seq_len,
         date_format=args.date_format,
+        window_file=args.window_file, window_start=args.window_start,
     )
 
     # ── Save chosen window/run info for later reuse ──────────────────────────

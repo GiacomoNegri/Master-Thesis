@@ -486,7 +486,16 @@ def parse_args():
     p.add_argument("--split",             type=str, default="val",
                    choices=["train", "val"])
     p.add_argument("--window_idx",        type=int, default=0,
-                   help="Index into the chosen split (default: 0).")
+                   help="Index into the chosen split (default: 0). Ignored if "
+                        "--window_file is given.")
+    p.add_argument("--window_file",       type=str, default=None,
+                   help="Select the window by CSV basename (e.g. OKE_...csv) "
+                        "instead of --window_idx. Invariant to how many other "
+                        "files are in the data directory, so it resolves to the "
+                        "same window across machines whose data dirs differ.")
+    p.add_argument("--window_start",      type=int, default=0,
+                   help="Start row within --window_file (default: 0). "
+                        "Only used with --window_file.")
     p.add_argument("--quantiles",         type=float, nargs="+",
                    default=[0.001, 0.05, 0.25, 0.5, 0.75, 0.95, 0.999],
                    help="Quantiles (0,1) of the log-normal training schedule "
@@ -531,6 +540,7 @@ def main():
         config, args.split, args.window_idx, repo_root,
         device, num_samples=1, close_idx=close_idx, feat_cols=feat_cols,
         seq_len=seq_len, date_format=args.date_format,
+        window_file=args.window_file, window_start=args.window_start,
     )
     gt_close = np.asarray(gt_close, dtype=np.float64)
 

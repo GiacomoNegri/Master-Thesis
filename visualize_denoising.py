@@ -176,9 +176,27 @@ def load_model(args, device):
 # ── Window loading ────────────────────────────────────────────────────────────
 
 def load_window(config, split, window_idx, repo_root, device, num_samples,
-                close_idx, feat_cols, seq_len, date_format="%d/%m/%Y"):
+                close_idx, feat_cols, seq_len, date_format="%d/%m/%Y",
+                window_file=None, window_start=0):
     """
     Reconstruct the train/val split and return tensors for one window.
+
+    Window selection — two mutually exclusive modes:
+
+    - Default (window_file is None): select by permutation index. The chosen
+      window is `split_indices[window_idx]`, where the split ordering comes
+      from `torch.randperm(dataset_size, seed)`. This is reproducible ONLY for
+      a fixed set of CSV files: `dataset_size` depends on how many files are on
+      disk, and randperm over a different length yields a different ordering,
+      so the SAME window_idx maps to a DIFFERENT (file, start) if the data
+      directory's file set differs (see reconstruct_split).
+
+    - Filename mode (window_file given): select the window directly by CSV
+      basename + start row, bypassing the permutation entirely. This is
+      invariant to how many other files are present in the data directory, so
+      two runs on machines whose data directories are not perfectly in sync
+      still resolve to the same underlying window. `split` is ignored in this
+      mode (the requested file/start is used as-is).
 
     Returns
     -------
@@ -191,18 +209,39 @@ def load_window(config, split, window_idx, repo_root, device, num_samples,
     files, flat_index, train_indices, val_indices, date_to_idx, date_col = \
         reconstruct_split(config, repo_root, date_format=date_format)
 
-    split_indices = train_indices if split == "train" else val_indices
-    if not split_indices:
-        raise ValueError(f"No {split} windows found in checkpoint config.")
-    if window_idx >= len(split_indices):
-        raise IndexError(
-            f"window_idx={window_idx} out of range for {split} split "
-            f"(size={len(split_indices)})."
-        )
+    if window_file is not None:
+        # ── Filename mode: resolve (fi, start) directly, no permutation ──────
+        target = os.path.basename(window_file)
+        matches = [i for i, f in enumerate(files) if os.path.basename(f) == target]
+        if not matches:
+            raise FileNotFoundError(
+                f"--window_file '{target}' not found among {len(files)} CSVs in "
+                f"the checkpoint's data_root."
+            )
+        fi = matches[0]
+        start = int(window_start)
+        df = pd.read_csv(files[fi])
+        if start < 0 or start + seq_len > len(df):
+            raise IndexError(
+                f"--window_start={start} with seq_len={seq_len} is out of range "
+                f"for '{target}' (rows={len(df)}; valid start 0..{len(df) - seq_len})."
+            )
+        selector = "[file]"
+    else:
+        # ── Index mode: permutation-based selection (data-set-size dependent) ─
+        split_indices = train_indices if split == "train" else val_indices
+        if not split_indices:
+            raise ValueError(f"No {split} windows found in checkpoint config.")
+        if window_idx >= len(split_indices):
+            raise IndexError(
+                f"window_idx={window_idx} out of range for {split} split "
+                f"(size={len(split_indices)})."
+            )
 
-    global_idx = split_indices[window_idx]
-    fi, start  = flat_index[global_idx]
-    df = pd.read_csv(files[fi])
+        global_idx = split_indices[window_idx]
+        fi, start  = flat_index[global_idx]
+        df = pd.read_csv(files[fi])
+        selector = f"[{split}][{window_idx}]"
 
     win    = df[feat_cols].to_numpy(dtype=np.float32)[start: start + seq_len]   # (L, K)
     gt_win = win.T                                                                # (K, L)
@@ -222,11 +261,12 @@ def load_window(config, split, window_idx, repo_root, device, num_samples,
 
     gt_close = gt_win[close_idx]                                                 # (L,)
     gt_close_sig = _array_signature(gt_close)
-    print(f"Window [{split}][{window_idx}]  file={os.path.basename(files[fi])}  "
+    print(f"Window {selector}  file={os.path.basename(files[fi])}  "
           f"start={start}  dates={dates[0]}..{dates[-1]}")
     print(f"  gt_close signature: {gt_close_sig}")
 
     window_info = {
+        "selection_mode":    "file" if window_file is not None else "index",
         "split":             split,
         "window_idx":        window_idx,
         "file":              os.path.basename(files[fi]),
@@ -577,7 +617,16 @@ def parse_args():
     p.add_argument("--split",             type=str, default="val",
                    choices=["train", "val"])
     p.add_argument("--window_idx",        type=int, default=0,
-                   help="Index into the chosen split (default: 0).")
+                   help="Index into the chosen split (default: 0). Ignored if "
+                        "--window_file is given.")
+    p.add_argument("--window_file",       type=str, default=None,
+                   help="Select the window by CSV basename (e.g. OKE_...csv) "
+                        "instead of --window_idx. Invariant to how many other "
+                        "files are in the data directory, so it resolves to the "
+                        "same window across machines whose data dirs differ.")
+    p.add_argument("--window_start",      type=int, default=0,
+                   help="Start row within --window_file (default: 0). "
+                        "Only used with --window_file.")
     p.add_argument("--num_samples",       type=int, default=5,
                    help="Number of independent generated paths.")
     p.add_argument("--num_steps",         type=int, default=50,
@@ -637,6 +686,7 @@ def main():
         config, args.split, args.window_idx, repo_root,
         device, args.num_samples, close_idx, feat_cols, seq_len,
         date_format=args.date_format,
+        window_file=args.window_file, window_start=args.window_start,
     )
 
     # ── Save chosen window/run info for later reuse ──────────────────────────
