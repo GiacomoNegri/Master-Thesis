@@ -88,9 +88,9 @@ plt.rcParams.update({
     "axes.spines.right": False,
 })
 
-_FORWARD_COLOR = "#E64A19"   # deep orange — noising (adding noise)
-_DENOISE_COLOR = "#1E88E5"   # blue        — denoising (model estimate)
-_PRIOR_COLOR   = "#607D8B"   # blue-grey   — analytic N(0, sigma^2) overlay
+_FORWARD_COLOR = "#4FC3F7"   # light blue — noising (adding noise)
+_DENOISE_COLOR = "#FB8C00"   # orange     — denoising (model estimate)
+_PRIOR_COLOR   = "#607D8B"   # blue-grey  — analytic N(0, sigma^2) overlay
 
 
 def _save(fig: plt.Figure, path: str) -> None:
@@ -114,11 +114,15 @@ def _plot_zoom_frame(x_grid, x_lo, x_hi, dens, ref_dens, title, out_path,
                      color, series_label, prior_dens=None):
     """One zoom-marginal PNG: the current density (filled) + the shared pooled
     reference (dashed black) + optional analytic prior (dotted). The reference
-    is drawn on every frame so convergence/divergence from it is visible."""
-    y_candidates = [dens.max(), ref_dens.max()]
-    if prior_dens is not None:
-        y_candidates.append(prior_dens.max())
-    y_max = max(y_candidates) * 1.15
+    is drawn on every frame so convergence/divergence from it is visible, but
+    the y-axis is scaled to the CURRENT density alone (corrupted on the forward
+    side, denoised D_x on the reverse side) — the reference and prior are not
+    allowed to drive ylim, so a narrow reference/prior spike will clip at the
+    top of the wide frames rather than flattening the current density."""
+    dmax = float(dens.max())
+    if dmax <= 0.0:   # degenerate density (e.g. KDE failed) — fall back to ref
+        dmax = float(ref_dens.max()) or 1.0
+    y_max = dmax * 1.15
 
     fig, ax = plt.subplots(figsize=(7, 4))
     ax.plot(x_grid, ref_dens, "k--", lw=1.8, alpha=0.85, label="Pooled reference")
