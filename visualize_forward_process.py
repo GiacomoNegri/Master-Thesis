@@ -41,19 +41,23 @@ Usage:
         --checkpoint_folder final/edm \\
         --checkpoint_name EDM_REPLICATION_....pt \\
         --split train --window_idx 0 \\
-        --quantiles 0.01 0.05 0.25 0.5 0.75 0.95 0.999 \\
+        --quantiles 0.001 0.05 0.25 0.5 0.75 0.95 0.999 \\
         --P_mean -1.4 --P_std 1.8 \\
         --num_kde_samples 1000 --num_path_samples 5 \\
         --norm_stats data/normalization_stats_norm_replication.csv \\
         --out_dir figures/forward --seed 42
 
-python visualize_forward_process.py --checkpoint_folder final/edm --checkpoint_name EDM_REPLICATION_CLOS_ep-500_step-44500_lr-8e-04_ch-128_layers-6_nheads-4_diffemb-256_sd-1.0_Pm--1.4_Ps-1.8_20260602_201915.pt --split train --window_idx 0 --quantiles 0.0 0.01 0.05 0.1 0.2 0.3 0.4 0.5 0.6 0.7 0.8 0.9 0.95 0.97 0.999 --P_mean -1.4 --P_std 1.8 --num_kde_samples 10 --num_path_samples 5 --norm_stats data/normalization_stats_norm_replication.csv --out_dir figures/forward --seed 42
+python visualize_forward_process.py --checkpoint_folder final/edm --checkpoint_name EDM_REPLICATION_CLOS_ep-500_step-44500_lr-8e-04_ch-128_layers-6_nheads-4_diffemb-256_sd-1.0_Pm--1.4_Ps-1.8_20260602_201915.pt --split train --window_idx 0 --quantiles 0.001 0.003 0.005 0.01 0.05 0.1 0.15 0.2 0.25 0.3 0.35 0.4 0.45 0.5 0.55 0.6 0.65 0.7 0.75 0.8 0.85 0.9 0.95 0.95 0.97 0.99 0.999 --P_mean -1.4 --P_std 1.8 --num_kde_samples 10 --num_path_samples 5 --norm_stats data/general/normalization_stats_norm_replication.csv --out_dir figures/forward --seed 42
 
 """
 
 import argparse
 import json
+
 import os
+os.environ.setdefault("KMP_DUPLICATE_LIB_OK", "TRUE")
+
+
 import sys
 import warnings
 
@@ -91,10 +95,11 @@ plt.rcParams.update({
 })
 
 _COLORS = {
-    "marginal":  "#9C27B0",   # purple — distinct from visualize_denoising's blue
-    "prior":     "#607D8B",   # blue-grey — theoretical N(0, sigma^2) overlay
-    "evolution": "#FF5722",   # deep orange
-    "prices":    "#009688",   # teal
+    "marginal":      "#9C27B0",   # purple — full-range marginal plot
+    "marginal_zoom": "#1E88E5",   # blue — zoomed marginal plot
+    "prior":         "#607D8B",   # blue-grey — theoretical N(0, sigma^2) overlay
+    "evolution":     "#FF5722",   # deep orange
+    "prices":        "#009688",   # teal
 }
 
 # exp() overflows in float64 around x ~ 709.78; keep a safety margin.
@@ -147,6 +152,117 @@ def sigmas_from_quantiles(quantiles: list, P_mean: float, P_std: float) -> np.nd
 
 # ── Visualisation 1: Marginal distribution evolution toward the prior ───────
 
+def _corrupted_quantile_bounds(gt_close, sigma, num_samples, lo_q=0.001, hi_q=0.999):
+    """
+    Empirical [lo_q, hi_q] quantile bounds of a fresh corrupted sample
+    x_sigma = gt_close + sigma*eps at a single sigma. Used to size a plot's
+    x-axis from the actual corrupted distribution at that sigma, rather than
+    from the raw ground-truth data values (which don't reflect how much the
+    noise has already spread the distribution) or an ad-hoc sigma multiplier.
+    """
+    eps = np.random.randn(num_samples, len(gt_close))
+    vals = (gt_close[None, :] + sigma * eps).ravel()
+    return float(np.quantile(vals, lo_q)), float(np.quantile(vals, hi_q))
+
+
+def _marginal_frame_data(gt_close, sigmas, quantiles, num_kde_samples, x_grid):
+    """
+    Shared KDE computation for the marginal plots: reference density plus,
+    per sigma, a fresh-eps corrupted density and the analytic prior
+    N(0, sigma^2). Factored out so the full-range and zoomed-range marginal
+    plots reuse the same corruption/KDE logic and only differ in the x_grid
+    (evaluation range) passed in.
+
+    KDEs are fit on the *unclipped* values; x_grid only controls where the
+    fitted density is evaluated/plotted. Clipping the input data first would
+    pile values up at the grid boundary and create an artificial spike there;
+    fitting on the full data and simply not evaluating outside x_grid's range
+    avoids that distortion.
+    """
+    L = len(gt_close)
+    ref_kde  = gaussian_kde(gt_close)
+    ref_dens = ref_kde(x_grid)
+
+    frame_data = []
+    for sigma, q in zip(sigmas, quantiles):
+        eps = np.random.randn(num_kde_samples, L)
+        x_sigma = gt_close[None, :] + sigma * eps
+        vals = x_sigma.ravel()
+        try:
+            dens = gaussian_kde(vals)(x_grid)
+        except np.linalg.LinAlgError:
+            dens = np.zeros_like(x_grid)
+        prior_dens = norm.pdf(x_grid, loc=0.0, scale=sigma)
+        frame_data.append((sigma, q, dens, prior_dens))
+    return ref_dens, frame_data
+
+
+def _plot_marginal_frame(x_grid, x_lo, x_hi, dens, prior_dens, title, y_max, out_path,
+                         ref_dens=None, color=None):
+    """
+    Render one marginal-evolution PNG: corrupted density + analytic prior,
+    plus the reference density if ref_dens is given (only the starting-
+    condition frame passes one). Shared by the full-range plot (one x_grid
+    for all frames, purple, titled by step) and the zoomed plot (a fresh
+    x_grid per frame, blue, titled by quantile level).
+    """
+    color = color or _COLORS["marginal"]
+    fig, ax = plt.subplots(figsize=(7, 4))
+    if ref_dens is not None:
+        ax.plot(x_grid, ref_dens, "k--", lw=1.8, alpha=0.85)
+    ax.fill_between(x_grid, dens, alpha=0.30, color=color)
+    ax.plot(x_grid, dens, color=color, lw=1.6)
+    ax.plot(x_grid, prior_dens, color=_COLORS["prior"], lw=1.4, ls=":")
+    ax.set_xlim(x_lo, x_hi)
+    ax.set_ylim(0.0, y_max)
+    ax.set_xlabel("Normalised close log-return")
+    ax.set_ylabel("Density")
+    ax.set_title(title)
+    _save(fig, out_path)
+
+
+def _render_marginal_frames(ref_dens, frame_data, x_grid, x_lo, x_hi, out_dir, filename_prefix,
+                            fixed_yaxis=True):
+    """
+    Shared-x_grid renderer (used by the full-range plot, where all frames
+    are drawn on one common window so magnitudes are comparable). frame_data[0]
+    (smallest sigma) is rendered separately as the "starting condition": it is
+    the only frame that plots the reference density and the only one whose
+    y-axis is allowed to be set by it, since at this sigma the corrupted
+    distribution should visually coincide with the real data. Every other
+    frame is scaled by the prior/corrupted density alone — the reference is a
+    single, sigma-independent peak that would otherwise dominate the axis and
+    flatten every later frame in the schedule.
+
+    fixed_yaxis=True: one y_max shared across all non-start frames. Currently
+    always True for the plots that use this renderer, kept as a parameter in
+    case a shared-x_grid, per-frame-y_max variant is needed again later.
+    """
+    if not frame_data:
+        return
+
+    _, _, start_dens, start_prior = frame_data[0]
+    start_y_max = max(ref_dens.max(), start_dens.max(), start_prior.max()) * 1.15
+    _plot_marginal_frame(x_grid, x_lo, x_hi, start_dens, start_prior, "Step 0",
+                         start_y_max, os.path.join(out_dir, f"{filename_prefix}_start.png"),
+                         ref_dens=ref_dens)
+
+    rest = frame_data[1:]
+    if not rest:
+        return
+
+    if fixed_yaxis:
+        global_y_max = max(
+            *(d.max() for _, _, d, _ in rest),
+            *(p.max() for _, _, _, p in rest),
+        ) * 1.15
+
+    for idx, (_, _, dens, prior_dens) in enumerate(rest, start=1):
+        y_max = global_y_max if fixed_yaxis else max(dens.max(), prior_dens.max()) * 1.15
+        _plot_marginal_frame(x_grid, x_lo, x_hi, dens, prior_dens, f"Step {idx}", y_max,
+                             os.path.join(out_dir, f"{filename_prefix}_{idx:04d}.png"))
+
+
 def plot_marginal_forward(gt_close, sigmas, quantiles, num_kde_samples, out_dir):
     """
     One PNG per sigma level: KDE of corrupted Close values vs. the reference
@@ -155,62 +271,82 @@ def plot_marginal_forward(gt_close, sigmas, quantiles, num_kde_samples, out_dir)
     distribution visibly shrinks to a spike relative to the widening corrupted
     density — that shrinkage *is* the "approaching the prior" effect.
 
+    x-axis bounds are the empirical 0.001/0.999 quantiles of the *corrupted*
+    distribution at sigma_last (not the raw ground-truth data), since that's
+    the widest frame and its own spread is what the axis needs to cover.
+
     Uses fresh eps draws per sigma: many independent samples give a much
     cleaner KDE than the handful reused for the path/price plots, and there is
     no continuity requirement for a per-sigma density snapshot.
     """
     os.makedirs(out_dir, exist_ok=True)
-    L = len(gt_close)
     sigma_last = float(sigmas[-1])
 
-    ref_lo = np.quantile(gt_close, 0.001)
-    ref_hi = np.quantile(gt_close, 0.999)
-    x_lo = min(ref_lo, -4.0 * sigma_last)
-    x_hi = max(ref_hi,  4.0 * sigma_last)
+    x_lo, x_hi = _corrupted_quantile_bounds(gt_close, sigma_last, num_kde_samples)
     x_grid = np.linspace(x_lo, x_hi, 400)
 
-    ref_kde  = gaussian_kde(np.clip(gt_close, ref_lo, ref_hi))
-    ref_dens = ref_kde(x_grid)
+    ref_dens, frame_data = _marginal_frame_data(
+        gt_close, sigmas, quantiles, num_kde_samples, x_grid
+    )
+    _render_marginal_frames(ref_dens, frame_data, x_grid, x_lo, x_hi, out_dir,
+                            "forward_marginal_step")
 
-    # Pre-compute all frame data to fix the y-axis before plotting.
-    frame_data = []
-    for sigma, q in zip(sigmas, quantiles):
+
+def plot_marginal_forward_zoomed(gt_close, sigmas, quantiles, num_kde_samples, out_dir):
+    """
+    Zoomed companion to plot_marginal_forward. Each frame gets its OWN
+    x-axis window — the empirical 0.001/0.999 quantiles of the *corrupted*
+    distribution at THAT frame's own sigma — instead of one window shared
+    across the whole schedule.
+
+    A single shared window cannot work here: the sigma schedule spans many
+    orders of magnitude (e.g. ~1e-3 to ~1e2 for typical P_mean/P_std), so a
+    window sized for one sigma is either far too narrow to show anything but
+    a flat line at other sigmas, or far too wide to show detail at low sigma.
+    Per-frame windows keep every individual frame legible; the tradeoff is
+    frames are no longer directly comparable to one another on this plot —
+    that cross-sigma comparison is what plot_marginal_forward's shared,
+    fixed axis is for.
+    """
+    os.makedirs(out_dir, exist_ok=True)
+    L = len(gt_close)
+    ref_kde = gaussian_kde(gt_close)
+
+    def _frame_density(sigma, x_grid):
         eps = np.random.randn(num_kde_samples, L)
-        x_sigma = gt_close[None, :] + sigma * eps
-        vals = np.clip(x_sigma.ravel(), x_lo, x_hi)
+        vals = (gt_close[None, :] + sigma * eps).ravel()
         try:
             dens = gaussian_kde(vals)(x_grid)
         except np.linalg.LinAlgError:
             dens = np.zeros_like(x_grid)
         prior_dens = norm.pdf(x_grid, loc=0.0, scale=sigma)
-        frame_data.append((sigma, q, dens, prior_dens))
+        return dens, prior_dens
 
-    y_max = max(
-        ref_dens.max(),
-        *(d.max() for _, _, d, _ in frame_data),
-        *(p.max() for _, _, _, p in frame_data),
-    ) * 1.15
+    # Starting condition: own window, includes the reference.
+    sigma0, q0 = float(sigmas[0]), float(quantiles[0])
+    x_lo0, x_hi0 = _corrupted_quantile_bounds(gt_close, sigma0, num_kde_samples)
+    x_grid0 = np.linspace(x_lo0, x_hi0, 400)
+    dens0, prior0 = _frame_density(sigma0, x_grid0)
+    ref_dens0 = ref_kde(x_grid0)
+    y_max0 = max(ref_dens0.max(), dens0.max(), prior0.max()) * 1.15
+    _plot_marginal_frame(x_grid0, x_lo0, x_hi0, dens0, prior0, f"Quantile {q0:.3f}", y_max0,
+                         os.path.join(out_dir, "forward_marginal_zoom_start.png"),
+                         ref_dens=ref_dens0, color=_COLORS["marginal_zoom"])
 
-    for idx, (sigma, q, dens, prior_dens) in enumerate(frame_data):
-        fig, ax = plt.subplots(figsize=(7, 4))
-        ax.plot(x_grid, ref_dens, "k--", lw=1.8, alpha=0.85, label="Reference (sigma=0)")
-        ax.fill_between(x_grid, dens, alpha=0.30, color=_COLORS["marginal"])
-        ax.plot(x_grid, dens, color=_COLORS["marginal"], lw=1.6,
-                label=f"Corrupted  (sigma = {sigma:.3f})")
-        ax.plot(x_grid, prior_dens, color=_COLORS["prior"], lw=1.4, ls=":",
-                label=r"Prior  $\mathcal{N}(0,\sigma^2)$")
-        ax.set_xlim(x_lo, x_hi)
-        ax.set_ylim(0.0, y_max)
-        ax.set_xlabel("Normalised close log-return")
-        ax.set_ylabel("Density")
-        ax.set_title(f"Forward process — quantile {q:.3f}  (sigma = {sigma:.3f})")
-        ax.legend()
-        _save(fig, os.path.join(out_dir, f"forward_marginal_step_{idx:04d}.png"))
+    for idx, (sigma, q) in enumerate(zip(sigmas[1:], quantiles[1:]), start=1):
+        sigma = float(sigma)
+        x_lo, x_hi = _corrupted_quantile_bounds(gt_close, sigma, num_kde_samples)
+        x_grid = np.linspace(x_lo, x_hi, 400)
+        dens, prior_dens = _frame_density(sigma, x_grid)
+        y_max = max(dens.max(), prior_dens.max()) * 1.15
+        _plot_marginal_frame(x_grid, x_lo, x_hi, dens, prior_dens, f"Quantile {float(q):.3f}",
+                             y_max, os.path.join(out_dir, f"forward_marginal_zoom_step_{idx:04d}.png"),
+                             color=_COLORS["marginal_zoom"])
 
 
 # ── Visualisation 2: Sample path evolution toward noise ──────────────────────
 
-def plot_evolution_forward(gt_close, sigmas, quantiles, fixed_eps, out_dir):
+def plot_evolution_forward(gt_close, sigmas, fixed_eps, out_dir):
     """
     One PNG per sigma level: reference sequence (fixed dashed) + a small set of
     corrupted paths x_sigma = x_0 + sigma*eps, reusing the *same* eps vectors
@@ -230,7 +366,7 @@ def plot_evolution_forward(gt_close, sigmas, quantiles, fixed_eps, out_dir):
     xs = np.arange(L)
 
     num_path_samples = fixed_eps.shape[0]
-    for idx, (sigma, q) in enumerate(zip(sigmas, quantiles)):
+    for idx, sigma in enumerate(sigmas):
         x_sigma = gt_close[None, :] + sigma * fixed_eps   # (num_path_samples, L)
         y_lo = min(float(gt_close.min()), float(x_sigma.min()))
         y_hi = max(float(gt_close.max()), float(x_sigma.max()))
@@ -238,16 +374,14 @@ def plot_evolution_forward(gt_close, sigmas, quantiles, fixed_eps, out_dir):
         y_lo -= pad; y_hi += pad
 
         fig, ax = plt.subplots(figsize=(10, 3.5))
-        ax.plot(xs, gt_close, "k--", lw=1.8, alpha=0.75, label="Reference (true close)")
+        ax.plot(xs, gt_close, "k--", lw=1.8, alpha=0.75)
         for s in range(num_path_samples):
-            ax.plot(xs, x_sigma[s], color=_COLORS["evolution"], lw=1.1, alpha=0.65,
-                    label="Corrupted paths" if s == 0 else None)
+            ax.plot(xs, x_sigma[s], color=_COLORS["evolution"], lw=1.1, alpha=0.65)
         ax.set_xlim(0, L - 1)
         ax.set_ylim(y_lo, y_hi)
         ax.set_xlabel("Time step")
         ax.set_ylabel("Normalised log-return")
-        ax.set_title(f"Forward process — quantile {q:.3f}  (sigma = {sigma:.3f})")
-        ax.legend(loc="upper right")
+        ax.set_title(f"Step {idx}")
         _save(fig, os.path.join(out_dir, f"forward_evolution_step_{idx:04d}.png"))
 
 
@@ -284,6 +418,14 @@ def plot_prices_forward(gt_close, sigmas, quantiles, fixed_eps, norm_stats,
     L1 = len(gt_price)
     xs = np.arange(L1)
 
+    # Standalone reference price path (denormalised ground-truth log-returns,
+    # no corruption) — saved once, not per sigma frame.
+    fig, ax = plt.subplots(figsize=(10, 3.5))
+    ax.plot(xs, gt_price, color="black", lw=1.8)
+    ax.set_xlim(0, L1 - 1)
+    ax.set_title("Reference price path")
+    _save(fig, os.path.join(out_dir, "forward_prices_reference.png"))
+
     num_path_samples = fixed_eps.shape[0]
 
     def _safe_price_path(returns: np.ndarray) -> tuple:
@@ -302,30 +444,28 @@ def plot_prices_forward(gt_close, sigmas, quantiles, fixed_eps, norm_stats,
             gen_price, clipped = _safe_price_path(gen_denorm)
             prices.append(gen_price)
             any_clipped = any_clipped or clipped
-        frame_prices.append((sigma, q, prices))
+        frame_prices.append((q, prices))
 
     if any_clipped:
         print("  [prices] warning: cumulative log-return sum clipped to avoid "
               "float overflow at high sigma — price path no longer meaningful "
               "at those levels (expected: this is the noise-dominated regime).")
 
-    for idx, (sigma, q, prices) in enumerate(frame_prices):
+    for idx, (q, prices) in enumerate(frame_prices):
         y_lo = min([float(gt_price.min())] + [float(p.min()) for p in prices])
         y_hi = max([float(gt_price.max())] + [float(p.max()) for p in prices])
         pad  = 0.10 * (y_hi - y_lo) if y_hi > y_lo else 1.0
         y_lo -= pad; y_hi += pad
 
         fig, ax = plt.subplots(figsize=(10, 3.5))
-        ax.plot(xs, gt_price, "k--", lw=1.8, alpha=0.75, label="Reference price path")
+        ax.plot(xs, gt_price, "k--", lw=1.8, alpha=0.75)
         for s, price in enumerate(prices):
-            ax.plot(xs, price, color=_COLORS["prices"], lw=1.1, alpha=0.65,
-                    label="Corrupted price paths" if s == 0 else None)
+            ax.plot(xs, price, color=_COLORS["prices"], lw=1.1, alpha=0.65)
         ax.set_xlim(0, L1 - 1)
         ax.set_ylim(y_lo, y_hi)
-        ax.set_xlabel("Time step")
-        ax.set_ylabel("Relative price  ($S_0 = 1$)")
-        ax.set_title(f"Forward process — quantile {q:.3f}  (sigma = {sigma:.3f})")
-        ax.legend(loc="upper right")
+        # ax.set_xlabel("Time step")
+        # ax.set_ylabel("Relative price  ($S_0 = 1$)")
+        ax.set_title(f"Quantile {float(q):.3f}")
         _save(fig, os.path.join(out_dir, f"forward_prices_step_{idx:04d}.png"))
 
 
@@ -342,7 +482,7 @@ def parse_args():
     p.add_argument("--window_idx",        type=int, default=0,
                    help="Index into the chosen split (default: 0).")
     p.add_argument("--quantiles",         type=float, nargs="+",
-                   default=[0.01, 0.05, 0.25, 0.5, 0.75, 0.95, 0.999],
+                   default=[0.001, 0.05, 0.25, 0.5, 0.75, 0.95, 0.999],
                    help="Quantiles (0,1) of the log-normal training schedule "
                         "used to pick monotonically increasing sigma levels.")
     p.add_argument("--P_mean",            type=float, default=-1.4,
@@ -430,8 +570,11 @@ def main():
     print("\n-- Vis 1: Marginal distribution evolution toward the prior --")
     plot_marginal_forward(gt_close, sigmas, quantiles, args.num_kde_samples, args.out_dir)
 
+    print("\n-- Vis 1b: Marginal distribution evolution (zoomed to data quantile range) --")
+    plot_marginal_forward_zoomed(gt_close, sigmas, quantiles, args.num_kde_samples, args.out_dir)
+
     print("\n-- Vis 2: Sample path evolution toward noise --")
-    plot_evolution_forward(gt_close, sigmas, quantiles, fixed_eps, args.out_dir)
+    plot_evolution_forward(gt_close, sigmas, fixed_eps, args.out_dir)
 
     print("\n-- Vis 3: Price path evolution toward noise --")
     plot_prices_forward(gt_close, sigmas, quantiles, fixed_eps, norm_stats,

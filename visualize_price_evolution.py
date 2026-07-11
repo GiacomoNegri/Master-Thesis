@@ -14,7 +14,7 @@ Usage:
     python visualize_price_evolution.py \\
         --checkpoint_folder ohlc_conditional \\
         --checkpoint_name MY.pt \\
-        --split val \\
+        --split train \\
         --window_idx 0 \\
         --num_samples 5 \\
         --num_steps 50 \\
@@ -22,6 +22,18 @@ Usage:
         --out_dir figures/price_evolution \\
         --norm_stats data/fake_fts_processed/normalization_stats.csv \\
         --seed 42
+
+To reference the exact same window as visualize_forward_process.py, pass the
+same --checkpoint_folder, --checkpoint_name, --split, and --window_idx (window
+selection in both scripts is a pure function of those four values plus
+--date_format — see load_window in visualize_denoising.py):
+    python visualize_price_evolution.py \\
+        --checkpoint_folder final/edm \\
+        --checkpoint_name EDM_REPLICATION_CLOS_ep-500_step-44500_lr-8e-04_ch-128_layers-6_nheads-4_diffemb-256_sd-1.0_Pm--1.4_Ps-1.8_20260602_201915.pt \\
+        --split train --window_idx 0 \\
+        --num_samples 5 --num_steps 50 \\
+        --norm_stats data/general/normalization_stats_norm_replication.csv \\
+        --out_dir figures/price_evolution --seed 42
 """
 
 import argparse
