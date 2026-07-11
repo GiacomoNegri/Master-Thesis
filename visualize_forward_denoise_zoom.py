@@ -175,6 +175,44 @@ def plot_forward_zoom(pooled_ref, ref_kde, sigmas, quantiles, num_kde_samples,
         )
 
 
+# ── Denoise bridge: the sampled prior the sampler starts from ────────────────
+
+def plot_denoise_prior(ref_kde, sigma_max, num_windows, seq_len, out_dir,
+                       lo_q, hi_q):
+    """Standalone bridge frame connecting the forward series' last (noise) frame
+    to the denoise series: the pooled sampled prior x ~ N(0, sigma_max^2), i.e.
+    the pure Gaussian the Heun sampler initialises from (WIP_processes.edm_sampler
+    line ~433: x = randn(shape) * sigmas[0], with sigmas[0] == sigma_max), plotted
+    against the shared reference.
+
+    Drawn fresh at sigma_max rather than read back from the sampler: the snapshots
+    only capture the denoised estimate D_x, not the raw init, and the marginal of
+    a fresh draw over the same (num_windows x seq_len) Close entries is
+    statistically identical to the sampler's actual init — so there is no need to
+    touch the sampler. Styled like the denoise series (orange) as its 'step -1',
+    and — like every zoom frame — its y-axis is scaled to the prior density alone,
+    so the narrow reference spike clips at the top exactly as in the forward
+    series' widest frame."""
+    n    = int(num_windows) * int(seq_len)
+    vals = (float(sigma_max) * np.random.standard_normal(n)).astype(np.float64)
+    x_lo, x_hi = _zoom_window(vals, lo_q, hi_q)
+    x_grid = np.linspace(x_lo, x_hi, 400)
+    try:
+        dens = gaussian_kde(vals)(x_grid)
+    except np.linalg.LinAlgError:
+        dens = np.zeros_like(x_grid)
+    ref_dens = ref_kde(x_grid)
+
+    _plot_zoom_frame(
+        x_grid, x_lo, x_hi, dens, ref_dens,
+        title=f"Denoising (zoom, {num_windows} windows) — "
+              f"sampled prior  (σ = {float(sigma_max):.3f})",
+        out_path=os.path.join(out_dir, "denoise_marginal_zoom_prior.png"),
+        color=_DENOISE_COLOR,
+        series_label=f"Sampled prior  (σ = {float(sigma_max):.3f})",
+    )
+
+
 # ── Denoise zoom series ──────────────────────────────────────────────────────
 
 def plot_denoise_zoom(snapshots, ref_kde, close_idx, selected_steps,
@@ -341,12 +379,21 @@ def main():
                       args.num_kde_samples, args.num_windows, args.out_dir,
                       args.lo_q, args.hi_q)
 
+    # ── Denoise bridge: sampled prior (continuity with forward's last frame) ──
+    print("\n── Denoising bridge: sampled prior vs reference ──")
+    plot_denoise_prior(ref_kde, sigma_max, args.num_windows, seq_len,
+                       args.out_dir, args.lo_q, args.hi_q)
+
     # ── Denoise zoom series ───────────────────────────────────────────────────
     print("\n── Denoising zoom marginal ──")
     plot_denoise_zoom(snapshots, ref_kde, close_idx, selected_steps,
                       args.num_windows, args.out_dir, args.lo_q, args.hi_q)
 
     print(f"\nDone. All outputs in: {args.out_dir}")
+    print("Bridge frame (sampled prior vs reference, saved standalone): "
+          f"{os.path.join(args.out_dir, 'denoise_marginal_zoom_prior.png')}")
+    print("  → prepend it to the denoise GIF as the first frame for continuity "
+          "with the forward series' last frame.")
     print("GIF assembly examples:")
     print("  ffmpeg -pattern_type glob -framerate 2 "
           f"-i '{args.out_dir}/forward_marginal_zoom_*.png' forward_zoom.gif")
