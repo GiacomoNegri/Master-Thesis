@@ -97,6 +97,24 @@ def _save(fig: plt.Figure, path: str) -> None:
     print(f"  saved → {path}")
 
 
+def _array_signature(arr: np.ndarray) -> dict:
+    """
+    Plain-value fingerprint of an array (first/last few entries, sum, mean,
+    std) — enough to eyeball or text-diff whether the same quantity (e.g.
+    gt_close, or the denormalised reference price path) came out identical
+    across two scripts/machines that are supposed to compute it the same way.
+    """
+    arr = np.asarray(arr, dtype=np.float64).ravel()
+    return {
+        "n":      int(arr.size),
+        "first3": [round(float(v), 8) for v in arr[:3]],
+        "last3":  [round(float(v), 8) for v in arr[-3:]],
+        "sum":    round(float(arr.sum()), 8),
+        "mean":   round(float(arr.mean()), 8),
+        "std":    round(float(arr.std()), 8),
+    }
+
+
 # ── Normalization helpers ─────────────────────────────────────────────────────
 
 def load_norm_stats(path: str, feat_cols: list) -> dict:
@@ -148,6 +166,10 @@ def load_model(args, device):
 
     print(f"  feat_cols={feat_cols}  close_idx={close_idx}  seq_len={seq_len}  "
           f"σ=[{sigma_min}, {sigma_max}]  rho={rho}")
+    print(f"  data_root={config['train'].get('data_root')}  "
+          f"stride={config['train'].get('stride')}  "
+          f"seed={config['train'].get('seed')}  "
+          f"val_split_ratio={config['train'].get('val_split_ratio')}")
     return model, config, processes, feat_cols, close_idx, seq_len, rho, sigma_min, sigma_max
 
 
@@ -199,17 +221,20 @@ def load_window(config, split, window_idx, repo_root, device, num_samples,
     )                                                                            # (B, L)
 
     gt_close = gt_win[close_idx]                                                 # (L,)
+    gt_close_sig = _array_signature(gt_close)
     print(f"Window [{split}][{window_idx}]  file={os.path.basename(files[fi])}  "
           f"start={start}  dates={dates[0]}..{dates[-1]}")
+    print(f"  gt_close signature: {gt_close_sig}")
 
     window_info = {
-        "split":        split,
-        "window_idx":   window_idx,
-        "file":         os.path.basename(files[fi]),
-        "start":        int(start),
-        "seq_len":      int(seq_len),
-        "date_start":   dates[0],
-        "date_end":     dates[-1],
+        "split":             split,
+        "window_idx":        window_idx,
+        "file":              os.path.basename(files[fi]),
+        "start":             int(start),
+        "seq_len":           int(seq_len),
+        "date_start":        dates[0],
+        "date_end":          dates[-1],
+        "gt_close_signature": gt_close_sig,
     }
     return obs, cond_mask, observed_tp, gt_close, window_info
 

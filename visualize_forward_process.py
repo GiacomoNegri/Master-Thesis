@@ -73,6 +73,7 @@ warnings.filterwarnings("ignore")
 sys.path.insert(0, os.path.abspath(os.path.dirname(__file__)))
 
 from visualize_denoising import (
+    _array_signature,
     _save,
     _to_price_path,
     denorm,
@@ -417,6 +418,11 @@ def plot_prices_forward(gt_close, sigmas, quantiles, fixed_eps, norm_stats,
     gt_price  = _to_price_path(gt_denorm)
     L1 = len(gt_price)
     xs = np.arange(L1)
+
+    ref_sig = _array_signature(gt_price)
+    print(f"  [prices] mean={mean}  std={std}  reference price signature: {ref_sig}")
+    with open(os.path.join(out_dir, "reference_signature.json"), "w") as f:
+        json.dump({"mean": mean, "std": std, "gt_price_signature": ref_sig}, f, indent=2)
 
     # Standalone reference price path (denormalised ground-truth log-returns,
     # no corruption) — saved once, not per sigma frame.

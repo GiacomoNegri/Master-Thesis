@@ -61,6 +61,7 @@ from visualize_denoising import (
     denorm,
     _to_price_path,
     _save,
+    _array_signature,
 )
 
 
@@ -157,6 +158,11 @@ def plot_price_evolution(snapshots, gt_close, close_idx, num_samples, selected_s
     y_hi = max(float(p.max()) for p in all_prices)
     pad  = 0.10 * (y_hi - y_lo)
     ylim = (y_lo - pad, y_hi + pad)
+
+    ref_sig = _array_signature(gt_price)
+    print(f"  [prices] mean={mean}  std={std}  reference price signature: {ref_sig}")
+    with open(os.path.join(out_dir, "reference_signature.json"), "w") as f:
+        json.dump({"mean": mean, "std": std, "gt_price_signature": ref_sig}, f, indent=2)
 
     for step, (sigma, paths) in sorted(step_prices.items()):
         fig, ax = plt.subplots(figsize=(10, 3.5))
