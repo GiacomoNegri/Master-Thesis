@@ -125,18 +125,14 @@ def _plot_zoom_frame(x_grid, x_lo, x_hi, dens, ref_dens, title, out_path,
     y_max = dmax * 1.15
 
     fig, ax = plt.subplots(figsize=(7, 4))
-    ax.plot(x_grid, ref_dens, "k--", lw=1.8, alpha=0.85, label="Pooled reference")
+    ax.plot(x_grid, ref_dens, "k--", lw=1.8, alpha=0.85)
     ax.fill_between(x_grid, dens, alpha=0.30, color=color)
-    ax.plot(x_grid, dens, color=color, lw=1.6, label=series_label)
+    ax.plot(x_grid, dens, color=color, lw=1.6)
     if prior_dens is not None:
-        ax.plot(x_grid, prior_dens, color=_PRIOR_COLOR, lw=1.4, ls=":",
-                label=r"Prior $\mathcal{N}(0,\sigma^2)$")
+        ax.plot(x_grid, prior_dens, color=_PRIOR_COLOR, lw=1.4, ls=":")
     ax.set_xlim(x_lo, x_hi)
     ax.set_ylim(0.0, y_max)
-    ax.set_xlabel("Normalised close log-return")
-    ax.set_ylabel("Density")
     ax.set_title(title)
-    ax.legend()
     _save(fig, out_path)
 
 
@@ -166,8 +162,7 @@ def plot_forward_zoom(pooled_ref, ref_kde, sigmas, quantiles, num_kde_samples,
 
         _plot_zoom_frame(
             x_grid, x_lo, x_hi, dens, ref_dens,
-            title=f"Forward noising (zoom, {num_windows} windows) — "
-                  f"quantile {float(q):.3f}  (σ = {sigma:.3f})",
+            title=f"Quantile {float(q):.3f}",
             out_path=os.path.join(out_dir, f"forward_marginal_zoom_{idx:04d}.png"),
             color=_FORWARD_COLOR,
             series_label=f"Corrupted  (σ = {sigma:.3f})",
@@ -205,8 +200,7 @@ def plot_denoise_prior(ref_kde, sigma_max, num_windows, seq_len, out_dir,
 
     _plot_zoom_frame(
         x_grid, x_lo, x_hi, dens, ref_dens,
-        title=f"Denoising (zoom, {num_windows} windows) — "
-              f"sampled prior  (σ = {float(sigma_max):.3f})",
+        title="",
         out_path=os.path.join(out_dir, "denoise_marginal_zoom_prior.png"),
         color=_DENOISE_COLOR,
         series_label=f"Sampled prior  (σ = {float(sigma_max):.3f})",
@@ -235,8 +229,7 @@ def plot_denoise_zoom(snapshots, ref_kde, close_idx, selected_steps,
 
         _plot_zoom_frame(
             x_grid, x_lo, x_hi, dens, ref_dens,
-            title=f"Denoising (zoom, {num_windows} windows) — "
-                  f"step {step}  (σ = {float(sigma):.3f})",
+            title=f"Step {step}",
             out_path=os.path.join(out_dir, f"denoise_marginal_zoom_{step:04d}.png"),
             color=_DENOISE_COLOR,
             series_label=f"Denoised D_x  (step {step})",
@@ -328,9 +321,22 @@ def main():
 
     # ── Forward noising sigma schedule ────────────────────────────────────────
     sigmas, quantiles = sigmas_from_quantiles(args.quantiles, args.P_mean, args.P_std)
+
+    # Pin the FINAL forward sigma to the +5·P_std point of the log-normal
+    # schedule (z = 5, i.e. sigma = exp(P_mean + 5·P_std)) and reuse that exact
+    # value as the reverse process' starting sigma_max, so the noising series
+    # ends at precisely the same noise level the denoising series begins from.
+    # This supersedes both the checkpoint's sigma_max and any --sigma_max.
+    sigma_last = float(np.exp(args.P_mean + 5.0 * args.P_std))
+    sigmas[-1]    = sigma_last            # sigmas are sorted ascending → [-1] is the max
+    quantiles[-1] = float(norm.cdf(5.0))  # true quantile of the z = 5 point
+    sigma_max     = sigma_last
+    print(f"\nPinned last forward sigma = exp(P_mean + 5·P_std) = {sigma_last:.4f}; "
+          f"reusing it as reverse sigma_max.")
+
     print(f"\nForward sigma levels (P_mean={args.P_mean}, P_std={args.P_std}):")
     for q, s in zip(quantiles, sigmas):
-        print(f"  quantile {q:6.3f}  ->  sigma = {s:.4f}")
+        print(f"  quantile {q:8.6f}  ->  sigma = {s:.4f}")
 
     # ── Run the denoise sampler, capturing every step ─────────────────────────
     print(f"\nRunning EDM sampler ({args.num_steps} steps, "
