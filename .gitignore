@@ -43,6 +43,7 @@ jobs_launcher.py
 
 .claude/
 
+plots/
 #specific files
 run_diagnostics_locally.py
 compare_tickers.py
