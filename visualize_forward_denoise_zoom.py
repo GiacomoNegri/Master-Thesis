@@ -113,25 +113,28 @@ def _zoom_window(vals: np.ndarray, lo_q: float, hi_q: float):
 def _plot_zoom_frame(x_grid, x_lo, x_hi, dens, ref_dens, title, out_path,
                      color, series_label, prior_dens=None):
     """One zoom-marginal PNG: the current density (filled) + the shared pooled
-    reference (dashed black) + optional analytic prior (dotted). The reference
-    is drawn on every frame so convergence/divergence from it is visible, but
-    the y-axis is scaled to the CURRENT density alone (corrupted on the forward
-    side, denoised D_x on the reverse side) — the reference and prior are not
-    allowed to drive ylim, so a narrow reference/prior spike will clip at the
-    top of the wide frames rather than flattening the current density."""
-    dmax = float(dens.max())
-    if dmax <= 0.0:   # degenerate density (e.g. KDE failed) — fall back to ref
-        dmax = float(ref_dens.max()) or 1.0
-    y_max = dmax * 1.15
+    reference (dashed black) + optional analytic prior (dotted). Every curve is
+    normalized to its OWN maximum (peak = 1) before plotting, so shapes/widths
+    stay comparable even when the current density and the reference live on
+    scales that differ by orders of magnitude (e.g. the wide noise frames, where
+    the diffusion prior is spread over ~±6000 while the data reference is a spike
+    ~±0.05 wide). This deliberately discards the equal-area interpretation: each
+    curve reads as a shape peaking at 1, and the contrast to read is the WIDTH of
+    each, not its height."""
+    def _norm(d):
+        m = float(d.max())
+        return d / m if m > 0.0 else d
 
     fig, ax = plt.subplots(figsize=(7, 4))
-    ax.plot(x_grid, ref_dens, "k--", lw=1.8, alpha=0.85)
-    ax.fill_between(x_grid, dens, alpha=0.30, color=color)
-    ax.plot(x_grid, dens, color=color, lw=1.6)
+    ax.plot(x_grid, _norm(ref_dens), "k--", lw=1.8, alpha=0.85)
+    dens_n = _norm(dens)
+    ax.fill_between(x_grid, dens_n, alpha=0.30, color=color)
+    ax.plot(x_grid, dens_n, color=color, lw=1.6)
     if prior_dens is not None:
-        ax.plot(x_grid, prior_dens, color=_PRIOR_COLOR, lw=1.4, ls=":")
+        ax.plot(x_grid, _norm(prior_dens), color=_PRIOR_COLOR, lw=1.4, ls=":")
     ax.set_xlim(x_lo, x_hi)
-    ax.set_ylim(0.0, y_max)
+    ax.set_ylim(0.0, 1.15)
+    ax.set_ylabel("density (normalized to peak = 1)")
     ax.set_title(title)
     _save(fig, out_path)
 
