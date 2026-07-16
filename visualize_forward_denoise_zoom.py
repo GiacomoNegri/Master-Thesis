@@ -134,7 +134,6 @@ def _plot_zoom_frame(x_grid, x_lo, x_hi, dens, ref_dens, title, out_path,
         ax.plot(x_grid, _norm(prior_dens), color=_PRIOR_COLOR, lw=1.4, ls=":")
     ax.set_xlim(x_lo, x_hi)
     ax.set_ylim(0.0, 1.15)
-    ax.set_ylabel("density (normalized to peak = 1)")
     ax.set_title(title)
     _save(fig, out_path)
 
