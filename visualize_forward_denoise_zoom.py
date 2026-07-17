@@ -141,7 +141,7 @@ def _plot_zoom_frame(x_grid, x_lo, x_hi, dens, ref_dens, title, out_path,
 # ── Forward (noising) zoom series ────────────────────────────────────────────
 
 def plot_forward_zoom(pooled_ref, ref_kde, sigmas, quantiles, num_kde_samples,
-                      num_windows, out_dir, lo_q, hi_q):
+                      num_windows, out_dir, lo_q, hi_q, bw):
     """Per-frame zoom of the corrupted pooled Close marginal at each schedule
     sigma. Each frame's x-window comes from the corrupted pool's own quantiles
     at that sigma (mirrors visualize_forward_process.plot_marginal_forward_zoomed).
@@ -156,7 +156,7 @@ def plot_forward_zoom(pooled_ref, ref_kde, sigmas, quantiles, num_kde_samples,
         eps  = np.random.randn(num_kde_samples, L)
         vals = (pooled_ref[None, :] + sigma * eps).ravel()
         try:
-            dens = gaussian_kde(vals)(x_grid)
+            dens = gaussian_kde(vals, bw_method=bw)(x_grid)
         except np.linalg.LinAlgError:
             dens = np.zeros_like(x_grid)
         prior_dens = norm.pdf(x_grid, loc=0.0, scale=sigma)
@@ -175,7 +175,7 @@ def plot_forward_zoom(pooled_ref, ref_kde, sigmas, quantiles, num_kde_samples,
 # ── Denoise bridge: the sampled prior the sampler starts from ────────────────
 
 def plot_denoise_prior(ref_kde, sigma_max, num_windows, seq_len, out_dir,
-                       lo_q, hi_q):
+                       lo_q, hi_q, bw):
     """Standalone bridge frame connecting the forward series' last (noise) frame
     to the denoise series: the pooled sampled prior x ~ N(0, sigma_max^2), i.e.
     the pure Gaussian the Heun sampler initialises from (WIP_processes.edm_sampler
@@ -195,7 +195,7 @@ def plot_denoise_prior(ref_kde, sigma_max, num_windows, seq_len, out_dir,
     x_lo, x_hi = _zoom_window(vals, lo_q, hi_q)
     x_grid = np.linspace(x_lo, x_hi, 400)
     try:
-        dens = gaussian_kde(vals)(x_grid)
+        dens = gaussian_kde(vals, bw_method=bw)(x_grid)
     except np.linalg.LinAlgError:
         dens = np.zeros_like(x_grid)
     ref_dens = ref_kde(x_grid)
@@ -212,7 +212,7 @@ def plot_denoise_prior(ref_kde, sigma_max, num_windows, seq_len, out_dir,
 # ── Denoise zoom series ──────────────────────────────────────────────────────
 
 def plot_denoise_zoom(snapshots, ref_kde, close_idx, selected_steps,
-                      num_windows, out_dir, lo_q, hi_q):
+                      num_windows, out_dir, lo_q, hi_q, bw):
     """Per-frame zoom of the pooled denoised estimate D_x at each selected
     sampler step. Each frame's x-window comes from that step's D_x quantiles.
     No analytic prior overlay: D_x is the model's denoised (MMSE) estimate, not
@@ -224,7 +224,7 @@ def plot_denoise_zoom(snapshots, ref_kde, close_idx, selected_steps,
         x_lo, x_hi = _zoom_window(vals, lo_q, hi_q)
         x_grid = np.linspace(x_lo, x_hi, 400)
         try:
-            dens = gaussian_kde(vals)(x_grid)
+            dens = gaussian_kde(vals, bw_method=bw)(x_grid)
         except np.linalg.LinAlgError:
             dens = np.zeros_like(x_grid)
         ref_dens = ref_kde(x_grid)
@@ -316,8 +316,22 @@ def main():
     # curve is the same function on the forward and denoise sides.
     pooled_ref = gt_close_batch.astype(np.float64).ravel()
     ref_kde    = gaussian_kde(pooled_ref)
+
+    # SHARED bandwidth for every KDE in this run. gaussian_kde otherwise picks
+    # its bandwidth per-call via Scott's rule (∝ n^(-1/5)), so the reference
+    # (n = num_windows·seq_len) and the corrupted/denoise curves (n inflated by
+    # num_kde_samples, or set by the sampler) would each smooth by a DIFFERENT
+    # amount. On leptokurtic Close data that mismatch — amplified by the
+    # peak-to-1 normalization in _plot_zoom_frame — makes even the smallest-σ
+    # corrupted marginal look far from the reference despite being nearly the
+    # same data. Pinning one factor (Scott's rule on the reference pool) for all
+    # curves makes them the SAME estimator, so any visible difference is a real
+    # distributional difference, not a smoothing difference.
+    shared_bw = float(ref_kde.factor)
     print(f"Pooled reference: {args.num_windows} windows × {seq_len} "
           f"= {pooled_ref.size} Close values")
+    print(f"Shared KDE bandwidth factor (Scott's rule on reference pool): "
+          f"{shared_bw:.6g}")
 
     os.makedirs(args.out_dir, exist_ok=True)
 
@@ -385,17 +399,18 @@ def main():
     print("\n── Forward (noising) zoom marginal ──")
     plot_forward_zoom(pooled_ref, ref_kde, sigmas, quantiles,
                       args.num_kde_samples, args.num_windows, args.out_dir,
-                      args.lo_q, args.hi_q)
+                      args.lo_q, args.hi_q, shared_bw)
 
     # ── Denoise bridge: sampled prior (continuity with forward's last frame) ──
     print("\n── Denoising bridge: sampled prior vs reference ──")
     plot_denoise_prior(ref_kde, sigma_max, args.num_windows, seq_len,
-                       args.out_dir, args.lo_q, args.hi_q)
+                       args.out_dir, args.lo_q, args.hi_q, shared_bw)
 
     # ── Denoise zoom series ───────────────────────────────────────────────────
     print("\n── Denoising zoom marginal ──")
     plot_denoise_zoom(snapshots, ref_kde, close_idx, selected_steps,
-                      args.num_windows, args.out_dir, args.lo_q, args.hi_q)
+                      args.num_windows, args.out_dir, args.lo_q, args.hi_q,
+                      shared_bw)
 
     print(f"\nDone. All outputs in: {args.out_dir}")
     print("Bridge frame (sampled prior vs reference, saved standalone): "
