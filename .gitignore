@@ -33,6 +33,8 @@ out/
 images/
 jobs/
 replication/
+plots/
+results/
 
 #specific files
 jobs_launcher.py
