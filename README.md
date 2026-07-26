@@ -100,20 +100,31 @@ The proposed final model, **EDM-CSDI**, combines:
 - deterministic masking in which Open, High, and Low are observed while Close is generated;
 - second-order Heun sampling.
 
-<p align="center">
-  <em>Figure placeholder — EDM-CSDI model overview</em>
-</p>
+<table align="center">
+  <tr>
+    <td align="center">
+      <img
+        src="images/overview_architecture.png"
+        alt="Architecture overview."
+        width="100%"
+      />
+      <br />
+      <strong>High-level overview of the CSDI denoising network. The two-channel input is projected into a latent space, processed by n stacked residual blocks with skip connections, and decoded back to the predicted clean signal.</strong>
+    </td>
+  </tr>
 
-<!-- Replace the placeholder above with:
-
-<p align="center">
-  <img src="assets/readme/edm_csdi_overview.png"
-       alt="Overview of the EDM-CSDI architecture"
-       width="900">
-</p>
-
--->
-
+  <tr>
+    <td align="center">
+      <img
+        src="images/residual_block.png"
+        alt="EDM-CSDI conditional residual block."
+        width="100%"
+      />
+      <br />
+      <strong>ResidualBlock architecture, CSDI–inspired. Each block emits a skip connection aggregated across all nlayers blocks.</strong>
+    </td>
+  </tr>
+</table>
 ---
 
 ## Research Questions
@@ -339,20 +350,46 @@ The conditional model:
 - reproduces heavy tails, volatility clustering, and the leverage effect more faithfully;
 - generates paths that respond visibly to the supplied OHL information.
 
-<p align="center">
-  <em>Figure placeholder — distributional comparison between reference, unconditional EDM-CSDI, and conditional EDM-CSDI</em>
-</p>
+<table align="center">
+  <tr>
+    <td align="center">
+      <img
+        src="images/distribution_edm_cond.png"
+        alt="Probability distribution of EDM-CSDI Cond.."
+        width="100%"
+      />
+      <br />
+      <strong>Marginal distribution against the empirical reference (blue) for the EDM-CSDI (Cond.) model. Top row: validation windows only (GT, because only windows used for
+conditioning were considered); bottom row: validation and training windows combined.
+Left column: full density range $q_{0.001}–q_{0.999}$; right column: central range $q_{0.02}–q_{0.98}$.</strong>
+    </td>
+  </tr>
 
-<!-- Replace the placeholder above with:
+  <tr>
+    <td align="center">
+      <img
+        src="images/stylized_facts_edm_cond.png"
+        alt="EDM-CSDI conditional stylized facts."
+        width="100%"
+      />
+      <br />
+      <strong>Stylized facts with Reference or Ground Truth (GT) (blue) versus Generated for the EDM-CSDI (Cond.) model. Top row: validation windows only; first column: Validation windows versus the ground truth (conditioning windows). second column: combined validation and training windows versus the entire Reference (dataset). Left column: heavy-tail distribution; centre column: volatility clustering; right column: leverage
+effect.</strong>
+    </td>
+  </tr>
 
-<p align="center">
-  <img src="assets/readme/distributional_comparison.png"
-       alt="Distributional comparison of the main models"
-       width="900">
-</p>
-
--->
-
+  <tr>
+    <td align="center">
+      <img
+        src="images/price_paths_edm_cond.png"
+        alt="Price paths EDM-CSDI Cond.."
+        width="100%"
+      />
+      <br />
+      <strong> Samples of prices paths. Top. EDM-CSDI (Con.). Bottom. EDM-CSDI (Unc.). In black is drawn the Ground Truth, identical for both models.</strong>
+    </td>
+  </tr>
+</table>
 ---
 
 ## Probabilistic Forecasting Results
@@ -492,19 +529,3 @@ Promising extensions include:
 3. Y. Tashiro, J. Song, Y. Song, and S. Ermon.  
    *CSDI: Conditional Score-Based Diffusion Models for Probabilistic Time Series Imputation*, 2021.  
    [arXiv:2107.03502](https://arxiv.org/abs/2107.03502)
-
----
-
-## Suggested README Images
-
-The following figures provide a compact visual summary of the project:
-
-```text
-assets/readme/
-├── edm_csdi_overview.png
-├── phase1_sde_comparison.png
-├── distributional_comparison.png
-├── stylized_facts.png
-├── conditional_sample_paths.png
-└── crps_and_coverage.png
-```
