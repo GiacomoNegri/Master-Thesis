@@ -1,8 +1,4 @@
-data/
-
 checkpoints/interim/
-
-wandb/
 
 # Ignore Python cache files
 __pycache__/
@@ -21,32 +17,27 @@ git rm -r --cached images/
 
 .virtual_documents/
 
-datasets/
+# folders
+data/
+wandb/
 checkpoints/
 outputs/
-*.sh
-*.tar
-*.gz
-
+figures/
 err/
 out/
 images/
+tables/
 jobs/
 replication/
-garch_parameters/
-tables/
-
-#specific files
-jobs_launcher.py
-run_diagnostics_locally.py
-
-#claude
 .claude/
-figures/
+plots/
+results/
+
+# specific files
+*.sh
+*.tar
+*.gz
 *.onnx
 
-tea_debug.log
-compare_tickers.py
-jobs_launcher_martusia.py
-csv_to_parquet.py
-inspect_checkpoint.py
+# specific files
+jobs_launcher.py
