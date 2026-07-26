@@ -224,7 +224,7 @@ The implementation exposes several ambiguities in the original GBM-inspired diff
 
 ## Data
 
-The experiments use daily adjusted OHLC observations from long-running S&P 500 constituents.
+The experiments use daily adjusted OHLC observations from long-running S&P 500 constituents, particularly 210 tickers, each one with $\ge 40$ years of history.
 
 For each trading day, the channels are transformed into log-returns relative to the preceding Close:
 
