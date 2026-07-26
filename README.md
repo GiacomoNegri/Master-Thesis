@@ -440,20 +440,6 @@ OHL conditioning is especially valuable because it communicates the current vola
 
 The conditional model captures the negative relationship between past returns and future volatility more clearly than the classical baselines and the unconditional diffusion configurations.
 
-<p align="center">
-  <em>Figure placeholder — heavy tails, volatility clustering, and leverage effect</em>
-</p>
-
-<!-- Replace the placeholder above with:
-
-<p align="center">
-  <img src="assets/readme/stylized_facts.png"
-       alt="Financial time-series stylized facts"
-       width="900">
-</p>
-
--->
-
 ---
 
 ## Additional Experiments
@@ -473,6 +459,21 @@ Heun sampling with 200, 400, and 600 network evaluations produces very similar a
 Conditional EDM-CSDI reproduces the difference between high- and low-volatility windows more accurately than the unconditional model.
 
 This supports the interpretation that Open, High, and Low provide a useful volatility-regime signal.
+
+<p align="center">
+  <img
+    src="images/volatility_comparison.png"
+    alt="Comparison of reference and generated financial time-series volatility"
+    width="900"
+  />
+  <br />
+  Reference volatility (green line) overlaid with the generated volatility proxy,
+  computed as the rolling mean of the 20-day standard deviation.
+  Top: conditional EDM-CSDI. Bottom: unconditional EDM-CSDI.
+  High-volatility periods are shown in red, medium-volatility periods in orange,
+  and low-volatility periods in blue.
+</p>
+
 
 ### Capacity ablation
 
