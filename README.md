@@ -14,6 +14,50 @@ The research is divided into two phases:
 1. **Phase 1 — Replication:** implementation and evaluation of VE, VP, and GBM-inspired score-based diffusion processes.
 2. **Phase 2 — EDM-CSDI:** integration of the CSDI backbone into the EDM framework, followed by conditional generation of Close log-returns from same-day Open, High, and Low information.
 
+<!-- Replace the paths below with the actual GIF locations -->
+
+<table align="center">
+  <tr>
+    <td align="center">
+      <img
+        src="images/noising_gif.gif"
+        alt="Noising of FTS."
+        width="97%"
+      />
+      <br />
+      <strong>Noising of FTS.</strong>
+    </td>
+    <td align="center">
+      <img
+        src="images/denoising_gif.gif"
+        alt="Denoising of FTS."
+        width="100%"
+      />
+      <br />
+      <strong>Denoising of FTS.</strong>
+    </td>
+  </tr>
+  <tr>
+    <td align="center">
+      <img
+        src="images/noising_price_gif.gif"
+        alt="Noising price path, example."
+        width="95%"
+      />
+      <br />
+      <strong>Noising a single price path.</strong>
+    </td>
+    <td align="center">
+      <img
+        src="images/denoising_price_gif.gif"
+        alt="Denoising a single price path"
+        width="100%"
+      />
+      <br />
+      <strong>Denoising a single price path.</strong>
+    </td>
+  </tr>
+</table>
 ---
 
 ## Repository Navigation
