@@ -58,7 +58,6 @@ The research is divided into two phases:
     </td>
   </tr>
 </table>
----
 
 ## Repository Navigation
 
