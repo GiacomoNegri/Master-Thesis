@@ -21,14 +21,10 @@ git rm -r --cached images/
 
 .virtual_documents/
 
-datasets/
+# folders
+data/
 checkpoints/
 outputs/
-*.sh
-*.tar
-*.gz
-*.onnx
-
 figures/
 err/
 out/
@@ -36,17 +32,15 @@ images/
 tables/
 jobs/
 replication/
-
-#specific files
-jobs_launcher.py
-run_diagnostics_locally.py
-
-#claude
 .claude/
+plots/
+results/
 
-tea_debug.log
-compare_tickers.py
-csv_to_parquet.py
-jobs_launcher_martusia.py
-inspect_checkpoint.py
+# specific files
+*.sh
+*.tar
+*.gz
+*.onnx
 
+# specific files
+jobs_launcher.py
