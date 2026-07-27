@@ -33,6 +33,9 @@ images/*
 images/overfitting_fake_fts_processed/*
 figures/
 tables/
+docs/
+plots/
+results/
 
 jobs/
 replication/
